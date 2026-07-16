@@ -147,20 +147,27 @@ def scan_skills():
 # ── Agent detection ───────────────────────────────────
 AGENT_REGISTRY = [
     {"key": "claude_code", "label": "Claude Code", "detect": ".claude", "skills": ".claude/skills"},
+    {"key": "qoder", "label": "Qoder", "detect": ".qoder", "skills": ".qoder/skills"},
     {"key": "cursor", "label": "Cursor", "detect": ".cursor", "skills": ".cursor/skills"},
     {"key": "codex", "label": "Codex", "detect": ".codex", "skills": ".codex/skills"},
     {"key": "copilot", "label": "GitHub Copilot", "detect": ".copilot", "skills": ".copilot/skills"},
     {"key": "gemini_cli", "label": "Gemini CLI", "detect": ".gemini", "skills": ".gemini/skills"},
-    {"key": "windsurf", "label": "Windsurf", "detect": ".codeium/windsurf", "skills": ".codeium/windsurf/skills"},
-    {"key": "trae", "label": "Trae", "detect": ".trae", "skills": ".trae/skills"},
+    {"key": "windsurf", "label": "Windsurf", "detect": ".codeium\\windsurf", "skills": ".codeium\\windsurf\\skills"},
+    {"key": "trae", "label": "TRAE IDE", "detect": ".trae", "skills": ".trae/skills"},
+    {"key": "trae_cn", "label": "TRAE CN", "detect": ".trae-cn", "skills": ".trae-cn/skills"},
     {"key": "grok", "label": "Grok", "detect": ".grok", "skills": ".grok/skills"},
-    {"key": "opencode", "label": "OpenCode", "detect": ".opencode", "skills": ".opencode/skills"},
-    {"key": "amp", "label": "Amp", "detect": ".amp", "skills": ".amp/skills"},
+    {"key": "opencode", "label": "OpenCode", "detect": ".config\\opencode", "skills": ".config\\opencode\\skills"},
+    {"key": "continue", "label": "Continue", "detect": ".continue", "skills": ".continue/skills"},
+    {"key": "deepseek", "label": "DeepSeek", "detect": ".deepseek", "skills": ".deepseek/skills"},
+    {"key": "qwen", "label": "Qwen", "detect": ".qwen", "skills": ".qwen/skills"},
+    {"key": "amp", "label": "Amp", "detect": ".agents", "skills": ".agents/skills"},
     {"key": "kilo_code", "label": "Kilo Code", "detect": ".kilocode", "skills": ".kilocode/skills"},
     {"key": "roo_code", "label": "Roo Code", "detect": ".roo", "skills": ".roo/skills"},
-    {"key": "goose", "label": "Goose", "detect": ".goose", "skills": ".goose/skills"},
+    {"key": "goose", "label": "Goose", "detect": ".config\\goose", "skills": ".config\\goose\\skills"},
     {"key": "cline", "label": "Cline", "detect": ".cline", "skills": ".cline/skills"},
-    {"key": "droid", "label": "Droid", "detect": ".droid", "skills": ".droid/skills"},
+    {"key": "cc_switch", "label": "CC Switch", "detect": ".cc-switch", "skills": ".cc-switch/skills"},
+    {"key": "skills_mgr", "label": "Skills Manager", "detect": ".skills-manager", "skills": ".skills-manager/skills"},
+    {"key": "droid", "label": "Droid", "detect": ".factory", "skills": ".factory/skills"},
 ]
 
 
@@ -240,7 +247,12 @@ def scan_projects(scan_path, max_depth=3):
     r = run_ps("scan-agents.ps1", ["-ScanPath", scan_path, "-MaxDepth", str(max_depth), "-Json"])
     if r["ok"]:
         try:
-            return json.loads(r["stdout"])
+            # Extract JSON from output (skip header text lines)
+            text = r["stdout"]
+            json_start = text.find("{")
+            if json_start >= 0:
+                text = text[json_start:]
+            return json.loads(text)
         except:
             return {"projects": [], "global_agents": []}
     return {"projects": [], "global_agents": [], "error": r["stderr"]}

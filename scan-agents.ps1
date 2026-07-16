@@ -38,19 +38,26 @@ $ConfigPath = Join-Path $ScriptDir "config.yaml"
 
 $AGENT_REGISTRY = @(
     @{ key="claude_code";  display="Claude Code";     detect=".claude";              skills=".claude/skills" },
+    @{ key="qoder";        display="Qoder";           detect=".qoder";               skills=".qoder/skills" },
     @{ key="cursor";       display="Cursor";          detect=".cursor";              skills=".cursor/skills" },
     @{ key="codex";        display="Codex";           detect=".codex";               skills=".codex/skills" },
     @{ key="copilot";      display="GitHub Copilot";  detect=".copilot";             skills=".copilot/skills" },
     @{ key="gemini_cli";   display="Gemini CLI";      detect=".gemini";              skills=".gemini/skills" },
     @{ key="windsurf";     display="Windsurf";        detect=".codeium\windsurf";    skills=".codeium\windsurf\skills" },
     @{ key="trae";         display="TRAE IDE";        detect=".trae";                skills=".trae/skills" },
+    @{ key="trae_cn";      display="TRAE CN";         detect=".trae-cn";             skills=".trae-cn/skills" },
     @{ key="grok";         display="Grok";            detect=".grok";                skills=".grok/skills" },
     @{ key="opencode";     display="OpenCode";        detect=".config\opencode";     skills=".config\opencode\skills" },
-    @{ key="amp";          display="Amp";             detect=".config\agents";       skills=".config\agents\skills" },
+    @{ key="continue";     display="Continue";        detect=".continue";            skills=".continue/skills" },
+    @{ key="deepseek";     display="DeepSeek";        detect=".deepseek";            skills=".deepseek/skills" },
+    @{ key="qwen";         display="Qwen";            detect=".qwen";                skills=".qwen/skills" },
+    @{ key="amp";          display="Amp";             detect=".agents";              skills=".agents/skills" },
     @{ key="kilo_code";    display="Kilo Code";       detect=".kilocode";            skills=".kilocode/skills" },
     @{ key="roo_code";     display="Roo Code";        detect=".roo";                 skills=".roo/skills" },
     @{ key="goose";        display="Goose";           detect=".config\goose";        skills=".config\goose\skills" },
-    @{ key="cline";        display="Cline";           detect=".cline";               skills=".agents/skills" },
+    @{ key="cline";        display="Cline";           detect=".cline";               skills=".cline/skills" },
+    @{ key="cc_switch";    display="CC Switch";       detect=".cc-switch";           skills=".cc-switch/skills" },
+    @{ key="skills_mgr";   display="Skills Manager";  detect=".skills-manager";      skills=".skills-manager/skills" },
     @{ key="droid";        display="Droid";           detect=".factory";             skills=".factory/skills" }
 )
 
@@ -93,7 +100,7 @@ function Scan-ProjectSkills {
     param([string]$RootPath, [int]$Depth)
 
     $results = @()
-    Scan-ProjectRecursive $RootPath 0 $Depth $results
+    Scan-ProjectRecursive $RootPath 0 $Depth ([ref]$results)
     return $results
 }
 
