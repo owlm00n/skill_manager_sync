@@ -1,0 +1,48 @@
+# Skills Sync Manager Configuration
+# ====================================
+
+# 同步模式: symlink | copy
+default_mode: symlink
+
+# ── Preset 预设 ──────────────────────────────
+presets:
+  debug-toolkit:
+    description: "调试工具包"
+    skills: ["bug-core", "bug-logs", "bug-workspace", "log-analyzer", "code-generator"]
+  protocol-dev:
+    description: "协议开发工具包"
+    skills: ["protocol-parser", "bug-core", "keyword-vault"]
+  management:
+    description: "管理员工具包"
+    skills: ["skill-manager", "session-manager", "hook-manager", "memory-manager", "permission-manager"]
+  all:
+    description: "所有技能"
+    skills: ["*"]
+
+# ── Agent 目标配置 ─────────────────────────
+agents:
+  claude_code_global:
+    tool: claude_code
+    path: "C:/Users/xianjun.zeng/.claude/skills"
+    active_presets: ["all"]
+    skills: ["*"]
+
+  # 项目级（按需取消注释）
+  # claude_code_project_a:
+  #   tool: claude_code
+  #   path: "d:/06_Project/projectA/.claude/skills"
+  #   active_presets: ["debug-toolkit"]
+  #   skills: ["bug-core", "log-analyzer"]
+
+  # 其他工具（按需取消注释）
+  # cursor_global:
+  #   tool: cursor
+  #   path: "C:/Users/xianjun.zeng/.cursor/skills"
+  #   active_presets: []
+  #   skills: ["*"]
+
+# ── Skill 分组标签 ─────────────────────────
+tags:
+  debug: ["bug-core", "bug-logs", "bug-workspace", "log-analyzer", "code-generator"]
+  protocol: ["protocol-parser", "bug-core"]
+  management: ["skill-manager", "session-manager", "hook-manager", "memory-manager", "permission-manager"]

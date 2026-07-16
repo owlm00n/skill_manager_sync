@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Protocol Parser</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * { font-family: 'Outfit', sans-serif; margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0f172a;
+      min-height: 100vh;
+      position: relative;
+      overflow-x: hidden;
+      transition: background 0.3s ease;
+    }
+    body.light { background: #f8fafc; }
+
+    /* Aurora background */
+    .aurora-bg {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      overflow: hidden;
+      pointer-events: none;
+    }
+    .aurora-blob {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.25;
+      animation: auroraFloat 12s ease-in-out infinite alternate;
+    }
+    .aurora-blob:nth-child(1) {
+      width: 500px; height: 500px;
+      background: #667eea;
+      top: -10%; left: -5%;
+      animation-duration: 14s;
+    }
+    .aurora-blob:nth-child(2) {
+      width: 400px; height: 400px;
+      background: #764ba2;
+      bottom: -5%; right: -5%;
+      animation-duration: 18s;
+      animation-delay: -6s;
+    }
+    .aurora-blob:nth-child(3) {
+      width: 350px; height: 350px;
+      background: #4facfe;
+      top: 40%; left: 50%;
+      transform: translateX(-50%);
+      animation-duration: 16s;
+      animation-delay: -3s;
+    }
+    @keyframes auroraFloat {
+      0% { transform: translate(0, 0) scale(1); }
+      33% { transform: translate(30px, -20px) scale(1.05); }
+      66% { transform: translate(-20px, 15px) scale(0.95); }
+      100% { transform: translate(15px, -10px) scale(1.02); }
+    }
+
+    /* Glass panel */
+    .glass {
+      background: rgba(255,255,255,0.06);
+      backdrop-filter: blur(40px);
+      -webkit-backdrop-filter: blur(40px);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+    }
+    body.light .glass {
+      background: rgba(255,255,255,0.7);
+      border-color: rgba(0,0,0,0.08);
+    }
+
+    /* Gradient text */
+    .gradient-text {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* Gradient button */
+    .btn-gradient {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      transition: all 0.3s ease;
+      border: none;
+      color: #fff;
+      cursor: pointer;
+    }
+    .btn-gradient:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(118, 75, 162, 0.4);
+    }
+    .btn-gradient:active { transform: translateY(0); }
+    .btn-gradient:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    /* Form inputs */
+    .input-glass {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px;
+      color: #e2e8f0;
+      padding: 12px 16px;
+      width: 100%;
+      outline: none;
+      transition: all 0.3s ease;
+      font-size: 14px;
+    }
+    .input-glass::placeholder { color: rgba(255,255,255,0.35); }
+    .input-glass:focus {
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+    }
+    body.light .input-glass {
+      background: rgba(0,0,0,0.03);
+      border-color: rgba(0,0,0,0.1);
+      color: #1e293b;
+    }
+    body.light .input-glass::placeholder { color: rgba(0,0,0,0.3); }
+
+    .select-glass {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23e2e8f0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 14px center;
+      padding-right: 38px;
+    }
+    body.light .select-glass {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%231e293b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    }
+
+    /* Badge */
+    .protocol-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    /* Toast */
+    .toast-container {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+    }
+    .toast {
+      pointer-events: auto;
+      padding: 14px 20px;
+      border-radius: 12px;
+      background: rgba(15,23,42,0.95);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: #e2e8f0;
+      font-size: 14px;
+      font-weight: 500;
+      transform: translateX(120%);
+      animation: toastIn 0.4s forwards, toastOut 0.4s 3.6s forwards;
+      max-width: 380px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    }
+    .toast.success { border-left: 4px solid #22c55e; }
+    .toast.error { border-left: 4px solid #ef4444; }
+    body.light .toast {
+      background: rgba(248,250,252,0.95);
+      color: #1e293b;
+      border-color: rgba(0,0,0,0.1);
+    }
+    @keyframes toastIn { to { transform: translateX(0); } }
+    @keyframes toastOut {
+      to { transform: translateX(120%); opacity: 0; }
+    }
+
+    /* Spinner */
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(255,255,255,0.1);
+      border-top-color: #667eea;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Skeleton pulse */
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+    .skeleton {
+      background: rgba(255,255,255,0.06);
+      border-radius: 8px;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+    body.light ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); }
+
+    /* Responsive utilities */
+    .content-area {
+      position: relative;
+      z-index: 1;
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 32px 20px 60px;
+    }
+
+    .icon-svg {
+      width: 20px;
+      height: 20px;
+      display: inline-block;
+      vertical-align: middle;
+      flex-shrink: 0;
+    }
+    .icon-svg-lg {
+      width: 28px;
+      height: 28px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Aurora Background -->
+  <div class="aurora-bg">
+    <div class="aurora-blob"></div>
+    <div class="aurora-blob"></div>
+    <div class="aurora-blob"></div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Main Content -->
+  <div class="content-area" id="app">
+
+    <!-- Header -->
+    <header class="text-center mb-10" style="position:relative;z-index:1;">
+      <h1 class="text-4xl md:text-5xl font-extrabold gradient-text mb-3">Protocol Parser</h1>
+      <p class="text-slate-400 text-base md:text-lg font-light" style="color:rgba(255,255,255,0.5);">
+        PD / USB / CC protocol analysis &amp; visualization
+      </p>
+    </header>
+
+    <!-- Info Cards Row -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8" id="infoCards">
+      <!-- PD Protocol Card -->
+      <div class="glass p-5">
+        <div class="flex items-center gap-3 mb-2">
+          <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#667eea,#764ba2);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+          </div>
+          <h3 class="font-semibold text-white text-sm">PD Protocol</h3>
+        </div>
+        <p class="text-xs" style="color:rgba(255,255,255,0.5);line-height:1.6;">
+          Source Cap, Sink Cap, Request, Accept, PS_RDY, PR_Swap, VDM
+        </p>
+      </div>
+      <!-- USB Enumeration Card -->
+      <div class="glass p-5">
+        <div class="flex items-center gap-3 mb-2">
+          <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#4facfe,#00f2fe);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+          </div>
+          <h3 class="font-semibold text-white text-sm">USB Enumeration</h3>
+        </div>
+        <p class="text-xs" style="color:rgba(255,255,255,0.5);line-height:1.6;">
+          Descriptor parsing, enumeration sequence, speed negotiation
+        </p>
+      </div>
+      <!-- CC Line Card -->
+      <div class="glass p-5">
+        <div class="flex items-center gap-3 mb-2">
+          <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#f093fb,#f5576c);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          </div>
+          <h3 class="font-semibold text-white text-sm">CC Line</h3>
+        </div>
+        <p class="text-xs" style="color:rgba(255,255,255,0.5);line-height:1.6;">
+          CC state changes, Rp/Rd detection, voltage level monitoring
+        </p>
+      </div>
+    </div>
+
+    <!-- Form Panel -->
+    <div class="glass p-6 md:p-8 mb-8" id="formPanel">
+      <h2 class="text-xl font-bold text-white mb-6">Parse Configuration</h2>
+
+      <div class="mb-5">
+        <label class="block text-sm font-medium mb-2" style="color:rgba(255,255,255,0.7);">Log File Path</label>
+        <div class="relative">
+          <div class="absolute left-3 top-1/2 -translate-y-1/2" style="color:rgba(255,255,255,0.3);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          </div>
+          <input type="text" id="logfileInput" class="input-glass" style="padding-left:42px;" placeholder="D:/logs/pd_trace.log" value="D:/logs/pd_trace.log">
+        </div>
+      </div>
+
+      <div class="mb-6">
+        <label class="block text-sm font-medium mb-2" style="color:rgba(255,255,255,0.7);">Protocol Type</label>
+        <select id="protocolSelect" class="input-glass select-glass">
+          <option value="auto">Auto-detect</option>
+          <option value="pd">PD Protocol</option>
+          <option value="usb">USB Protocol</option>
+          <option value="cc">CC Protocol</option>
+        </select>
+      </div>
+
+      <button id="generateBtn" class="btn-gradient w-full py-3.5 rounded-xl text-base font-semibold flex items-center justify-center gap-2">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        <span>Generate Report</span>
+      </button>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loadingState" class="glass p-10 mb-8" style="display:none;">
+      <div class="flex flex-col items-center justify-center py-8">
+        <div class="spinner mb-5"></div>
+        <p class="text-white font-medium text-base">Analyzing protocol data...</p>
+        <p class="text-sm mt-2" style="color:rgba(255,255,255,0.4);">Parsing trace events &amp; building report</p>
+      </div>
+    </div>
+
+    <!-- Error State -->
+    <div id="errorState" class="glass p-8 mb-8" style="display:none;">
+      <div class="flex flex-col items-center text-center">
+        <div style="width:48px;height:48px;border-radius:50%;background:rgba(239,68,68,0.15);display:flex;align-items:center;justify-content:center;margin-bottom:16px;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </div>
+        <h3 class="text-white font-semibold text-lg mb-1">Generation Failed</h3>
+        <p class="text-sm mb-5" id="errorMessage" style="color:rgba(255,255,255,0.5);">An unexpected error occurred.</p>
+        <div class="flex gap-3">
+          <button id="retryBtn" class="btn-gradient px-6 py-2.5 rounded-lg text-sm font-medium flex items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            Retry
+          </button>
+          <button id="errorResetBtn" class="px-6 py-2.5 rounded-lg text-sm font-medium" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.08);">Back</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Result State -->
+    <div id="resultState" class="glass p-6 md:p-8 mb-8" style="display:none;">
+      <!-- Header -->
+      <div class="flex flex-wrap items-center justify-between gap-4 mb-5">
+        <div class="flex items-center gap-3">
+          <div style="width:40px;height:40px;border-radius:50%;background:rgba(34,197,94,0.15);display:flex;align-items:center;justify-content:center;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </div>
+          <div>
+            <h3 class="text-white font-bold text-lg">Report Ready</h3>
+            <p class="text-xs" id="resultSubtitle" style="color:rgba(255,255,255,0.4);">Protocol analysis complete</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <div id="resultBadge" class="protocol-badge" style="background:rgba(102,126,234,0.15);color:#667eea;">Auto-detect</div>
+          <button id="openReportBtn" class="btn-gradient px-4 py-2 rounded-lg text-xs font-medium flex items-center gap-1.5">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            Open in New Tab
+          </button>
+          <button id="newAnalysisBtn" class="px-4 py-2 rounded-lg text-xs font-medium" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.5);border:1px solid rgba(255,255,255,0.08);">
+            New Analysis
+          </button>
+        </div>
+      </div>
+
+      <!-- Inline report iframe -->
+      <div style="border:1px solid rgba(255,255,255,0.08);border-radius:12px;overflow:hidden;background:#0f172a;">
+        <iframe id="reportIframe" style="width:100%;height:70vh;border:none;display:block;" sandbox="allow-scripts allow-same-origin" title="Protocol Report"></iframe>
+      </div>
+    </div>
+
+    <!-- Recent Reports -->
+    <div class="glass p-6 md:p-8" id="recentPanel">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="text-xl font-bold text-white">Recent Reports</h2>
+        <span id="recentCount" class="text-xs px-2.5 py-1 rounded-full" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.4);">0</span>
+      </div>
+      <div id="recentList" class="space-y-2">
+        <!-- Empty state -->
+        <div id="recentEmpty" class="text-center py-10">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:rgba(255,255,255,0.15);margin:0 auto 12px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          <p class="text-sm" style="color:rgba(255,255,255,0.25);">No recent reports</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      'use strict';
+
+      // ---- DOM refs ----
+      const formPanel        = document.getElementById('formPanel');
+      const logfileInput     = document.getElementById('logfileInput');
+      const protocolSelect   = document.getElementById('protocolSelect');
+      const generateBtn      = document.getElementById('generateBtn');
+      const loadingState     = document.getElementById('loadingState');
+      const errorState       = document.getElementById('errorState');
+      const errorMessage     = document.getElementById('errorMessage');
+      const retryBtn         = document.getElementById('retryBtn');
+      const errorResetBtn    = document.getElementById('errorResetBtn');
+      const resultState      = document.getElementById('resultState');
+      const resultBadge      = document.getElementById('resultBadge');
+      const resultSubtitle   = document.getElementById('resultSubtitle');
+      const reportIframe     = document.getElementById('reportIframe');
+      const openReportBtn    = document.getElementById('openReportBtn');
+      const newAnalysisBtn   = document.getElementById('newAnalysisBtn');
+      const recentList       = document.getElementById('recentList');
+      const recentCountEl    = document.getElementById('recentCount');
+      const recentEmpty      = document.getElementById('recentEmpty');
+      const toastContainer   = document.getElementById('toastContainer');
+
+      // ---- Theme sync from parent ----
+      function syncTheme() {
+        try {
+          const parentDark = window.parent.document.documentElement.classList.contains('dark');
+          const parentLight = window.parent.document.documentElement.classList.contains('light');
+          if (parentDark) document.body.classList.remove('light');
+          else if (parentLight) document.body.classList.add('light');
+          else {
+            // fallback: if parent has no class, check system preference
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            document.body.classList.toggle('light', !prefersDark);
+          }
+        } catch(e) {
+          // cross-origin iframe — use system preference
+          const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          document.body.classList.toggle('light', !prefersDark);
+        }
+      }
+      syncTheme();
+      try {
+        const parentEl = window.parent.document.documentElement;
+        new MutationObserver(syncTheme).observe(parentEl, { attributes: true, attributeFilter: ['class'] });
+      } catch(e) { /* cross-origin */ }
+
+      // ---- Utility ----
+      function getProtocolLabel(val) {
+        const map = { auto: 'Auto-detect', pd: 'PD Protocol', usb: 'USB Protocol', cc: 'CC Protocol' };
+        return map[val] || val;
+      }
+
+      function getBadgeColor(val) {
+        const map = { auto: '#667eea', pd: '#667eea', usb: '#4facfe', cc: '#f093fb' };
+        return map[val] || '#667eea';
+      }
+
+      function getBadgeBg(val) {
+        const map = { auto: 'rgba(102,126,234,0.15)', pd: 'rgba(102,126,234,0.15)', usb: 'rgba(79,172,254,0.15)', cc: 'rgba(240,147,251,0.15)' };
+        return map[val] || 'rgba(102,126,234,0.15)';
+      }
+
+      function formatTime(ts) {
+        const d = new Date(ts);
+        const pad = n => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+      }
+
+      function showToast(msg, type) {
+        const el = document.createElement('div');
+        el.className = `toast ${type}`;
+        el.textContent = msg;
+        toastContainer.appendChild(el);
+        setTimeout(() => { if (el.parentNode) el.remove(); }, 4000);
+      }
+
+      // ---- State ----
+      let pendingRetry = null;
+
+      // ---- localStorage helpers ----
+      function getRecent() {
+        try { return JSON.parse(localStorage.getItem('protocol_parser_recent')) || []; }
+        catch(e) { return []; }
+      }
+
+      function saveRecent(list) {
+        localStorage.setItem('protocol_parser_recent', JSON.stringify(list.slice(0, 10)));
+      }
+
+      function addRecent(logfile, protocol) {
+        const list = getRecent();
+        list.unshift({
+          logfile,
+          protocol,
+          timestamp: Date.now()
+        });
+        // deduplicate by logfile
+        const seen = new Set();
+        const deduped = [];
+        for (const item of list) {
+          if (!seen.has(item.logfile)) {
+            seen.add(item.logfile);
+            deduped.push(item);
+          }
+        }
+        saveRecent(deduped);
+        renderRecent();
+      }
+
+      function removeRecent(index) {
+        const list = getRecent();
+        list.splice(index, 1);
+        saveRecent(list);
+        renderRecent();
+      }
+
+      // ---- Render recent ----
+      function renderRecent() {
+        const list = getRecent();
+        recentCountEl.textContent = list.length;
+
+        // Remove all children except empty state
+        Array.from(recentList.children).forEach(ch => {
+          if (ch.id !== 'recentEmpty') ch.remove();
+        });
+
+        if (list.length === 0) {
+          recentEmpty.style.display = 'block';
+          return;
+        }
+        recentEmpty.style.display = 'none';
+
+        list.forEach((item, idx) => {
+          const badgeColor = getBadgeColor(item.protocol);
+          const badgeBg = getBadgeBg(item.protocol);
+          const row = document.createElement('div');
+          row.className = 'glass p-3 rounded-lg flex items-center justify-between gap-3 cursor-pointer hover:opacity-80 transition-opacity';
+          row.style.borderColor = 'rgba(255,255,255,0.04)';
+
+          const left = document.createElement('div');
+          left.className = 'flex-1 min-w-0';
+
+          const pathEl = document.createElement('div');
+          pathEl.className = 'text-sm font-medium text-white truncate';
+          pathEl.textContent = item.logfile;
+
+          const meta = document.createElement('div');
+          meta.className = 'flex items-center gap-2 mt-1';
+
+          const badge = document.createElement('span');
+          badge.className = 'protocol-badge';
+          badge.style.cssText = `background:${badgeBg};color:${badgeColor};`;
+          badge.textContent = getProtocolLabel(item.protocol);
+
+          const timeEl = document.createElement('span');
+          timeEl.className = 'text-xs';
+          timeEl.style.cssText = 'color:rgba(255,255,255,0.3);';
+          timeEl.textContent = formatTime(item.timestamp);
+
+          meta.appendChild(badge);
+          meta.appendChild(timeEl);
+          left.appendChild(pathEl);
+          left.appendChild(meta);
+
+          const delBtn = document.createElement('button');
+          delBtn.className = 'flex-shrink-0 p-1.5 rounded-lg';
+          delBtn.style.cssText = 'color:rgba(255,255,255,0.2);hover:color:rgba(255,255,255,0.5);';
+          delBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+          delBtn.addEventListener('click', e => {
+            e.stopPropagation();
+            removeRecent(idx);
+          });
+
+          row.appendChild(left);
+          row.appendChild(delBtn);
+
+          row.addEventListener('click', () => {
+            logfileInput.value = item.logfile;
+            protocolSelect.value = item.protocol;
+            window.scrollTo({ top: formPanel.offsetTop - 20, behavior: 'smooth' });
+          });
+
+          // Insert before empty state if needed
+          recentList.appendChild(row);
+        });
+      }
+
+      // ---- Show/hide panels ----
+      function showPanel(panel) {
+        [formPanel, loadingState, errorState, resultState].forEach(p => p.style.display = 'none');
+        if (panel) panel.style.display = 'block';
+      }
+
+      // ---- Generate ----
+      async function generateReport(logfile, protocol) {
+        pendingRetry = { logfile, protocol };
+        showPanel(loadingState);
+
+        try {
+          const resp = await fetch('/api/protocol-parser/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ logfile, protocol })
+          });
+
+          if (!resp.ok) {
+            const errData = await resp.json().catch(() => ({}));
+            throw new Error(errData.message || `Server responded with status ${resp.status}`);
+          }
+
+          const data = await resp.json();
+          if (!data.ok) {
+            throw new Error(data.message || 'Generation returned error status');
+          }
+
+          // Success
+          addRecent(logfile, protocol);
+
+          const reportUrl = data.data.report_url || '';
+          const parsed = data.data.parsed || {};
+
+          // Show the report inline via iframe
+          reportIframe.src = reportUrl;
+
+          // Set badge
+          const displayProtocol = protocol === 'auto'
+            ? (parsed.log_type ? parsed.log_type.toUpperCase() + ' (auto)' : 'Auto-detect')
+            : getProtocolLabel(protocol);
+          resultBadge.textContent = displayProtocol;
+          resultBadge.style.color = getBadgeColor(protocol);
+          resultBadge.style.background = getBadgeBg(protocol);
+
+          // Subtitle with stats
+          const pd = parsed.pd || {};
+          const msgCount = pd.messages ? pd.messages.length : (parsed.usb || {}).messages ? (parsed.usb.messages || []).length : 0;
+          resultSubtitle.textContent = msgCount ? `${msgCount} protocol messages parsed` : 'Protocol analysis complete';
+
+          // Open report button
+          openReportBtn.onclick = () => {
+            if (reportUrl) window.open(reportUrl, '_blank');
+          };
+
+          showPanel(resultState);
+          showToast('Report generated successfully', 'success');
+
+        } catch (err) {
+          errorMessage.textContent = err.message || 'An unexpected error occurred';
+          showPanel(errorState);
+          showToast(err.message || 'Generation failed', 'error');
+        }
+      }
+
+      // ---- Event handlers ----
+      generateBtn.addEventListener('click', () => {
+        const logfile = logfileInput.value.trim();
+        if (!logfile) {
+          showToast('Please enter a log file path', 'error');
+          logfileInput.focus();
+          return;
+        }
+        const protocol = protocolSelect.value;
+        generateReport(logfile, protocol);
+      });
+
+      retryBtn.addEventListener('click', () => {
+        if (pendingRetry) {
+          generateReport(pendingRetry.logfile, pendingRetry.protocol);
+        } else {
+          showPanel(formPanel);
+        }
+      });
+
+      errorResetBtn.addEventListener('click', () => {
+        showPanel(formPanel);
+      });
+
+      newAnalysisBtn.addEventListener('click', () => {
+        showPanel(formPanel);
+        logfileInput.value = 'D:/logs/pd_trace.log';
+        protocolSelect.value = 'auto';
+      });
+
+      // Enter key on input
+      logfileInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter') generateBtn.click();
+      });
+
+      // ---- Init ----
+      renderRecent();
+
+      // If we're not showing any panel, show form
+      const visible = [formPanel, loadingState, errorState, resultState].some(p => p.style.display !== 'none' && p.style.display !== '');
+      if (!visible) showPanel(formPanel);
+
+      // ---- Listen for parent messages (trigger generate) ----
+      window.addEventListener('message', e => {
+        if (e.data && e.data.type === 'protocol-parser-generate') {
+          const { logfile, protocol } = e.data.payload || {};
+          if (logfile) {
+            logfileInput.value = logfile;
+            if (protocol) protocolSelect.value = protocol;
+            generateBtn.click();
+          }
+        }
+      });
+
+      // Notify parent that we are ready
+      try {
+        window.parent.postMessage({ type: 'protocol-parser-ready' }, '*');
+      } catch(e) { /* ignore */ }
+
+      console.log('[Protocol Parser] Page loaded');
+    })();
+  </script>
+</body>
+</html>

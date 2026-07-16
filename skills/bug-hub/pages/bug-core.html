@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bug Core - Query</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'Outfit', sans-serif; }
+    body {
+      background: #0f172a;
+      min-height: 100vh;
+      margin: 0;
+      transition: background 0.3s ease;
+    }
+    body.light-mode {
+      background: #f1f5f9;
+    }
+    body.light-mode .glass-panel {
+      background: rgba(255,255,255,0.72) !important;
+      border-color: rgba(255,255,255,0.9) !important;
+    }
+    body.light-mode .glass-panel .text-slate-300,
+    body.light-mode .glass-panel .text-slate-400 {
+      color: #475569 !important;
+    }
+    body.light-mode .glass-panel .text-slate-200 {
+      color: #334155 !important;
+    }
+    body.light-mode .glass-panel .text-white {
+      color: #0f172a !important;
+    }
+    body.light-mode .field-label {
+      color: #64748b !important;
+    }
+    body.light-mode .field-value {
+      color: #0f172a !important;
+    }
+    body.light-mode .raw-json {
+      background: #e2e8f0 !important;
+      color: #0f172a !important;
+    }
+    body.light-mode .toast {
+      background: rgba(255,255,255,0.92) !important;
+      color: #0f172a !important;
+    }
+    body.light-mode .empty-icon {
+      color: #94a3b8 !important;
+    }
+    body.light-mode .empty-text {
+      color: #64748b !important;
+    }
+    body.light-mode .spinner-border {
+      border-color: #e2e8f0 !important;
+      border-top-color: #667eea !important;
+    }
+    .glass-panel {
+      background: rgba(255,255,255,0.06);
+      backdrop-filter: blur(40px);
+      -webkit-backdrop-filter: blur(40px);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 16px;
+      transition: all 0.3s ease;
+    }
+    .glass-panel:hover {
+      border-color: rgba(255,255,255,0.18);
+    }
+    .glass-input {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 10px;
+      color: #fff;
+      outline: none;
+      transition: all 0.25s ease;
+    }
+    .glass-input:focus {
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102,126,234,0.18);
+    }
+    .glass-input::placeholder { color: #64748b; }
+    .glass-input optgroup, .glass-input option {
+      background: #1e293b;
+      color: #fff;
+    }
+    .btn-gradient {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .btn-gradient:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 24px rgba(102,126,234,0.35);
+    }
+    .btn-gradient:active:not(:disabled) {
+      transform: translateY(0);
+    }
+    .btn-gradient:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .btn-gradient .ripple {
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.35);
+      transform: scale(0);
+      animation: ripple-effect 0.5s ease-out;
+      pointer-events: none;
+    }
+    @keyframes ripple-effect {
+      to { transform: scale(4); opacity: 0; }
+    }
+    .spinner-border {
+      width: 28px; height: 28px;
+      border: 3px solid rgba(255,255,255,0.08);
+      border-top-color: #667eea;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .fade-in {
+      animation: fadeIn 0.35s ease-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .error-alert {
+      background: rgba(239,68,68,0.12);
+      border: 1px solid rgba(239,68,68,0.25);
+      border-radius: 12px;
+      padding: 14px 18px;
+      color: #fca5a5;
+      animation: fadeIn 0.3s ease-out;
+    }
+    body.light-mode .error-alert {
+      background: rgba(239,68,68,0.08);
+      border-color: rgba(239,68,68,0.2);
+      color: #dc2626;
+    }
+    .toast-container {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: none;
+    }
+    .toast {
+      pointer-events: auto;
+      background: rgba(30,41,59,0.88);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 12px;
+      padding: 14px 20px;
+      min-width: 280px;
+      max-width: 420px;
+      color: #f1f5f9;
+      font-size: 14px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+      animation: toastIn 0.32s ease-out;
+    }
+    .toast.toast-leaving {
+      animation: toastOut 0.25s ease-in forwards;
+    }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateX(40px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes toastOut {
+      from { opacity: 1; transform: translateX(0); }
+      to   { opacity: 0; transform: translateX(40px); }
+    }
+    .toast-success { border-left: 3px solid #34d399; }
+    .toast-error   { border-left: 3px solid #f87171; }
+    .toast-info    { border-left: 3px solid #60a5fa; }
+    .toast-warning { border-left: 3px solid #fbbf24; }
+    .raw-json {
+      background: rgba(0,0,0,0.28);
+      border-radius: 10px;
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .field-label {
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      color: #64748b;
+    }
+    .field-value {
+      font-size: 15px;
+      font-weight: 500;
+      color: #f1f5f9;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 10px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .toggle-switch {
+      position: relative;
+      width: 40px;
+      height: 22px;
+      background: rgba(255,255,255,0.10);
+      border-radius: 11px;
+      cursor: pointer;
+      transition: background 0.25s;
+      flex-shrink: 0;
+    }
+    .toggle-switch.active {
+      background: #667eea;
+    }
+    .toggle-switch .knob {
+      position: absolute;
+      top: 2px; left: 2px;
+      width: 18px; height: 18px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.25s;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    }
+    .toggle-switch.active .knob {
+      transform: translateX(18px);
+    }
+    .empty-icon { color: #475569; }
+    .skeleton {
+      background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.09) 50%, rgba(255,255,255,0.04) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s ease-in-out infinite;
+      border-radius: 6px;
+    }
+    @keyframes shimmer {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.22); }
+  </style>
+</head>
+<body>
+
+  <!-- Toast container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Main wrapper -->
+  <div class="p-4 md:p-6 max-w-3xl mx-auto" id="app">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-xl font-bold text-white tracking-tight">Bug Core</h1>
+        <p class="text-xs text-slate-400 mt-0.5">Multi-instance Bugzilla query interface</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <span class="text-xs text-slate-500" id="instanceBadge">Auto</span>
+        <div class="toggle-switch" id="rawToggle" title="Toggle raw JSON" role="button" tabindex="0">
+          <div class="knob"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Query Form -->
+    <div class="glass-panel p-5 mb-4">
+      <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+        <!-- Bug ID -->
+        <div class="sm:col-span-2">
+          <label class="text-xs font-medium text-slate-400 block mb-1.5" for="bugIdInput">Bug ID</label>
+          <input
+            type="text"
+            id="bugIdInput"
+            class="glass-input w-full px-4 py-2.5 text-sm"
+            placeholder="e.g. 12345 or BUG-67890"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </div>
+        <!-- Instance -->
+        <div>
+          <label class="text-xs font-medium text-slate-400 block mb-1.5" for="instanceSelect">Instance</label>
+          <select id="instanceSelect" class="glass-input w-full px-3 py-2.5 text-sm appearance-none cursor-pointer">
+            <option value="auto">Auto</option>
+            <option value="sh">SH</option>
+            <option value="sz">SZ</option>
+            <option value="us">US</option>
+          </select>
+        </div>
+        <!-- Button -->
+        <div class="flex items-end">
+          <button id="queryBtn" class="btn-gradient w-full py-2.5 text-sm flex items-center justify-center gap-2">
+            <svg id="btnIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/>
+              <path d="m21 21-4.3-4.3"/>
+            </svg>
+            <span id="btnText">Query</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Error alert -->
+    <div id="errorContainer" class="mb-4 hidden"></div>
+
+    <!-- Loading spinner -->
+    <div id="loadingContainer" class="flex justify-center py-12 hidden">
+      <div class="flex flex-col items-center gap-3">
+        <div class="spinner-border"></div>
+        <span class="text-xs text-slate-500">Querying bug instance...</span>
+      </div>
+    </div>
+
+    <!-- Empty state -->
+    <div id="emptyState" class="glass-panel p-10 text-center fade-in">
+      <div class="empty-icon mb-3">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/>
+          <path d="m21 21-4.3-4.3"/>
+          <path d="M8 11h6"/>
+          <path d="M11 8v6"/>
+        </svg>
+      </div>
+      <p class="empty-text text-sm font-medium">Enter a Bug ID and click Query</p>
+      <p class="text-xs text-slate-500 mt-1.5">Supports cross-instance search across SH / SZ / US</p>
+    </div>
+
+    <!-- Result card -->
+    <div id="resultCard" class="glass-panel p-5 hidden fade-in">
+      <!-- Header row -->
+      <div class="flex items-start justify-between gap-3 mb-4">
+        <div class="min-w-0 flex-1">
+          <h2 id="bugTitle" class="text-base font-semibold text-white leading-snug truncate"></h2>
+          <div class="flex items-center gap-2 mt-1.5">
+            <span id="bugStatus" class="badge"></span>
+            <span id="bugSeverity" class="badge"></span>
+            <span id="bugPriority" class="badge"></span>
+          </div>
+        </div>
+        <span id="bugIdDisplay" class="text-xs font-mono text-slate-400 shrink-0 bg-white/5 px-2.5 py-1 rounded-full"></span>
+      </div>
+
+      <!-- Fields -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3.5">
+        <div>
+          <div class="field-label">Product</div>
+          <div class="field-value" id="bugProduct">--</div>
+        </div>
+        <div>
+          <div class="field-label">Component</div>
+          <div class="field-value" id="bugComponent">--</div>
+        </div>
+        <div>
+          <div class="field-label">Assignee</div>
+          <div class="field-value" id="bugAssignee">--</div>
+        </div>
+        <div>
+          <div class="field-label">QA Contact</div>
+          <div class="field-value" id="bugQaContact">--</div>
+        </div>
+        <div>
+          <div class="field-label">Created</div>
+          <div class="field-value" id="bugCreated">--</div>
+        </div>
+        <div>
+          <div class="field-label">Updated</div>
+          <div class="field-value" id="bugUpdated">--</div>
+        </div>
+      </div>
+
+      <!-- Description -->
+      <div class="mt-4 pt-4 border-t border-white/5">
+        <div class="field-label mb-1.5">Description</div>
+        <p id="bugDesc" class="text-sm text-slate-300 leading-relaxed line-clamp-4"></p>
+      </div>
+
+      <!-- Raw JSON -->
+      <div id="rawJsonContainer" class="mt-4 hidden">
+        <div class="field-label mb-1.5">Raw Response</div>
+        <pre id="rawJson" class="raw-json p-4 text-xs max-h-64 overflow-auto"></pre>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="mt-6 text-center">
+      <span class="text-[10px] text-slate-600 tracking-wider uppercase">Bug Core v2 &middot; Bug Hub</span>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      'use strict';
+
+      // ── DOM refs ──────────────────────────────────────────────
+      const bugIdInput      = document.getElementById('bugIdInput');
+      const instanceSelect  = document.getElementById('instanceSelect');
+      const queryBtn        = document.getElementById('queryBtn');
+      const btnIcon         = document.getElementById('btnIcon');
+      const btnText         = document.getElementById('btnText');
+      const loadingContainer= document.getElementById('loadingContainer');
+      const emptyState      = document.getElementById('emptyState');
+      const resultCard      = document.getElementById('resultCard');
+      const errorContainer  = document.getElementById('errorContainer');
+      const toastContainer  = document.getElementById('toastContainer');
+      const rawToggle       = document.getElementById('rawToggle');
+      const rawJsonContainer= document.getElementById('rawJsonContainer');
+      const rawJson         = document.getElementById('rawJson');
+      const instanceBadge   = document.getElementById('instanceBadge');
+
+      // result fields
+      const bugTitle        = document.getElementById('bugTitle');
+      const bugStatus       = document.getElementById('bugStatus');
+      const bugSeverity     = document.getElementById('bugSeverity');
+      const bugPriority     = document.getElementById('bugPriority');
+      const bugIdDisplay    = document.getElementById('bugIdDisplay');
+      const bugProduct      = document.getElementById('bugProduct');
+      const bugComponent    = document.getElementById('bugComponent');
+      const bugAssignee     = document.getElementById('bugAssignee');
+      const bugQaContact    = document.getElementById('bugQaContact');
+      const bugCreated      = document.getElementById('bugCreated');
+      const bugUpdated      = document.getElementById('bugUpdated');
+      const bugDesc         = document.getElementById('bugDesc');
+
+      // ── State ────────────────────────────────────────────────
+      let currentData   = null;
+      let rawVisible    = false;
+      let isLoading     = false;
+
+      // ── Theme detection ──────────────────────────────────────
+      function detectTheme() {
+        try {
+          const parent = window.parent;
+          if (parent && parent.document) {
+            const html = parent.document.documentElement;
+            const isDark = html.getAttribute('data-theme') !== 'light'
+              && !html.classList.contains('light')
+              && parent.document.body.classList.contains('dark');
+            // Also check computed bg
+            const bg = parent.getComputedStyle(document.body).backgroundColor;
+            if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') {
+              const rgb = bg.match(/\d+/g);
+              if (rgb) {
+                const avg = (+rgb[0] + +rgb[1] + +rgb[2]) / 3;
+                document.body.classList.toggle('light-mode', avg > 160);
+                return;
+              }
+            }
+            document.body.classList.toggle('light-mode', !isDark);
+          }
+        } catch (_) {
+          // cross-origin iframe — keep default dark
+        }
+      }
+      detectTheme();
+
+      // ── Toast system ─────────────────────────────────────────
+      function toast(message, type, duration) {
+        type = type || 'info';
+        duration = duration || 3800;
+        const icons = {
+          success: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+          error:   '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+          warning: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+          info:    '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
+        };
+        const el = document.createElement('div');
+        el.className = 'toast toast-' + type;
+        el.innerHTML = '<span class="shrink-0 mt-0.5">' + (icons[type] || icons.info) + '</span><span>' + message + '</span>';
+        toastContainer.appendChild(el);
+        setTimeout(function() {
+          el.classList.add('toast-leaving');
+          setTimeout(function() { el.remove(); }, 260);
+        }, duration);
+      }
+
+      // ── Ripple effect ────────────────────────────────────────
+      function addRipple(e) {
+        const btn = e.currentTarget;
+        const rect = btn.getBoundingClientRect();
+        const size = Math.max(rect.width, rect.height);
+        const x = e.clientX - rect.left - size / 2;
+        const y = e.clientY - rect.top - size / 2;
+        const ripple = document.createElement('span');
+        ripple.className = 'ripple';
+        ripple.style.width = ripple.style.height = size + 'px';
+        ripple.style.left = x + 'px';
+        ripple.style.top = y + 'px';
+        btn.appendChild(ripple);
+        ripple.addEventListener('animationend', function() { ripple.remove(); });
+      }
+      queryBtn.addEventListener('click', addRipple);
+
+      // ── Status badge colors ──────────────────────────────────
+      function statusColor(s) {
+        var st = (s || '').toLowerCase();
+        if (st === 'resolved' || st === 'closed' || st === 'verified') return 'bg-emerald-500/15 text-emerald-400';
+        if (st === 'fixed')    return 'bg-emerald-500/15 text-emerald-400';
+        if (st === 'in_process' || st === 'in_progress' || st === 'assigned') return 'bg-blue-500/15 text-blue-400';
+        if (st === 'reopened') return 'bg-amber-500/15 text-amber-400';
+        if (st === 'new' || st === 'unconfirmed') return 'bg-slate-500/15 text-slate-300';
+        return 'bg-slate-500/15 text-slate-300';
+      }
+      function severityColor(s) {
+        var se = (s || '').toLowerCase();
+        if (se === 'blocker' || se === 'critical') return 'bg-red-500/15 text-red-400';
+        if (se === 'major')    return 'bg-orange-500/15 text-orange-400';
+        if (se === 'normal')   return 'bg-blue-500/15 text-blue-400';
+        if (se === 'minor' || se === 'trivial') return 'bg-slate-500/15 text-slate-300';
+        if (se === 'enhancement') return 'bg-purple-500/15 text-purple-400';
+        return 'bg-slate-500/15 text-slate-300';
+      }
+      function priorityColor(s) {
+        var p = (s || '').toLowerCase();
+        if (p === 'p1' || p === 'p2' || p === 'highest' || p === 'high') return 'bg-red-500/15 text-red-400';
+        if (p === 'p3' || p === 'medium') return 'bg-amber-500/15 text-amber-400';
+        return 'bg-slate-500/15 text-slate-300';
+      }
+
+      // ── Render result ────────────────────────────────────────
+      function renderResult(data) {
+        if (!data) return;
+        var d = data;
+        bugTitle.textContent        = d.title || d.summary || '(no title)';
+        bugStatus.textContent       = (d.status || 'N/A').toUpperCase();
+        bugStatus.className         = 'badge ' + statusColor(d.status);
+        bugSeverity.textContent     = (d.severity || d.severity || '').toUpperCase() || '';
+        bugSeverity.className       = 'badge ' + severityColor(d.severity || d.severity);
+        bugPriority.textContent     = (d.priority || '').toUpperCase() || '';
+        bugPriority.className       = 'badge ' + priorityColor(d.priority);
+        bugIdDisplay.textContent    = '#' + (d.id || d.bug_id || '--');
+        bugProduct.textContent      = d.product || '--';
+        bugComponent.textContent    = d.component || '--';
+        bugAssignee.textContent     = d.assigned_to || d.assignee || '--';
+        bugQaContact.textContent    = d.qa_contact || '--';
+        bugCreated.textContent      = d.creation_time || d.created || '--';
+        bugUpdated.textContent      = d.last_change_time || d.updated || '--';
+        bugDesc.textContent         = d.description || d.desc || 'No description provided.';
+
+        // Severity might be nested in a `severity` field or inside `bug`
+        if (!d.severity && d.bug && d.bug.severity) {
+          bugSeverity.textContent   = (d.bug.severity || '').toUpperCase();
+          bugSeverity.className     = 'badge ' + severityColor(d.bug.severity);
+        }
+
+        rawJson.textContent         = JSON.stringify(d, null, 2);
+        if (rawVisible) {
+          rawJsonContainer.classList.remove('hidden');
+        } else {
+          rawJsonContainer.classList.add('hidden');
+        }
+      }
+
+      // ── Show/hide views ──────────────────────────────────────
+      function showLoading(show) {
+        loadingContainer.classList.toggle('hidden', !show);
+        emptyState.classList.toggle('hidden', show);
+        resultCard.classList.toggle('hidden', true);
+        errorContainer.classList.add('hidden');
+        isLoading = show;
+        if (show) {
+          queryBtn.disabled = true;
+          btnIcon.innerHTML = '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>';
+        } else {
+          queryBtn.disabled = false;
+          btnIcon.innerHTML = '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>';
+        }
+      }
+
+      function showError(msg) {
+        loadingContainer.classList.add('hidden');
+        emptyState.classList.add('hidden');
+        resultCard.classList.add('hidden');
+        errorContainer.classList.remove('hidden');
+        errorContainer.innerHTML = '<div class="error-alert flex items-start gap-2.5"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="shrink-0 mt-0.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg><span class="text-sm">' + msg + '</span></div>';
+        isLoading = false;
+        queryBtn.disabled = false;
+        btnIcon.innerHTML = '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>';
+      }
+
+      function showResult(data) {
+        loadingContainer.classList.add('hidden');
+        emptyState.classList.add('hidden');
+        errorContainer.classList.add('hidden');
+        resultCard.classList.remove('hidden');
+        renderResult(data);
+        isLoading = false;
+        queryBtn.disabled = false;
+        btnIcon.innerHTML = '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>';
+      }
+
+      function showEmpty() {
+        loadingContainer.classList.add('hidden');
+        errorContainer.classList.add('hidden');
+        resultCard.classList.add('hidden');
+        emptyState.classList.remove('hidden');
+        isLoading = false;
+        queryBtn.disabled = false;
+        btnIcon.innerHTML = '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>';
+      }
+
+      // ── Execute query ────────────────────────────────────────
+      function doQuery() {
+        if (isLoading) return;
+
+        var bugId = bugIdInput.value.trim();
+        if (!bugId) {
+          toast('Please enter a Bug ID', 'warning');
+          bugIdInput.focus();
+          return;
+        }
+
+        var instance = instanceSelect.value;
+        instanceBadge.textContent = instance === 'auto' ? 'Auto' : instance.toUpperCase();
+
+        showLoading(true);
+
+        var payload = JSON.stringify({ bug_id: bugId, instance: instance });
+
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/bug-core/query', true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.setRequestHeader('Accept', 'application/json');
+        xhr.timeout = 25000;
+
+        xhr.onloadstart = function() {
+          btnText.textContent = 'Querying';
+        };
+
+        xhr.onprogress = function() {
+          btnText.textContent = 'Querying.';
+        };
+
+        xhr.onload = function() {
+          btnText.textContent = 'Query';
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              var resp = JSON.parse(xhr.responseText);
+              if (resp && resp.ok) {
+                showResult(resp.data);
+                toast('Bug #' + bugId + ' loaded successfully', 'success');
+              } else {
+                showError(resp.message || resp.error || 'Query returned no data');
+                toast(resp.message || resp.error || 'Query returned no data', 'error');
+              }
+            } catch (parseErr) {
+              showError('Invalid JSON response from server');
+              toast('Invalid JSON response', 'error');
+            }
+          } else {
+            var msg = 'Server error';
+            try {
+              var errResp = JSON.parse(xhr.responseText);
+              msg = errResp.message || errResp.error || msg;
+            } catch (_) {}
+            showError(msg + ' (HTTP ' + xhr.status + ')');
+            toast(msg, 'error');
+          }
+        };
+
+        xhr.onerror = function() {
+          btnText.textContent = 'Query';
+          showError('Network error — unable to reach the server');
+          toast('Network error — unable to reach the server', 'error');
+        };
+
+        xhr.ontimeout = function() {
+          btnText.textContent = 'Query';
+          showError('Request timed out after 25 seconds');
+          toast('Request timed out', 'error');
+        };
+
+        xhr.send(payload);
+      }
+
+      // ── Raw JSON toggle ──────────────────────────────────────
+      rawToggle.addEventListener('click', function() {
+        rawVisible = !rawVisible;
+        rawToggle.classList.toggle('active', rawVisible);
+        if (currentData) {
+          rawJsonContainer.classList.toggle('hidden', !rawVisible);
+        }
+      });
+
+      // ── Keyboard shortcuts ───────────────────────────────────
+      bugIdInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); doQuery(); }
+      });
+      instanceSelect.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); doQuery(); }
+      });
+
+      // ── Query button ────────────────────────────────────────
+      queryBtn.addEventListener('click', doQuery);
+
+      // ── Init ─────────────────────────────────────────────────
+      showEmpty();
+
+      // Auto-focus the input
+      setTimeout(function() { bugIdInput.focus(); }, 100);
+
+      // Export for parent iframe communication
+      window.__bugCore = {
+        query: doQuery,
+        setBugId: function(id) { bugIdInput.value = id; },
+        setInstance: function(inst) { if (['auto','sh','sz','us'].indexOf(inst) >= 0) instanceSelect.value = inst; },
+        getState: function() { return { bugId: bugIdInput.value, instance: instanceSelect.value, loading: isLoading }; }
+      };
+
+    })();
+  </script>
+</body>
+</html>

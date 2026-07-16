@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Log Analyzer</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  /* ============ Base & Reset ============ */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-family: 'Outfit', sans-serif; scroll-behavior: smooth; }
+  body { font-family: 'Outfit', sans-serif; transition: background 0.4s cubic-bezier(0.16,1,0.3,1), color 0.4s cubic-bezier(0.16,1,0.3,1); min-height: 100vh; }
+  body.light { background: #f8fafc; color: #1e293b; }
+  body.dark { background: #0f172a; color: #f8fafc; }
+
+  /* ============ Animations ============ */
+  @keyframes fadeInUp {
+    0% { opacity: 0; transform: translateY(24px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeIn {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+  }
+  @keyframes spin3d {
+    0% { transform: rotate(0deg) scale(1); }
+    50% { transform: rotate(180deg) scale(1.15); }
+    100% { transform: rotate(360deg) scale(1); }
+  }
+  @keyframes blob {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    25% { transform: translate(30px, -40px) scale(1.05); }
+    50% { transform: translate(-20px, 30px) scale(0.95); }
+    75% { transform: translate(40px, 20px) scale(1.02); }
+  }
+  @keyframes aurora {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  @keyframes shimmer {
+    0% { background-position: -200% center; }
+    100% { background-position: 200% center; }
+  }
+  @keyframes slideInRight {
+    0% { opacity: 0; transform: translateX(24px); }
+    100% { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes slideOutRight {
+    0% { opacity: 1; transform: translateX(0); }
+    100% { opacity: 0; transform: translateX(24px); }
+  }
+  @keyframes pulseGlow {
+    0%, 100% { box-shadow: 0 0 8px rgba(102,126,234,0.3); }
+    50% { box-shadow: 0 0 20px rgba(102,126,234,0.6); }
+  }
+  @keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  .animate-fade-in-up { animation: fadeInUp 0.8s cubic-bezier(0.16,1,0.3,1) both; }
+  .animate-fade-in { animation: fadeIn 0.6s cubic-bezier(0.16,1,0.3,1) both; }
+  .animate-spin3d { animation: spin3d 1.2s cubic-bezier(0.16,1,0.3,1) infinite; }
+  .animate-blob { animation: blob 7s ease-in-out infinite; }
+  .animate-aurora { animation: aurora 40s linear infinite; }
+  .animate-shimmer { animation: shimmer 3s linear infinite; background-size: 200% 100%; }
+  .animate-pulse-glow { animation: pulseGlow 2s ease-in-out infinite; }
+  .animate-gradient-shift { background-size: 200% 200%; animation: gradientShift 4s ease infinite; }
+
+  /* ============ Staggered Delays ============ */
+  .delay-1 { animation-delay: 0.1s; }
+  .delay-2 { animation-delay: 0.2s; }
+  .delay-3 { animation-delay: 0.3s; }
+  .delay-4 { animation-delay: 0.4s; }
+  .delay-5 { animation-delay: 0.5s; }
+  .delay-6 { animation-delay: 0.6s; }
+
+  /* ============ Glass Panel ============ */
+  .glass-panel {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(40px);
+    -webkit-backdrop-filter: blur(40px);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    border-radius: 24px;
+  }
+  .dark .glass-panel {
+    background: rgba(15, 23, 42, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  /* ============ Button Gradient ============ */
+  .btn-gradient {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background-size: 200% 200%;
+    color: white;
+    transition: all 0.5s ease;
+    border: none;
+    cursor: pointer;
+  }
+  .btn-gradient:hover {
+    background-position: right center;
+    box-shadow: 0 10px 25px -5px rgba(102, 126, 234, 0.4);
+    transform: translateY(-2px);
+  }
+  .btn-gradient:active {
+    transform: translateY(1px);
+    box-shadow: 0 4px 6px -1px rgba(102, 126, 234, 0.2);
+  }
+  .btn-gradient:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+  }
+
+  /* ============ Input Modern ============ */
+  .input-modern {
+    width: 100%;
+    padding: 14px 16px 14px 44px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.7);
+    border: 2px solid rgba(209, 213, 219, 0.6);
+    color: #1f2937;
+    transition: all 0.3s ease;
+    outline: none;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.95rem;
+  }
+  .input-modern:focus {
+    background: #ffffff;
+    border-color: #667eea;
+    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.2);
+  }
+  .input-modern::placeholder { color: #94a3b8; }
+  .dark .input-modern {
+    background: rgba(15, 23, 42, 0.7);
+    border-color: rgba(71, 85, 105, 0.6);
+    color: #f8fafc;
+  }
+  .dark .input-modern:focus {
+    background: rgba(15, 23, 42, 0.95);
+    border-color: #7f9cf5;
+    box-shadow: 0 0 0 4px rgba(127, 156, 245, 0.2);
+  }
+  .dark .input-modern::placeholder { color: #64748b; }
+  .dark .input-modern:-webkit-autofill,
+  .dark .input-modern:-webkit-autofill:hover,
+  .dark .input-modern:-webkit-autofill:focus {
+    -webkit-text-fill-color: #f8fafc;
+    -webkit-box-shadow: 0 0 0 30px rgba(15,23,42,0.95) inset !important;
+    transition: background-color 5000s ease-in-out 0s;
+  }
+
+  /* ============ Select Modern ============ */
+  .select-modern {
+    width: 100%;
+    padding: 14px 16px 14px 44px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.7);
+    border: 2px solid rgba(209, 213, 219, 0.6);
+    color: #1f2937;
+    transition: all 0.3s ease;
+    outline: none;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.95rem;
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 40px;
+  }
+  .select-modern:focus {
+    background-color: #ffffff;
+    border-color: #667eea;
+    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.2);
+  }
+  .dark .select-modern {
+    background-color: rgba(15, 23, 42, 0.7);
+    border-color: rgba(71, 85, 105, 0.6);
+    color: #f8fafc;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  }
+  .dark .select-modern:focus {
+    background-color: rgba(15, 23, 42, 0.95);
+    border-color: #7f9cf5;
+    box-shadow: 0 0 0 4px rgba(127, 156, 245, 0.2);
+  }
+  .select-modern option {
+    background: #ffffff;
+    color: #1f2937;
+  }
+  .dark .select-modern option {
+    background: #1e293b;
+    color: #f8fafc;
+  }
+
+  /* ============ Toast ============ */
+  .toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+  }
+  .toast {
+    border-radius: 12px;
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    transform: translateY(96px);
+    opacity: 0;
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    pointer-events: auto;
+    min-width: 300px;
+    max-width: 420px;
+    font-size: 0.9rem;
+    font-weight: 500;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.hide { transform: translateY(96px); opacity: 0; }
+  .toast-success {
+    background: rgba(16, 185, 129, 0.92);
+    color: white;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+  }
+  .toast-error {
+    background: rgba(239, 68, 68, 0.92);
+    color: white;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+  }
+  .toast-info {
+    background: rgba(59, 130, 246, 0.92);
+    color: white;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+  }
+
+  /* ============ Aurora Background ============ */
+  .aurora-bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .aurora-stripes {
+    position: absolute;
+    inset: -50%;
+    background: repeating-linear-gradient(
+      55deg,
+      transparent,
+      transparent 20px,
+      rgba(96, 165, 250, 0.06) 20px,
+      rgba(232, 121, 249, 0.06) 40px,
+      rgba(94, 234, 212, 0.04) 60px
+    );
+    filter: blur(80px);
+    animation: aurora 40s linear infinite;
+  }
+  .aurora-blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.12;
+  }
+  .dark .aurora-blob { opacity: 0.15; }
+
+  /* ============ Spinner ============ */
+  .spinner-ring {
+    display: inline-block;
+    width: 48px;
+    height: 48px;
+    border: 4px solid rgba(102, 126, 234, 0.15);
+    border-top-color: #667eea;
+    border-radius: 50%;
+    animation: spin3d 1.2s cubic-bezier(0.16,1,0.3,1) infinite;
+  }
+
+  /* ============ Title Gradient ============ */
+  .text-gradient {
+    background: linear-gradient(135deg, #1e40af 0%, #ec4899 50%, #4f46e5 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .dark .text-gradient {
+    background: linear-gradient(135deg, #60a5fa 0%, #e879f9 50%, #818cf8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* ============ History Item ============ */
+  .history-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    background: rgba(102, 126, 234, 0.06);
+    border: 1px solid rgba(102, 126, 234, 0.08);
+  }
+  .dark .history-item {
+    background: rgba(102, 126, 234, 0.05);
+    border-color: rgba(102, 126, 234, 0.07);
+  }
+  .history-item:hover {
+    background: rgba(102, 126, 234, 0.12);
+    border-color: rgba(102, 126, 234, 0.2);
+    transform: translateX(3px);
+  }
+  .dark .history-item:hover {
+    background: rgba(102, 126, 234, 0.1);
+    border-color: rgba(102, 126, 234, 0.15);
+  }
+  .history-item .remove-btn {
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .history-item:hover .remove-btn { opacity: 1; }
+
+  /* ============ Scrollbar ============ */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(102, 126, 234, 0.3); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(102, 126, 234, 0.5); }
+
+  /* ============ Empty State Icon Ring ============ */
+  .empty-icon-ring {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: rgba(102, 126, 234, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+  }
+  .dark .empty-icon-ring {
+    background: rgba(102, 126, 234, 0.06);
+  }
+
+  /* ============ Success Card ============ */
+  .success-card {
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    border-radius: 16px;
+    padding: 16px 20px;
+  }
+  .dark .success-card {
+    background: rgba(16, 185, 129, 0.06);
+    border-color: rgba(16, 185, 129, 0.15);
+  }
+
+  /* ============ Tool Description ============ */
+  .tool-desc-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    font-size: 0.875rem;
+    color: #64748b;
+  }
+  .dark .tool-desc-item {
+    color: #94a3b8;
+  }
+
+  /* ============ Responsive ============ */
+  @media (max-width: 640px) {
+    .toast-container { left: 12px; right: 12px; bottom: 12px; }
+    .toast { min-width: unset; max-width: unset; }
+  }
+
+  /* ============ Role Badge ============ */
+  .role-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 10px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    border-radius: 20px;
+    letter-spacing: 0.02em;
+  }
+</style>
+</head>
+<body class="dark">
+
+  <!-- ===== Aurora Background ===== -->
+  <div class="aurora-bg" aria-hidden="true">
+    <div class="aurora-stripes"></div>
+    <div class="aurora-blob" style="width:500px;height:500px;top:-100px;left:-100px;background:#667eea;animation:blob 7s ease-in-out infinite;"></div>
+    <div class="aurora-blob" style="width:400px;height:400px;bottom:-80px;right:-60px;background:#764ba2;animation:blob 8s ease-in-out infinite reverse;animation-delay:2s;"></div>
+    <div class="aurora-blob" style="width:350px;height:350px;top:50%;left:60%;background:#ec4899;animation:blob 9s ease-in-out infinite;animation-delay:4s;"></div>
+  </div>
+
+  <!-- ===== Toast Container ===== -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- ===== MAIN LAYOUT ===== -->
+  <div class="relative z-10 px-4 sm:px-6 py-8 md:py-16 flex flex-col items-center min-h-screen">
+
+    <!-- Header -->
+    <header class="animate-fade-in-up w-full max-w-2xl mb-6 md:mb-8">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-[#667eea] to-[#764ba2] flex items-center justify-center shadow-lg shadow-[#667eea]/20">
+            <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+              <polyline points="10 9 9 9 8 9"/>
+            </svg>
+          </div>
+          <div>
+            <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight text-gradient">Log Analyzer</h1>
+            <p class="text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-0.5">Role-aware log analysis with AI-powered insight</p>
+          </div>
+        </div>
+        <!-- Theme Toggle -->
+        <button id="themeToggle" class="w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-300 bg-slate-200/60 dark:bg-slate-700/60 hover:bg-slate-300/60 dark:hover:bg-slate-600/60 text-slate-500 dark:text-slate-300" aria-label="Toggle theme">
+          <svg id="sunIcon" class="w-4.5 h-4.5 hidden dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+          </svg>
+          <svg id="moonIcon" class="w-4.5 h-4.5 dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Card -->
+    <main class="w-full max-w-2xl animate-fade-in-up delay-1">
+
+      <!-- ===== FORM PANEL ===== -->
+      <section class="glass-panel p-6 md:p-8 mb-6">
+        <div class="flex items-center gap-2 mb-5">
+          <svg class="w-5 h-5 text-[#667eea] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+          <h2 class="text-lg font-semibold">Analysis Configuration</h2>
+        </div>
+
+        <!-- Log Path Input -->
+        <div class="mb-5">
+          <label class="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-1.5" for="logPathInput">Log File Path</label>
+          <div class="relative group">
+            <svg class="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-[#667eea] transition-colors duration-300 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+            </svg>
+            <input id="logPathInput" class="input-modern" type="text" placeholder="e.g. D:/logs/bug_12345/logcat.txt or relative path" autocomplete="off" spellcheck="false">
+          </div>
+        </div>
+
+        <!-- Direction Input -->
+        <div class="mb-5">
+          <label class="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-1.5" for="directionInput">Direction / Problem Area</label>
+          <div class="relative group">
+            <svg class="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-[#667eea] transition-colors duration-300 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>
+            </svg>
+            <input id="directionInput" class="input-modern" type="text" placeholder="e.g. USB enumeration failure, PD contract negotiation, DMA timeout" autocomplete="off" spellcheck="false">
+          </div>
+        </div>
+
+        <!-- Role Dropdown -->
+        <div class="mb-6">
+          <label class="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-1.5" for="roleSelect">Analysis Role</label>
+          <div class="relative group">
+            <svg class="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-[#667eea] transition-colors duration-300 pointer-events-none z-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+            </svg>
+            <select id="roleSelect" class="select-modern">
+              <option value="auto">Auto (Auto-detect)</option>
+              <option value="pd_engineer">PD Engineer (Power Delivery)</option>
+              <option value="usb_engineer">USB Engineer</option>
+              <option value="kernel_engineer">Kernel Engineer</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Generate Button -->
+        <button id="generateBtn" class="btn-gradient w-full py-4 px-6 rounded-xl text-lg font-bold uppercase tracking-wider focus:ring-4 focus:ring-[#667eea]/50 focus:outline-none flex items-center justify-center gap-3">
+          <svg id="generateBtnIcon" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+          </svg>
+          <span id="generateBtnText">Generate Analysis</span>
+        </button>
+      </section>
+
+      <!-- ===== RECENT REPORTS PANEL ===== -->
+      <section id="recentPanel" class="glass-panel p-6 md:p-8 animate-fade-in-up delay-2 mb-6" style="display:none;">
+        <div class="flex items-center gap-2 mb-4">
+          <svg class="w-5 h-5 text-[#667eea] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+          <h2 class="text-base font-semibold">Recent Reports</h2>
+          <span id="recentCount" class="ml-auto text-xs text-slate-400"></span>
+        </div>
+        <div id="recentList" class="space-y-2">
+          <!-- Rendered from localStorage -->
+        </div>
+      </section>
+
+      <!-- ===== SUCCESS PANEL ===== -->
+      <section id="successPanel" class="glass-panel p-6 md:p-8 animate-fade-in-up delay-2" style="display:none;">
+        <div class="flex items-center gap-3 mb-5">
+          <div class="w-10 h-10 rounded-full bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center shrink-0">
+            <svg class="w-5 h-5 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+          </div>
+          <div>
+            <h2 class="text-lg font-semibold text-slate-700 dark:text-slate-200">Analysis Complete</h2>
+            <p class="text-xs text-slate-500 dark:text-slate-400">The report has been generated successfully</p>
+          </div>
+        </div>
+
+        <!-- Success Card -->
+        <div class="success-card mb-5">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0 flex-1">
+              <p class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Report HTML Path</p>
+              <p id="reportPathDisplay" class="text-sm font-mono text-slate-800 dark:text-slate-200 break-all"></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Meta info -->
+        <div id="reportMeta" class="flex flex-wrap gap-3 mb-5 text-xs"></div>
+
+        <!-- Button group -->
+        <div class="flex flex-wrap gap-3">
+          <button id="openReportBtn" class="btn-gradient inline-flex items-center gap-2 py-3 px-6 rounded-xl text-base font-bold tracking-wider focus:ring-4 focus:ring-[#667eea]/50 focus:outline-none">
+            <svg class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+            </svg>
+            Open in New Tab
+          </button>
+          <button id="newAnalysisBtn" class="inline-flex items-center gap-2 py-3 px-6 rounded-xl text-base font-bold tracking-wider transition-all duration-300 bg-slate-200/60 dark:bg-slate-700/60 hover:bg-slate-300/60 dark:hover:bg-slate-600/60 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600/30">
+            <svg class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 5v14M5 12h14"/>
+            </svg>
+            New Analysis
+          </button>
+        </div>
+      </section>
+
+      <!-- ===== LOADING PANEL ===== -->
+      <section id="loadingPanel" class="glass-panel p-10 md:p-12 animate-fade-in-up delay-2 text-center" style="display:none;">
+        <div class="spinner-ring mx-auto mb-5"></div>
+        <p class="text-lg font-semibold text-slate-700 dark:text-slate-200 mb-1">Analyzing Logs</p>
+        <p class="text-sm text-slate-500 dark:text-slate-400" id="loadingSubtext">Parsing log data with role-aware analysis...</p>
+      </section>
+
+      <!-- ===== EMPTY STATE ===== -->
+      <section id="emptyPanel" class="glass-panel p-8 md:p-10 animate-fade-in-up delay-2">
+        <div class="text-center">
+          <div class="empty-icon-ring mb-4">
+            <svg class="w-9 h-9 text-[#667eea]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+            </svg>
+          </div>
+          <h3 class="text-lg font-semibold text-slate-700 dark:text-slate-200 mb-2">Ready to Analyze</h3>
+          <p class="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed mb-6">
+            Upload or point to a log file and select an analysis role to get AI-powered insight into your bug.
+          </p>
+          <div class="inline-flex flex-col items-start gap-2 text-xs text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-800/40 rounded-xl px-5 py-4">
+            <span class="tool-desc-item">
+              <svg class="w-4 h-4 text-[#667eea] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+              Enter a log file path or paste log content
+            </span>
+            <span class="tool-desc-item">
+              <svg class="w-4 h-4 text-[#667eea] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              Select a role for targeted analysis (PD, USB, Kernel, or Auto)
+            </span>
+            <span class="tool-desc-item">
+              <svg class="w-4 h-4 text-[#667eea] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              Review a comprehensive report with anomaly detection & timeline
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== ERROR STATE ===== -->
+      <section id="errorPanel" class="glass-panel p-8 md:p-10 animate-fade-in-up delay-2 text-center" style="display:none;">
+        <div class="w-16 h-16 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center mx-auto mb-4">
+          <svg class="w-8 h-8 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+        </div>
+        <h3 class="text-lg font-semibold text-slate-700 dark:text-slate-200 mb-1">Analysis Failed</h3>
+        <p id="errorMessage" class="text-sm text-red-500 dark:text-red-400 mb-5 max-w-md mx-auto"></p>
+        <button id="retryBtn" class="btn-gradient inline-flex items-center gap-2 py-3 px-8 rounded-xl text-base font-bold uppercase tracking-wider focus:ring-4 focus:ring-[#667eea]/50 focus:outline-none">
+          <svg class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          Retry
+        </button>
+      </section>
+
+      <!-- Footer -->
+      <footer class="mt-8 text-center animate-fade-in-up delay-6">
+        <p class="text-xs text-slate-400 dark:text-slate-600">Log Analyzer &middot; Powered by Bug Hub API &middot; Role-aware analysis engine</p>
+      </footer>
+    </main>
+  </div>
+
+  <script>
+    (function() {
+      'use strict';
+
+      // ============================================================
+      // Configuration
+      // ============================================================
+      const RECENT_STORAGE_KEY = 'log_analyzer_reports';
+      const MAX_RECENT = 10;
+
+      // ============================================================
+      // DOM Refs
+      // ============================================================
+      const $ = (id) => document.getElementById(id);
+      const logPathInput = $('logPathInput');
+      const directionInput = $('directionInput');
+      const roleSelect = $('roleSelect');
+      const generateBtn = $('generateBtn');
+      const generateBtnIcon = $('generateBtnIcon');
+      const generateBtnText = $('generateBtnText');
+      const loadingPanel = $('loadingPanel');
+      const loadingSubtext = $('loadingSubtext');
+      const emptyPanel = $('emptyPanel');
+      const errorPanel = $('errorPanel');
+      const errorMessage = $('errorMessage');
+      const retryBtn = $('retryBtn');
+      const successPanel = $('successPanel');
+      const reportPathDisplay = $('reportPathDisplay');
+      const reportMeta = $('reportMeta');
+      const openReportBtn = $('openReportBtn');
+      const newAnalysisBtn = $('newAnalysisBtn');
+      const recentPanel = $('recentPanel');
+      const recentList = $('recentList');
+      const recentCount = $('recentCount');
+      const toastContainer = $('toastContainer');
+      const themeToggle = $('themeToggle');
+
+      // ============================================================
+      // Theme Management (inherit from parent if in iframe)
+      // ============================================================
+      function detectParentTheme() {
+        try {
+          if (window.parent && window.parent.document) {
+            const parentDark = window.parent.document.documentElement.classList.contains('dark');
+            return parentDark ? 'dark' : 'light';
+          }
+        } catch (e) {
+          // Cross-origin iframe — fall back to localStorage or system pref
+        }
+        const stored = localStorage.getItem('theme');
+        if (stored) return stored;
+        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+
+      function applyTheme(theme) {
+        document.body.classList.remove('dark', 'light');
+        document.body.classList.add(theme);
+      }
+
+      function initTheme() {
+        const theme = detectParentTheme();
+        applyTheme(theme);
+      }
+
+      function toggleTheme() {
+        const isDark = document.body.classList.contains('dark');
+        const newTheme = isDark ? 'light' : 'dark';
+        applyTheme(newTheme);
+        localStorage.setItem('theme', newTheme);
+        try {
+          if (window.parent && window.parent !== window) {
+            window.parent.postMessage({ type: 'theme-change', theme: newTheme }, '*');
+          }
+        } catch (e) { /* ignore */ }
+      }
+
+      function listenForParentTheme() {
+        try {
+          if (window.parent && window.parent !== window) {
+            window.addEventListener('message', (e) => {
+              if (e.data && e.data.type === 'theme-change') {
+                applyTheme(e.data.theme);
+              }
+            });
+          }
+        } catch (e) { /* ignore */ }
+      }
+
+      themeToggle.addEventListener('click', toggleTheme);
+      initTheme();
+      listenForParentTheme();
+
+      // ============================================================
+      // Toast System
+      // ============================================================
+      function showToast(message, type = 'info', duration = 4000) {
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+
+        const iconMap = {
+          success: '<svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+          error: '<svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+          info: '<svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
+        };
+
+        toast.innerHTML = iconMap[type] || iconMap.info;
+        toast.innerHTML += `<span>${message}</span>`;
+        toastContainer.appendChild(toast);
+
+        requestAnimationFrame(() => {
+          toast.classList.add('show');
+        });
+
+        setTimeout(() => {
+          toast.classList.remove('show');
+          toast.classList.add('hide');
+          setTimeout(() => { toast.remove(); }, 400);
+        }, duration);
+      }
+
+      // ============================================================
+      // Recent Reports (localStorage)
+      // ============================================================
+      function getRecentReports() {
+        try {
+          return JSON.parse(localStorage.getItem(RECENT_STORAGE_KEY)) || [];
+        } catch { return []; }
+      }
+
+      function addRecentReport(logfile, direction, role, htmlPath) {
+        let reports = getRecentReports();
+        // Remove duplicate by path
+        reports = reports.filter(r => r.html_path !== htmlPath);
+        reports.unshift({
+          logfile: logfile,
+          direction: direction || '',
+          role: role || 'auto',
+          html_path: htmlPath,
+          timestamp: new Date().toISOString()
+        });
+        if (reports.length > MAX_RECENT) reports = reports.slice(0, MAX_RECENT);
+        localStorage.setItem(RECENT_STORAGE_KEY, JSON.stringify(reports));
+        renderRecentReports();
+      }
+
+      function removeRecentReport(index) {
+        let reports = getRecentReports();
+        reports.splice(index, 1);
+        localStorage.setItem(RECENT_STORAGE_KEY, JSON.stringify(reports));
+        renderRecentReports();
+      }
+
+      function clearRecentReports() {
+        localStorage.removeItem(RECENT_STORAGE_KEY);
+        renderRecentReports();
+      }
+
+      function getRoleBadgeClass(role) {
+        const map = {
+          'pd_engineer': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+          'usb_engineer': 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
+          'kernel_engineer': 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
+          'auto': 'bg-slate-100 text-slate-600 dark:bg-slate-800/40 dark:text-slate-300'
+        };
+        return map[role] || map['auto'];
+      }
+
+      function getRoleLabel(role) {
+        const map = {
+          'pd_engineer': 'PD Engineer',
+          'usb_engineer': 'USB Engineer',
+          'kernel_engineer': 'Kernel Engineer',
+          'auto': 'Auto'
+        };
+        return map[role] || role;
+      }
+
+      function formatTime(iso) {
+        try {
+          const d = new Date(iso);
+          const pad = (n) => String(n).padStart(2, '0');
+          return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        } catch { return iso; }
+      }
+
+      function trimPath(p, maxLen = 50) {
+        if (!p) return '';
+        if (p.length <= maxLen) return p;
+        return '...' + p.slice(-(maxLen - 3));
+      }
+
+      function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+      }
+
+      function renderRecentReports() {
+        const reports = getRecentReports();
+        if (reports.length === 0) {
+          recentPanel.style.display = 'none';
+          return;
+        }
+        recentPanel.style.display = '';
+        recentCount.textContent = `${reports.length} reports`;
+
+        recentList.innerHTML = reports.map((r, idx) => {
+          const roleBadge = `<span class="role-badge ${getRoleBadgeClass(r.role)}">${escapeHtml(getRoleLabel(r.role))}</span>`;
+          return `<div class="history-item" data-index="${idx}">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-[#667eea]/20 to-[#764ba2]/20 flex items-center justify-center shrink-0">
+              <svg class="w-4 h-4 text-[#667eea]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+              </svg>
+            </div>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-sm font-medium text-slate-700 dark:text-slate-200 truncate max-w-[200px]">${escapeHtml(trimPath(r.logfile, 45))}</span>
+                ${roleBadge}
+              </div>
+              <div class="flex items-center gap-2 mt-0.5">
+                <span class="text-[11px] text-slate-400 dark:text-slate-500">${formatTime(r.timestamp)}</span>
+                ${r.direction ? `<span class="text-[11px] text-slate-400 dark:text-slate-500">| ${escapeHtml(trimPath(r.direction, 30))}</span>` : ''}
+              </div>
+            </div>
+            <button class="remove-btn shrink-0 w-7 h-7 rounded-lg flex items-center justify-center hover:bg-red-100 dark:hover:bg-red-900/30 text-slate-400 hover:text-red-500 transition-all duration-200" data-remove="${idx}" title="Remove">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>`;
+        }).join('');
+
+        // Click handlers
+        recentList.querySelectorAll('.history-item').forEach(item => {
+          item.addEventListener('click', (e) => {
+            const removeBtn = e.target.closest('[data-remove]');
+            if (removeBtn) {
+              e.stopPropagation();
+              const idx = parseInt(removeBtn.dataset.remove, 10);
+              removeRecentReport(idx);
+              if (getRecentReports().length === 0) {
+                showToast('All recent reports cleared', 'info');
+              }
+              return;
+            }
+            const idx = parseInt(item.dataset.index, 10);
+            const reports = getRecentReports();
+            const report = reports[idx];
+            if (report) {
+              fillFormFromReport(report);
+              showToast('Report parameters loaded', 'info');
+            }
+          });
+        });
+      }
+
+      function fillFormFromReport(report) {
+        if (report.logfile) logPathInput.value = report.logfile;
+        if (report.direction) directionInput.value = report.direction;
+        if (report.role) {
+          for (const opt of roleSelect.options) {
+            if (opt.value === report.role) {
+              roleSelect.value = report.role;
+              break;
+            }
+          }
+        }
+      }
+
+      // ============================================================
+      // State Management
+      // ============================================================
+      function showPanel(panel) {
+        [loadingPanel, emptyPanel, errorPanel, successPanel].forEach(p => p.style.display = 'none');
+        if (panel) panel.style.display = '';
+      }
+
+      function setLoading(isLoading) {
+        generateBtn.disabled = isLoading;
+        if (isLoading) {
+          generateBtnIcon.innerHTML = '<svg class="w-5 h-5 animate-spin3d" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg>';
+          generateBtnText.textContent = 'Analyzing...';
+        } else {
+          generateBtnIcon.innerHTML = '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>';
+          generateBtnText.textContent = 'Generate Analysis';
+        }
+      }
+
+      // ============================================================
+      // API Call
+      // ============================================================
+      async function generateAnalysis(logfile, direction, role) {
+        const payload = { logfile, direction, role };
+
+        const response = await fetch('/api/log-analyzer/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          let errMsg = `HTTP ${response.status}`;
+          try {
+            const err = await response.json();
+            errMsg = err.message || err.error || errMsg;
+          } catch { /* ignore */ }
+          throw new Error(errMsg);
+        }
+
+        const result = await response.json();
+        if (!result.ok) {
+          throw new Error(result.message || result.error || 'Unknown error');
+        }
+        return result.data;
+      }
+
+      // ============================================================
+      // Main Action
+      // ============================================================
+      async function handleGenerate() {
+        const logfile = logPathInput.value.trim();
+        if (!logfile) {
+          showToast('Please enter a log file path', 'error');
+          logPathInput.focus();
+          return;
+        }
+
+        const direction = directionInput.value.trim();
+        const role = roleSelect.value;
+
+        // Show loading state
+        showPanel(loadingPanel);
+        setLoading(true);
+        loadingSubtext.textContent = 'Parsing log data with role-aware analysis...';
+
+        // Cycle loading subtext variations for long-running tasks
+        let loadingIdx = 0;
+        const loadingMessages = [
+          'Parsing log data with role-aware analysis...',
+          'Running anomaly detection filters...',
+          'Reconstructing event timeline...',
+          'Generating comprehensive report...',
+          'Finalizing analysis results...'
+        ];
+        const loadInterval = setInterval(() => {
+          loadingIdx = (loadingIdx + 1) % loadingMessages.length;
+          loadingSubtext.textContent = loadingMessages[loadingIdx];
+        }, 6000);
+
+        try {
+          const data = await generateAnalysis(logfile, direction, role);
+          clearInterval(loadInterval);
+
+          showPanel(successPanel);
+
+          const htmlPath = data.html_path || '';
+          reportPathDisplay.textContent = htmlPath;
+
+          // Report meta badges
+          const roleBadge = `<span class="role-badge ${getRoleBadgeClass(role)}">${escapeHtml(getRoleLabel(role))}</span>`;
+          reportMeta.innerHTML = `
+            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 font-mono">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              ${escapeHtml(formatTime(new Date().toISOString()))}
+            </span>
+            ${roleBadge}
+            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              ${escapeHtml(trimPath(logfile, 35))}
+            </span>
+          `;
+
+          // Open in new tab
+          openReportBtn.onclick = () => {
+            // Resolve relative path if needed
+            const base = window.location.origin;
+            const reportUrl = htmlPath.startsWith('http') ? htmlPath : base + '/' + htmlPath.replace(/^[/\\]+/, '').replace(/\\/g, '/');
+            window.open(reportUrl, '_blank', 'noopener,noreferrer');
+          };
+
+          // Add to recent reports
+          addRecentReport(logfile, direction, role, htmlPath);
+
+          showToast('Analysis complete! Report ready.', 'success');
+
+        } catch (err) {
+          clearInterval(loadInterval);
+          showPanel(errorPanel);
+          errorMessage.textContent = err.message || 'An unexpected error occurred during analysis.';
+          setLoading(false);
+          showToast(err.message || 'Analysis failed', 'error');
+        }
+      }
+
+      // ============================================================
+      // Event Listeners
+      // ============================================================
+      generateBtn.addEventListener('click', handleGenerate);
+
+      retryBtn.addEventListener('click', () => {
+        showPanel(emptyPanel);
+        setLoading(false);
+      });
+
+      newAnalysisBtn.addEventListener('click', () => {
+        showPanel(emptyPanel);
+        logPathInput.focus();
+      });
+
+      // Enter key support
+      logPathInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          directionInput.focus();
+        }
+      });
+      directionInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          handleGenerate();
+        }
+      });
+
+      // ============================================================
+      // Initialization
+      // ============================================================
+      function init() {
+        renderRecentReports();
+        // Check if parent already has theme — apply from class
+        // Focus log path input
+        logPathInput.focus();
+      }
+
+      init();
+
+    })();
+  </script>
+
+</body>
+</html>

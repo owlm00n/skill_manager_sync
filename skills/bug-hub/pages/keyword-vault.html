@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Keyword Vault</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --surface: rgba(255, 255, 255, 0.04);
+      --surface-hover: rgba(255, 255, 255, 0.08);
+      --border: rgba(255, 255, 255, 0.08);
+      --text: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --primary: #667eea;
+      --primary-light: rgba(102, 126, 234, 0.15);
+      color-scheme: dark;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body.light {
+      --bg: #f8fafc;
+      --surface: rgba(255, 255, 255, 0.7);
+      --surface-hover: rgba(255, 255, 255, 0.9);
+      --border: rgba(0, 0, 0, 0.08);
+      --text: #0f172a;
+      --text-secondary: #475569;
+      --text-muted: #94a3b8;
+      color-scheme: light;
+    }
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    /* Aurora background */
+    .aurora {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .aurora .blob {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.25;
+      animation: auroraFloat 18s ease-in-out infinite alternate;
+    }
+    .aurora .blob:nth-child(1) {
+      width: 600px; height: 600px;
+      background: #667eea;
+      top: -15%; left: -10%;
+      animation-duration: 22s;
+    }
+    .aurora .blob:nth-child(2) {
+      width: 500px; height: 500px;
+      background: #764ba2;
+      bottom: -10%; right: -5%;
+      animation-duration: 19s;
+      animation-delay: -5s;
+    }
+    .aurora .blob:nth-child(3) {
+      width: 400px; height: 400px;
+      background: #667eea;
+      top: 40%; left: 50%;
+      opacity: 0.15;
+      animation-duration: 25s;
+      animation-delay: -10s;
+    }
+    body.light .aurora .blob { opacity: 0.10; }
+
+    @keyframes auroraFloat {
+      0% { transform: translate(0, 0) scale(1); }
+      33% { transform: translate(60px, -40px) scale(1.1); }
+      66% { transform: translate(-30px, 50px) scale(0.95); }
+      100% { transform: translate(40px, -20px) scale(1.05); }
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--text-muted); border-radius: 3px; }
+
+    /* Glass panel */
+    .glass {
+      background: var(--surface);
+      backdrop-filter: blur(40px);
+      -webkit-backdrop-filter: blur(40px);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      transition: background 0.3s, border-color 0.3s;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-weight: 500;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.2s;
+      font-family: 'Outfit', sans-serif;
+    }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(102, 126, 234, 0.35); }
+    .btn-primary:active { transform: translateY(0); }
+
+    .btn-danger {
+      background: transparent;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 8px;
+      color: #ef4444;
+      cursor: pointer;
+      font-size: 0.8rem;
+      padding: 4px 12px;
+      font-weight: 500;
+      transition: all 0.15s;
+      font-family: 'Outfit', sans-serif;
+    }
+    .btn-danger:hover { background: rgba(239, 68, 68, 0.15); border-color: #ef4444; }
+
+    .btn-confirm {
+      background: rgba(239, 68, 68, 0.2);
+      border: 1px solid #ef4444;
+      border-radius: 8px;
+      color: #ef4444;
+      cursor: pointer;
+      font-size: 0.75rem;
+      padding: 4px 10px;
+      font-weight: 500;
+      transition: all 0.15s;
+      font-family: 'Outfit', sans-serif;
+    }
+    .btn-confirm:hover { background: rgba(239, 68, 68, 0.35); }
+
+    .btn-cancel {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 0.75rem;
+      padding: 4px 10px;
+      font-weight: 500;
+      transition: all 0.15s;
+      font-family: 'Outfit', sans-serif;
+    }
+    .btn-cancel:hover { background: var(--surface-hover); }
+
+    .input-field {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 14px;
+      color: var(--text);
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s;
+      width: 100%;
+    }
+    .input-field:focus { border-color: #667eea; }
+    .input-field::placeholder { color: var(--text-muted); }
+    body.light .input-field { background: rgba(0, 0, 0, 0.03); }
+
+    .select-field {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 14px;
+      color: var(--text);
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 32px;
+    }
+    .select-field:focus { border-color: #667eea; }
+    .select-field option {
+      background: #1e293b;
+      color: #f1f5f9;
+    }
+    body.light .select-field {
+      background: rgba(0, 0, 0, 0.03);
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23475569' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+    }
+    body.light .select-field option {
+      background: #ffffff;
+      color: #0f172a;
+    }
+
+    .textarea-field {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 16px;
+      color: var(--text);
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.9rem;
+      outline: none;
+      resize: vertical;
+      min-height: 100px;
+      transition: border-color 0.2s;
+      width: 100%;
+    }
+    .textarea-field:focus { border-color: #667eea; }
+    .textarea-field::placeholder { color: var(--text-muted); }
+    body.light .textarea-field { background: rgba(0, 0, 0, 0.03); }
+
+    /* Skeleton shimmer */
+    .skeleton {
+      background: linear-gradient(90deg,
+        var(--surface) 25%,
+        rgba(255, 255, 255, 0.08) 50%,
+        var(--surface) 75%
+      );
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 8px;
+    }
+    body.light .skeleton {
+      background: linear-gradient(90deg,
+        rgba(0,0,0,0.04) 25%,
+        rgba(0,0,0,0.08) 50%,
+        rgba(0,0,0,0.04) 75%
+      );
+      background-size: 200% 100%;
+    }
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* Toast container */
+    #toast-container {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 99999;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+    }
+    .toast {
+      background: var(--surface);
+      backdrop-filter: blur(40px);
+      -webkit-backdrop-filter: blur(40px);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 20px;
+      color: var(--text);
+      font-size: 0.85rem;
+      font-weight: 500;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+      animation: toastIn 0.3s ease-out;
+      pointer-events: auto;
+      max-width: 360px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 200px;
+    }
+    .toast.error { border-left: 3px solid #ef4444; }
+    .toast.success { border-left: 3px solid #22c55e; }
+    .toast.info { border-left: 3px solid #667eea; }
+    .toast .toast-icon { font-size: 1.1rem; }
+    .toast .toast-close {
+      margin-left: auto;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 1rem;
+      padding: 0 4px;
+    }
+
+    @keyframes toastIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes toastOut {
+      from { transform: translateX(0); opacity: 1; }
+      to { transform: translateX(100%); opacity: 0; }
+    }
+
+    /* Confirmation inline */
+    .confirm-box {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      animation: fadeIn 0.15s ease-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    /* Badge */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--primary-light);
+      color: #667eea;
+      font-size: 0.7rem;
+      font-weight: 600;
+      border-radius: 20px;
+      padding: 2px 10px;
+      min-width: 22px;
+    }
+
+    /* Direction item */
+    .direction-item {
+      padding: 10px 16px;
+      cursor: pointer;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: all 0.15s;
+      margin: 2px 0;
+      border-left: 3px solid transparent;
+    }
+    .direction-item:hover { background: var(--surface-hover); }
+    .direction-item.active {
+      background: var(--primary-light);
+      border-left-color: #667eea;
+    }
+    .direction-item .dir-name {
+      font-size: 0.85rem;
+      font-weight: 500;
+      text-transform: capitalize;
+    }
+
+    /* Table */
+    .kw-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .kw-table th {
+      text-align: left;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .kw-table td {
+      padding: 10px 12px;
+      font-size: 0.85rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    .kw-table tr:last-child td { border-bottom: none; }
+    .kw-table tr:hover td { background: var(--surface-hover); }
+
+    .section-title {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2px solid var(--border);
+      border-top-color: #667eea;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      display: inline-block;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-muted);
+    }
+    .empty-state .empty-icon { font-size: 2.5rem; margin-bottom: 12px; opacity: 0.5; }
+    .empty-state p { font-size: 0.9rem; }
+
+    .loading-overlay {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 16px;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+
+    .learn-preview {
+      margin-top: 12px;
+      padding: 12px 16px;
+      background: var(--primary-light);
+      border: 1px solid rgba(102, 126, 234, 0.2);
+      border-radius: 10px;
+    }
+    .learn-preview .preview-title {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #667eea;
+      margin-bottom: 8px;
+    }
+    .learn-preview .preview-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .learn-preview .preview-tag {
+      background: rgba(102, 126, 234, 0.15);
+      border: 1px solid rgba(102, 126, 234, 0.25);
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--text);
+    }
+  </style>
+</head>
+<body>
+  <!-- Aurora Background -->
+  <div class="aurora">
+    <div class="blob"></div>
+    <div class="blob"></div>
+    <div class="blob"></div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toast-container"></div>
+
+  <!-- Main Layout -->
+  <div id="app" style="position:relative; z-index:1; display:flex; min-height:100vh; padding:16px; gap:16px;">
+
+    <!-- Left Sidebar -->
+    <aside id="sidebar" class="glass" style="width:250px; flex-shrink:0; padding:16px; display:flex; flex-direction:column; height:calc(100vh - 32px);">
+      <div style="font-size:0.9rem; font-weight:600; margin-bottom:14px; display:flex; align-items:center; gap:8px;">
+        <span style="color:#667eea;">&#9632;</span> Directions
+      </div>
+      <div id="direction-list" style="flex:1; overflow-y:auto;">
+        <!-- directions rendered by JS -->
+      </div>
+      <div id="sidebar-status" style="font-size:0.75rem; color:var(--text-muted); padding-top:10px; border-top:1px solid var(--border); margin-top:auto;">
+        <span id="dir-count">0</span> directions
+      </div>
+    </aside>
+
+    <!-- Right Main Area -->
+    <main style="flex:1; display:flex; flex-direction:column; gap:16px; overflow-y:auto; height:calc(100vh - 32px); padding-right:4px;">
+
+      <!-- Section 1: Keywords Table -->
+      <section id="section-keywords" class="glass" style="padding:20px;">
+        <div class="section-title">
+          <span id="kw-section-title">Keywords</span>
+          <span id="kw-count-badge" class="badge" style="display:none;">0</span>
+        </div>
+        <div id="keywords-content">
+          <!-- keywords rendered by JS -->
+        </div>
+      </section>
+
+      <!-- Section 2: Add Keyword -->
+      <section id="section-add" class="glass" style="padding:20px;">
+        <div class="section-title" style="font-size:0.9rem; margin-bottom:12px;">Add Keyword</div>
+        <div style="display:flex; gap:10px;">
+          <input id="add-input" class="input-field" type="text" placeholder="Enter keyword..." style="flex:1;" />
+          <button id="add-btn" class="btn-primary" style="padding:10px 24px; white-space:nowrap;">Add</button>
+        </div>
+        <div id="add-status" style="margin-top:8px; font-size:0.8rem; color:var(--text-muted);"></div>
+      </section>
+
+      <!-- Section 3: New Direction -->
+      <section id="section-new-dir" class="glass" style="padding:20px;">
+        <div class="section-title" style="font-size:0.9rem; margin-bottom:12px;">New Direction</div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <input id="new-dir-id" class="input-field" type="text" placeholder="Direction ID (e.g. dma_error)" style="flex:1; min-width:160px;" />
+          <input id="new-dir-name" class="input-field" type="text" placeholder="Display name" style="flex:1; min-width:160px;" />
+          <button id="new-dir-btn" class="btn-primary" style="padding:10px 24px; white-space:nowrap;">Create</button>
+        </div>
+        <div id="new-dir-status" style="margin-top:8px; font-size:0.8rem; color:var(--text-muted);"></div>
+      </section>
+
+      <!-- Section 4: Auto-Learn -->
+      <section id="section-learn" class="glass" style="padding:20px;">
+        <div class="section-title" style="font-size:0.9rem; margin-bottom:12px;">Auto-Learn from Logs</div>
+        <div style="display:flex; gap:10px; margin-bottom:12px; align-items:center; flex-wrap:wrap;">
+          <label style="font-size:0.8rem; color:var(--text-secondary);">Direction:</label>
+          <select id="learn-direction" class="select-field" style="flex:1; min-width:140px;">
+            <option value="">-- Select --</option>
+          </select>
+        </div>
+        <textarea id="learn-textarea" class="textarea-field" placeholder="Paste log text here to auto-extract keywords..."></textarea>
+        <div style="display:flex; gap:10px; margin-top:12px; align-items:center;">
+          <button id="learn-btn" class="btn-primary" style="padding:10px 28px;">Learn Keywords</button>
+          <span id="learn-spinner" class="spinner" style="display:none;"></span>
+        </div>
+        <div id="learn-result" style="margin-top:12px;"></div>
+      </section>
+
+    </main>
+  </div>
+
+  <script>
+    (function() {
+      'use strict';
+
+      const API_BASE = '';
+
+      let directions = [];
+      let selectedDirection = null;
+      let keywordsCache = {};
+
+      // DOM refs
+      const dirListEl = document.getElementById('direction-list');
+      const dirCountEl = document.getElementById('dir-count');
+      const kwSectionTitle = document.getElementById('kw-section-title');
+      const kwCountBadge = document.getElementById('kw-count-badge');
+      const kwContent = document.getElementById('keywords-content');
+      const addInput = document.getElementById('add-input');
+      const addBtn = document.getElementById('add-btn');
+      const addStatus = document.getElementById('add-status');
+      const learnDirection = document.getElementById('learn-direction');
+      const learnTextarea = document.getElementById('learn-textarea');
+      const learnBtn = document.getElementById('learn-btn');
+      const learnSpinner = document.getElementById('learn-spinner');
+      const learnResult = document.getElementById('learn-result');
+      const newDirId = document.getElementById('new-dir-id');
+      const newDirName = document.getElementById('new-dir-name');
+      const newDirBtn = document.getElementById('new-dir-btn');
+      const newDirStatus = document.getElementById('new-dir-status');
+
+      // --- Theme sync from parent ---
+      function syncTheme() {
+        try {
+          if (window.parent && window.parent.document) {
+            const parentHasLight = window.parent.document.documentElement.classList.contains('light') ||
+                                   window.parent.document.body.classList.contains('light');
+            if (parentHasLight) {
+              document.body.classList.add('light');
+            } else {
+              document.body.classList.remove('light');
+            }
+          }
+        } catch(e) { /* cross-origin */ }
+      }
+      syncTheme();
+      try {
+        const observer = new MutationObserver(syncTheme);
+        const parentDoc = window.parent.document;
+        observer.observe(parentDoc.documentElement, { attributes: true, attributeFilter: ['class'] });
+        observer.observe(parentDoc.body, { attributes: true, attributeFilter: ['class'] });
+      } catch(e) { /* ignore */ }
+
+      // --- Toast ---
+      function showToast(message, type) {
+        type = type || 'info';
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.className = 'toast ' + type;
+        const icons = { success: '✓', error: '✗', info: 'ℹ' };
+        toast.innerHTML =
+          '<span class="toast-icon">' + (icons[type] || '') + '</span>' +
+          '<span>' + message + '</span>' +
+          '<button class="toast-close">&times;</button>';
+        container.appendChild(toast);
+        const closeBtn = toast.querySelector('.toast-close');
+        closeBtn.addEventListener('click', function() { dismiss(toast); });
+        var timer = setTimeout(function() { dismiss(toast); }, 4000);
+        function dismiss(el) {
+          clearTimeout(timer);
+          el.style.animation = 'toastOut 0.25s ease-in forwards';
+          setTimeout(function() { if (el.parentNode) el.parentNode.removeChild(el); }, 300);
+        }
+      }
+
+      // --- API helpers ---
+      async function apiGet(path) {
+        const res = await fetch(API_BASE + path);
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || 'API error');
+        return data;
+      }
+
+      async function apiPost(path, body) {
+        const res = await fetch(API_BASE + path, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || 'API error');
+        return data;
+      }
+
+      // --- Directions ---
+      function renderDirections() {
+        if (directions.length === 0) {
+          dirListEl.innerHTML = '<div class="skeleton" style="height:36px; margin:4px 0;"></div>' +
+            '<div class="skeleton" style="height:36px; margin:4px 0;"></div>' +
+            '<div class="skeleton" style="height:36px; margin:4px 0; width:80%;"></div>';
+          return;
+        }
+        var html = '';
+        directions.forEach(function(dir) {
+          var active = selectedDirection === dir.id ? ' active' : '';
+          var kw = keywordsCache[dir.id];
+          var count = kw && kw.keywords ? kw.keywords.length : 0;
+          html += '<div class="direction-item' + active + '" data-dir="' + escapeHtml(dir.id) + '">' +
+            '<span class="dir-name">' + escapeHtml(dir.name || dir.id.replace(/_/g, ' ')) + '</span>' +
+            '<span class="badge" style="font-size:0.65rem; padding:1px 8px;">' + count + '</span>' +
+          '</div>';
+        });
+        dirListEl.innerHTML = html;
+
+        // Click handlers
+        dirListEl.querySelectorAll('.direction-item').forEach(function(el) {
+          el.addEventListener('click', function() {
+            selectDirection(el.dataset.dir);
+          });
+        });
+
+        dirCountEl.textContent = directions.length;
+      }
+
+      async function loadDirections() {
+        try {
+          dirListEl.innerHTML =
+            '<div class="skeleton" style="height:36px; margin:4px 0;"></div>' +
+            '<div class="skeleton" style="height:36px; margin:4px 0;"></div>' +
+            '<div class="skeleton" style="height:36px; margin:4px 0; width:80%;"></div>';
+          const result = await apiGet('/api/keyword-vault/directions');
+          directions = result.data || [];
+          // use direction id strings consistently
+          var dirIds = directions.map(function(d) { return d.id; });
+          if (selectedDirection && dirIds.indexOf(selectedDirection) === -1) {
+            selectedDirection = null;
+          } else if (!selectedDirection && directions.length > 0) {
+            selectedDirection = directions[0].id;
+          }
+          renderDirections();
+          if (selectedDirection) {
+            loadKeywords(selectedDirection);
+          } else {
+            renderEmptyState();
+          }
+          populateLearnDirection();
+        } catch (err) {
+          dirListEl.innerHTML = '<div style="padding:12px; color:#ef4444; font-size:0.85rem;">Failed to load directions: ' + escapeHtml(err.message) + '</div>';
+          showToast('Failed to load directions: ' + err.message, 'error');
+        }
+      }
+
+      function selectDirection(dirId) {
+        if (dirId === selectedDirection) return;
+        selectedDirection = dirId;
+        renderDirections();
+        loadKeywords(dirId);
+        // update learn direction
+        if (learnDirection.querySelector('option[value="' + escapeHtmlAttr(dirId) + '"]')) {
+          learnDirection.value = dirId;
+        }
+      }
+
+      // --- Keywords ---
+      function renderEmptyState() {
+        kwSectionTitle.textContent = 'Keywords';
+        kwCountBadge.style.display = 'none';
+        kwContent.innerHTML =
+          '<div class="empty-state">' +
+          '<div class="empty-icon">&#128196;</div>' +
+          '<p>Select a direction from the sidebar</p>' +
+          '</div>';
+      }
+
+      function renderNoKeywords() {
+        kwContent.innerHTML =
+          '<div class="empty-state">' +
+          '<div class="empty-icon">&#128203;</div>' +
+          '<p>No keywords in this direction yet</p>' +
+          '</div>';
+      }
+
+      let deletingKeyword = null; // track which keyword is in confirm state
+
+      function renderKeywords(kwData) {
+        var keywords = kwData && kwData.keywords ? kwData.keywords : [];
+        var count = keywords.length;
+        kwSectionTitle.textContent = selectedDirection ? selectedDirection.replace(/_/g, ' ') : 'Keywords';
+        if (count > 0) {
+          kwCountBadge.style.display = 'inline-flex';
+          kwCountBadge.textContent = count;
+        } else {
+          kwCountBadge.style.display = 'none';
+        }
+
+        // Update sidebar count
+        renderDirections();
+
+        if (count === 0) {
+          renderNoKeywords();
+          return;
+        }
+
+        var html = '<table class="kw-table">' +
+          '<thead><tr><th>Keyword</th><th style="width:120px;">Actions</th></tr></thead>' +
+          '<tbody>';
+        keywords.forEach(function(kw) {
+          var showConfirm = deletingKeyword === kw;
+          html += '<tr>' +
+            '<td style="font-weight:500; font-family:monospace;">' + escapeHtml(kw) + '</td>' +
+            '<td>';
+          if (showConfirm) {
+            html += '<div class="confirm-box">' +
+              '<span style="font-size:0.75rem; color:var(--text-secondary);">Sure?</span>' +
+              '<button class="btn-confirm confirm-yes" data-kw="' + escapeHtmlAttr(kw) + '">Yes</button>' +
+              '<button class="btn-cancel confirm-no">No</button>' +
+            '</div>';
+          } else {
+            html += '<button class="btn-danger delete-btn" data-kw="' + escapeHtmlAttr(kw) + '">Delete</button>';
+          }
+          html += '</td></tr>';
+        });
+        html += '</tbody></table>';
+        kwContent.innerHTML = html;
+
+        // Bind delete buttons
+        kwContent.querySelectorAll('.delete-btn').forEach(function(btn) {
+          btn.addEventListener('click', function() {
+            deletingKeyword = btn.dataset.kw;
+            renderKeywords(keywordsCache[selectedDirection]);
+          });
+        });
+
+        // Bind confirm yes
+        kwContent.querySelectorAll('.confirm-yes').forEach(function(btn) {
+          btn.addEventListener('click', function() {
+            var kw = btn.dataset.kw;
+            deletingKeyword = null;
+            doDeleteKeyword(kw);
+          });
+        });
+
+        // Bind confirm no
+        kwContent.querySelectorAll('.confirm-no').forEach(function(btn) {
+          btn.addEventListener('click', function() {
+            deletingKeyword = null;
+            renderKeywords(keywordsCache[selectedDirection]);
+          });
+        });
+      }
+
+      function renderKeywordsLoading() {
+        kwContent.innerHTML = '<div class="loading-overlay"><span class="spinner"></span> Loading keywords...</div>';
+      }
+
+      async function loadKeywords(dir) {
+        if (!dir) return;
+        try {
+          renderKeywordsLoading();
+          const result = await apiGet('/api/keyword-vault/keywords?direction=' + encodeURIComponent(dir));
+          const kwData = result.data || { keywords: [] };
+          keywordsCache[dir] = kwData;
+          renderKeywords(kwData);
+        } catch (err) {
+          kwContent.innerHTML = '<div style="padding:12px; color:#ef4444; font-size:0.85rem;">Failed to load keywords: ' + escapeHtml(err.message) + '</div>';
+          showToast('Failed to load keywords: ' + err.message, 'error');
+        }
+      }
+
+      // --- Add keyword ---
+      addBtn.addEventListener('click', function() {
+        doAddKeyword();
+      });
+      addInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') doAddKeyword();
+      });
+
+      async function doAddKeyword() {
+        var dir = selectedDirection;
+        if (!dir) {
+          addStatus.textContent = 'Select a direction first.';
+          addStatus.style.color = '#ef4444';
+          return;
+        }
+        var kw = addInput.value.trim();
+        if (!kw) {
+          addStatus.textContent = 'Enter a keyword.';
+          addStatus.style.color = '#ef4444';
+          return;
+        }
+        try {
+          addBtn.disabled = true;
+          addBtn.textContent = 'Adding...';
+          addStatus.textContent = '';
+          await apiPost('/api/keyword-vault/add', { direction: dir, keyword: kw.toUpperCase() });
+          addInput.value = '';
+          addStatus.textContent = 'Keyword added.';
+          addStatus.style.color = '#22c55e';
+          showToast('Keyword "' + kw.toUpperCase() + '" added to ' + dir, 'success');
+          deletingKeyword = null;
+          await loadKeywords(dir);
+        } catch (err) {
+          addStatus.textContent = 'Error: ' + err.message;
+          addStatus.style.color = '#ef4444';
+          showToast('Failed to add keyword: ' + err.message, 'error');
+        } finally {
+          addBtn.disabled = false;
+          addBtn.textContent = 'Add';
+        }
+      }
+
+      // --- Delete keyword ---
+      async function doDeleteKeyword(kw) {
+        var dir = selectedDirection;
+        if (!dir) return;
+        try {
+          kwContent.innerHTML = '<div class="loading-overlay"><span class="spinner"></span> Deleting...</div>';
+          await apiPost('/api/keyword-vault/delete', { direction: dir, keyword: kw });
+          showToast('Keyword "' + kw + '" deleted from ' + dir, 'success');
+          await loadKeywords(dir);
+        } catch (err) {
+          showToast('Failed to delete keyword: ' + err.message, 'error');
+          renderKeywords(keywordsCache[dir]);
+        }
+      }
+
+      // --- Populate learn direction ---
+      function populateLearnDirection() {
+        var val = learnDirection.value;
+        learnDirection.innerHTML = '<option value="">-- Select --</option>';
+        directions.forEach(function(dir) {
+          var sel = dir.id === selectedDirection ? ' selected' : '';
+          learnDirection.innerHTML += '<option value="' + escapeHtmlAttr(dir.id) + '"' + sel + '>' + escapeHtml(dir.name || dir.id.replace(/_/g, ' ')) + '</option>';
+        });
+      }
+
+      // --- Auto-learn ---
+      learnBtn.addEventListener('click', function() {
+        doAutoLearn();
+      });
+
+      async function doAutoLearn() {
+        var dir = learnDirection.value;
+        if (!dir) {
+          showToast('Select a direction for auto-learn.', 'error');
+          return;
+        }
+        var text = learnTextarea.value.trim();
+        if (!text) {
+          showToast('Paste log text to analyze.', 'error');
+          return;
+        }
+        try {
+          learnBtn.disabled = true;
+          learnSpinner.style.display = 'inline-block';
+          learnResult.innerHTML = '';
+          const result = await apiPost('/api/keyword-vault/auto-learn', { text: text, direction: dir });
+          const learned = result.data && result.data.learned ? result.data.learned : [];
+          if (learned.length === 0) {
+            learnResult.innerHTML = '<div class="learn-preview"><div class="preview-title">No new keywords found.</div></div>';
+            showToast('Auto-learn complete: no new keywords found for ' + dir, 'info');
+          } else {
+            var tagsHtml = learned.map(function(item) {
+              var kw = typeof item === 'string' ? item : item.word;
+              return '<span class="preview-tag">' + escapeHtml(kw) + '</span>';
+            }).join('');
+            learnResult.innerHTML = '<div class="learn-preview">' +
+              '<div class="preview-title">Learned ' + learned.length + ' keyword' + (learned.length > 1 ? 's' : '') + '</div>' +
+              '<div class="preview-tags">' + tagsHtml + '</div>' +
+            '</div>';
+            showToast('Learned ' + learned.length + ' keyword' + (learned.length > 1 ? 's' : '') + ' for ' + dir, 'success');
+          }
+
+          // persist selection direction id string
+          var dirId = selectedDirection;
+          // Refresh keywords if viewing the same direction
+          if (dirId === dir) {
+            deletingKeyword = null;
+            await loadKeywords(dir);
+          } else {
+            // Still update cache
+            try {
+              const reload = await apiGet('/api/keyword-vault/keywords?direction=' + encodeURIComponent(dir));
+              keywordsCache[dir] = reload.data || { keywords: [] };
+              // Re-render directions to update badge
+              renderDirections();
+            } catch(e) { /* ignore */ }
+          }
+        } catch (err) {
+          learnResult.innerHTML = '<div style="color:#ef4444; font-size:0.85rem;">Error: ' + escapeHtml(err.message) + '</div>';
+          showToast('Auto-learn failed: ' + err.message, 'error');
+        } finally {
+          learnBtn.disabled = false;
+          learnSpinner.style.display = 'none';
+        }
+      }
+
+      // --- New Direction ---
+      newDirBtn.addEventListener('click', function() {
+        doNewDirection();
+      });
+      newDirId.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') doNewDirection();
+      });
+      newDirName.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') doNewDirection();
+      });
+
+      async function doNewDirection() {
+        var id = newDirId.value.trim();
+        var name = newDirName.value.trim();
+        if (!id) {
+          newDirStatus.textContent = 'Enter a direction ID.';
+          newDirStatus.style.color = '#ef4444';
+          return;
+        }
+        if (!name) {
+          newDirStatus.textContent = 'Enter a display name.';
+          newDirStatus.style.color = '#ef4444';
+          return;
+        }
+        try {
+          newDirBtn.disabled = true;
+          newDirBtn.textContent = 'Creating...';
+          newDirStatus.textContent = '';
+          await apiPost('/api/keyword-vault/new-direction', { id: id, name: name });
+          newDirId.value = '';
+          newDirName.value = '';
+          newDirStatus.textContent = 'Direction created.';
+          newDirStatus.style.color = '#22c55e';
+          showToast('Direction "' + name + '" created', 'success');
+          // Reload directions and select the new one
+          await loadDirections();
+          selectDirection(id);
+        } catch (err) {
+          newDirStatus.textContent = 'Error: ' + err.message;
+          newDirStatus.style.color = '#ef4444';
+          showToast('Failed to create direction: ' + err.message, 'error');
+        } finally {
+          newDirBtn.disabled = false;
+          newDirBtn.textContent = 'Create';
+        }
+      }
+
+      // --- Escape helpers ---
+      function escapeHtml(str) {
+        if (typeof str !== 'string') return '';
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+      }
+      function escapeHtmlAttr(str) {
+        return escapeHtml(str).replace(/&quot;/g, '&amp;quot;').replace(/&#39;/g, '&amp;#39;');
+      }
+
+      // --- Init ---
+      renderEmptyState();
+      loadDirections();
+    })();
+  </script>
+</body>
+</html>

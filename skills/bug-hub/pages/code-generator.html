@@ -1,0 +1,1290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Code Generator</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  /* ============ Base & Reset ============ */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-family: 'Outfit', sans-serif; scroll-behavior: smooth; }
+  body { font-family: 'Outfit', sans-serif; transition: background 0.4s cubic-bezier(0.16,1,0.3,1), color 0.4s cubic-bezier(0.16,1,0.3,1); min-height: 100vh; }
+  body.light { background: #f8fafc; color: #1e293b; }
+  body.dark { background: #0f172a; color: #f8fafc; }
+
+  /* ============ Animations ============ */
+  @keyframes fadeInUp {
+    0% { opacity: 0; transform: translateY(24px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeIn {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+  }
+  @keyframes spin3d {
+    0% { transform: rotate(0deg) scale(1); }
+    50% { transform: rotate(180deg) scale(1.15); }
+    100% { transform: rotate(360deg) scale(1); }
+  }
+  @keyframes blob {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    25% { transform: translate(30px, -40px) scale(1.05); }
+    50% { transform: translate(-20px, 30px) scale(0.95); }
+    75% { transform: translate(40px, 20px) scale(1.02); }
+  }
+  @keyframes aurora {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  @keyframes shimmer {
+    0% { background-position: -200% center; }
+    100% { background-position: 200% center; }
+  }
+  @keyframes pulseGlow {
+    0%, 100% { box-shadow: 0 0 8px rgba(102,126,234,0.3); }
+    50% { box-shadow: 0 0 20px rgba(102,126,234,0.6); }
+  }
+  @keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  .animate-fade-in-up { animation: fadeInUp 0.8s cubic-bezier(0.16,1,0.3,1) both; }
+  .animate-fade-in { animation: fadeIn 0.6s cubic-bezier(0.16,1,0.3,1) both; }
+  .animate-spin3d { animation: spin3d 1.2s cubic-bezier(0.16,1,0.3,1) infinite; }
+  .animate-blob { animation: blob 7s ease-in-out infinite; }
+  .animate-aurora { animation: aurora 40s linear infinite; }
+  .animate-shimmer { animation: shimmer 3s linear infinite; background-size: 200% 100%; }
+  .animate-pulse-glow { animation: pulseGlow 2s ease-in-out infinite; }
+  .animate-gradient-shift { background-size: 200% 200%; animation: gradientShift 4s ease infinite; }
+
+  /* ============ Staggered Delays ============ */
+  .delay-1 { animation-delay: 0.1s; }
+  .delay-2 { animation-delay: 0.2s; }
+  .delay-3 { animation-delay: 0.3s; }
+  .delay-4 { animation-delay: 0.4s; }
+  .delay-5 { animation-delay: 0.5s; }
+  .delay-6 { animation-delay: 0.6s; }
+
+  /* ============ Glass Panel ============ */
+  .glass-panel {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(40px);
+    -webkit-backdrop-filter: blur(40px);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    border-radius: 24px;
+  }
+  .dark .glass-panel {
+    background: rgba(15, 23, 42, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  /* ============ Button Gradient ============ */
+  .btn-gradient {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background-size: 200% 200%;
+    color: white;
+    transition: all 0.5s ease;
+    border: none;
+    cursor: pointer;
+  }
+  .btn-gradient:hover {
+    background-position: right center;
+    box-shadow: 0 10px 25px -5px rgba(102, 126, 234, 0.4);
+    transform: translateY(-2px);
+  }
+  .btn-gradient:active {
+    transform: translateY(1px);
+    box-shadow: 0 4px 6px -1px rgba(102, 126, 234, 0.2);
+  }
+  .btn-gradient:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+  }
+
+  /* ============ Input Modern ============ */
+  .input-modern {
+    width: 100%;
+    padding: 14px 16px 14px 44px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.7);
+    border: 2px solid rgba(209, 213, 219, 0.6);
+    color: #1f2937;
+    transition: all 0.3s ease;
+    outline: none;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.95rem;
+  }
+  .input-modern:focus {
+    background: #ffffff;
+    border-color: #667eea;
+    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.2);
+  }
+  .input-modern::placeholder { color: #94a3b8; }
+  .dark .input-modern {
+    background: rgba(15, 23, 42, 0.7);
+    border-color: rgba(71, 85, 105, 0.6);
+    color: #f8fafc;
+  }
+  .dark .input-modern:focus {
+    background: rgba(15, 23, 42, 0.95);
+    border-color: #7f9cf5;
+    box-shadow: 0 0 0 4px rgba(127, 156, 245, 0.2);
+  }
+  .dark .input-modern::placeholder { color: #64748b; }
+  .dark .input-modern:-webkit-autofill,
+  .dark .input-modern:-webkit-autofill:hover,
+  .dark .input-modern:-webkit-autofill:focus {
+    -webkit-text-fill-color: #f8fafc;
+    -webkit-box-shadow: 0 0 0 30px rgba(15,23,42,0.95) inset !important;
+    transition: background-color 5000s ease-in-out 0s;
+  }
+
+  /* === Textarea (no icon padding) === */
+  .textarea-modern {
+    width: 100%;
+    padding: 14px 16px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.7);
+    border: 2px solid rgba(209, 213, 219, 0.6);
+    color: #1f2937;
+    transition: all 0.3s ease;
+    outline: none;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.95rem;
+    resize: vertical;
+    min-height: 120px;
+  }
+  .textarea-modern:focus {
+    background: #ffffff;
+    border-color: #667eea;
+    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.2);
+  }
+  .textarea-modern::placeholder { color: #94a3b8; }
+  .dark .textarea-modern {
+    background: rgba(15, 23, 42, 0.7);
+    border-color: rgba(71, 85, 105, 0.6);
+    color: #f8fafc;
+  }
+  .dark .textarea-modern:focus {
+    background: rgba(15, 23, 42, 0.95);
+    border-color: #7f9cf5;
+    box-shadow: 0 0 0 4px rgba(127, 156, 245, 0.2);
+  }
+  .dark .textarea-modern::placeholder { color: #64748b; }
+
+  /* ============ Select Modern ============ */
+  .select-modern {
+    width: 100%;
+    padding: 14px 16px 14px 44px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.7);
+    border: 2px solid rgba(209, 213, 219, 0.6);
+    color: #1f2937;
+    transition: all 0.3s ease;
+    outline: none;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.95rem;
+    appearance: none;
+    cursor: pointer;
+  }
+  .select-modern:focus {
+    background: #ffffff;
+    border-color: #667eea;
+    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.2);
+  }
+  .dark .select-modern {
+    background: rgba(15, 23, 42, 0.7);
+    border-color: rgba(71, 85, 105, 0.6);
+    color: #f8fafc;
+  }
+  .dark .select-modern:focus {
+    background: rgba(15, 23, 42, 0.95);
+    border-color: #7f9cf5;
+    box-shadow: 0 0 0 4px rgba(127, 156, 245, 0.2);
+  }
+  .select-modern option { background: #fff; color: #1e293b; }
+  .dark .select-modern option { background: #1e293b; color: #f8fafc; }
+
+  /* ============ Toast ============ */
+  .toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+  }
+  .toast {
+    border-radius: 12px;
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    transform: translateY(96px);
+    opacity: 0;
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    pointer-events: auto;
+    min-width: 300px;
+    max-width: 420px;
+    font-size: 0.9rem;
+    font-weight: 500;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.hide { transform: translateY(96px); opacity: 0; }
+  .toast-success { background: rgba(16, 185, 129, 0.92); color: white; border: 1px solid rgba(16, 185, 129, 0.3); }
+  .toast-error { background: rgba(239, 68, 68, 0.92); color: white; border: 1px solid rgba(239, 68, 68, 0.3); }
+  .toast-info { background: rgba(59, 130, 246, 0.92); color: white; border: 1px solid rgba(59, 130, 246, 0.3); }
+
+  /* ============ Aurora Background ============ */
+  .aurora-bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .aurora-stripes {
+    position: absolute;
+    inset: -50%;
+    background: repeating-linear-gradient(55deg, transparent, transparent 20px, rgba(96, 165, 250, 0.06) 20px, rgba(232, 121, 249, 0.06) 40px, rgba(94, 234, 212, 0.04) 60px);
+    filter: blur(80px);
+    animation: aurora 40s linear infinite;
+  }
+  .aurora-blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.12;
+  }
+  .dark .aurora-blob { opacity: 0.15; }
+
+  /* ============ Spinner ============ */
+  .spinner-ring {
+    display: inline-block;
+    width: 48px;
+    height: 48px;
+    border: 4px solid rgba(102, 126, 234, 0.15);
+    border-top-color: #667eea;
+    border-radius: 50%;
+    animation: spin3d 1.2s cubic-bezier(0.16,1,0.3,1) infinite;
+  }
+
+  /* ============ Level Radio Card ============ */
+  .level-card {
+    position: relative;
+    cursor: pointer;
+    border-radius: 16px;
+    padding: 16px;
+    border: 2px solid rgba(209, 213, 219, 0.5);
+    background: rgba(255, 255, 255, 0.5);
+    transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
+  }
+  .dark .level-card {
+    background: rgba(15, 23, 42, 0.4);
+    border-color: rgba(71, 85, 105, 0.4);
+  }
+  .level-card:hover {
+    border-color: #667eea;
+    box-shadow: 0 4px 16px rgba(102, 126, 234, 0.12);
+    transform: translateY(-1px);
+  }
+  .level-card.selected {
+    border-color: #667eea;
+    background: rgba(102, 126, 234, 0.08);
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15), 0 4px 16px rgba(102, 126, 234, 0.1);
+  }
+  .dark .level-card.selected {
+    background: rgba(102, 126, 234, 0.06);
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  }
+  .level-card input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .level-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+  }
+
+  /* ============ Code Block ============ */
+  .code-block {
+    background: #0d1117;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .code-block pre {
+    padding: 20px;
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+    font-size: 0.82rem;
+    line-height: 1.7;
+    color: #e6edf3;
+    tab-size: 2;
+  }
+  .code-block code {
+    font-family: inherit;
+  }
+  /* Syntax highlight */
+  .code-block .kw   { color: #ff7b72; }  /* keywords */
+  .code-block .type { color: #ffa657; }  /* types */
+  .code-block .str  { color: #a5d6ff; }  /* strings */
+  .code-block .num  { color: #79c0ff; }  /* numbers */
+  .code-block .cm   { color: #8b949e; font-style: italic; }  /* comments */
+  .code-block .pp   { color: #d2a8ff; }  /* preprocessor */
+  .code-block .fn   { color: #d2a8ff; }  /* function */
+  .code-block .op   { color: #ff7b72; }  /* operators */
+  .code-block .macro{ color: #a5d6ff; }  /* macros */
+  .code-block .line-hl {
+    display: block;
+    background: rgba(102,126,234,0.06);
+    border-left: 3px solid #667eea;
+    padding-left: 12px;
+    margin-left: -12px;
+  }
+  .code-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: rgba(255,255,255,0.03);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+
+  /* ============ History Item ============ */
+  .history-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+  }
+  .history-item:hover {
+    background: rgba(102, 126, 234, 0.06);
+    border-color: rgba(102, 126, 234, 0.12);
+  }
+  .dark .history-item:hover {
+    background: rgba(102, 126, 234, 0.05);
+  }
+  .history-item .del-btn {
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .history-item:hover .del-btn { opacity: 1; }
+
+  /* ============ Title Gradient ============ */
+  .text-gradient {
+    background: linear-gradient(135deg, #1e40af 0%, #ec4899 50%, #4f46e5 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .dark .text-gradient {
+    background: linear-gradient(135deg, #60a5fa 0%, #e879f9 50%, #818cf8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* ============ Badge ============ */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  /* ============ Instructions / Tests ============ */
+  .info-block {
+    border-radius: 12px;
+    padding: 16px 18px;
+    background: rgba(255,255,255,0.5);
+    border: 1px solid rgba(209,213,219,0.4);
+  }
+  .dark .info-block {
+    background: rgba(15,23,42,0.4);
+    border-color: rgba(71,85,105,0.3);
+  }
+  .info-block ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .info-block li {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 0.88rem;
+    line-height: 1.5;
+    color: #475569;
+  }
+  .dark .info-block li {
+    color: #cbd5e1;
+  }
+  .info-block li::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    margin-top: 8px;
+    flex-shrink: 0;
+  }
+
+  /* ============ Empty State ============ */
+  .empty-icon-ring {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: rgba(102, 126, 234, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+  }
+  .dark .empty-icon-ring { background: rgba(102, 126, 234, 0.06); }
+
+  /* ============ Scrollbar ============ */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(102, 126, 234, 0.3); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(102, 126, 234, 0.5); }
+
+  /* ============ Split Layout ============ */
+  .layout-main {
+    flex: 1;
+    min-width: 0;
+    max-width: 720px;
+  }
+  .layout-side {
+    width: 280px;
+    flex-shrink: 0;
+  }
+
+  /* ============ Sidebar card ============ */
+  .sidebar-card {
+    border-radius: 24px;
+    padding: 18px;
+    background: rgba(255, 255, 255, 0.5);
+    border: 1px solid rgba(209,213,219,0.3);
+  }
+  .dark .sidebar-card {
+    background: rgba(15,23,42,0.4);
+    border-color: rgba(71,85,105,0.2);
+  }
+
+  /* ============ Copy feedback ============ */
+  .copy-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.05);
+    color: #8b949e;
+  }
+  .copy-btn:hover {
+    background: rgba(255,255,255,0.1);
+    color: #e6edf3;
+  }
+  .copy-btn.copied {
+    background: rgba(16,185,129,0.15);
+    border-color: rgba(16,185,129,0.3);
+    color: #34d399;
+  }
+
+  /* ============ Responsive ============ */
+  @media (max-width: 1023px) {
+    .layout-side {
+      width: 100%;
+      max-width: 720px;
+    }
+  }
+  @media (max-width: 640px) {
+    .toast-container { left: 12px; right: 12px; bottom: 12px; }
+    .toast { min-width: unset; max-width: unset; }
+  }
+</style>
+</head>
+<body class="dark">
+
+  <!-- ===== Aurora Background ===== -->
+  <div class="aurora-bg" aria-hidden="true">
+    <div class="aurora-stripes"></div>
+    <div class="aurora-blob" style="width:500px;height:500px;top:-100px;left:-100px;background:#667eea;animation:blob 7s ease-in-out infinite;"></div>
+    <div class="aurora-blob" style="width:400px;height:400px;bottom:-80px;right:-60px;background:#764ba2;animation:blob 8s ease-in-out infinite reverse;animation-delay:2s;"></div>
+    <div class="aurora-blob" style="width:350px;height:350px;top:50%;left:60%;background:#ec4899;animation:blob 9s ease-in-out infinite;animation-delay:4s;"></div>
+  </div>
+
+  <!-- ===== Toast Container ===== -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- ===== MAIN LAYOUT ===== -->
+  <div class="relative z-10 px-4 sm:px-6 py-8 md:py-10 min-h-screen flex flex-col items-center">
+
+    <!-- Header -->
+    <header class="animate-fade-in-up w-full max-w-[1040px] mb-6">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-[#667eea] to-[#764ba2] flex items-center justify-center shadow-lg shadow-[#667eea]/20">
+            <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+            </svg>
+          </div>
+          <div>
+            <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight text-gradient">Code Generator</h1>
+            <p class="text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-0.5">Generate debug code snippets by level</p>
+          </div>
+        </div>
+        <!-- Theme Toggle -->
+        <button id="themeToggle" class="w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-300 bg-slate-200/60 dark:bg-slate-700/60 hover:bg-slate-300/60 dark:hover:bg-slate-600/60 text-slate-500 dark:text-slate-300" aria-label="Toggle theme">
+          <svg id="sunIcon" class="w-4.5 h-4.5 hidden dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+          </svg>
+          <svg id="moonIcon" class="w-4.5 h-4.5 dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- ===== FLEX LAYOUT: Main + Sidebar ===== -->
+    <div class="w-full max-w-[1040px] flex flex-col lg:flex-row gap-6 animate-fade-in-up delay-1">
+
+      <!-- ===== MAIN CONTENT ===== -->
+      <div class="layout-main flex flex-col gap-6">
+
+        <!-- ===== FORM PANEL ===== -->
+        <section class="glass-panel p-6 md:p-8">
+          <div class="flex items-center gap-2 mb-5">
+            <svg class="w-5 h-5 text-[#667eea] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+            </svg>
+            <h2 class="text-lg font-semibold">Generation Configuration</h2>
+          </div>
+
+          <!-- Description -->
+          <div class="mb-5">
+            <label class="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-1.5" for="descInput">Problem Description</label>
+            <div class="relative">
+              <textarea id="descInput" class="textarea-modern" placeholder="Describe the bug or the code you need to debug... e.g. TCPM state machine stuck in SRC_Ready, no hard reset triggered after 5s timeout" rows="4" spellcheck="false"></textarea>
+            </div>
+          </div>
+
+          <!-- Driver Type -->
+          <div class="mb-5">
+            <label class="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-1.5" for="driverSelect">Driver Type</label>
+            <div class="relative">
+              <svg class="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none z-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+              </svg>
+              <select id="driverSelect" class="select-modern">
+                <option value="pd_tcpm">pd_tcpm — USB PD TCPM</option>
+                <option value="usb_core">usb_core — USB Core</option>
+                <option value="i2c_pmic">i2c_pmic — I2C PMIC</option>
+                <option value="thermal">thermal — Thermal Framework</option>
+                <option value="kernel">kernel — General Kernel</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Level Radio Cards -->
+          <div class="mb-6">
+            <label class="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-3">Debug Level</label>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <!-- L1 -->
+              <label class="level-card" data-level="1">
+                <input type="radio" name="level" value="1" checked>
+                <div class="flex items-center justify-between mb-1.5">
+                  <span class="level-badge text-xs bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">L1</span>
+                  <span class="text-[11px] text-slate-400 dark:text-slate-500 font-mono">~5 min</span>
+                </div>
+                <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">Quick Debug</p>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">pr_debug logging, basic state checks</p>
+              </label>
+              <!-- L2 -->
+              <label class="level-card" data-level="2">
+                <input type="radio" name="level" value="2">
+                <div class="flex items-center justify-between mb-1.5">
+                  <span class="level-badge text-xs bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">L2</span>
+                  <span class="text-[11px] text-slate-400 dark:text-slate-500 font-mono">~15 min</span>
+                </div>
+                <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">Full Diagnosis</p>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">State tracking + trace events</p>
+              </label>
+              <!-- L3 -->
+              <label class="level-card" data-level="3">
+                <input type="radio" name="level" value="3">
+                <div class="flex items-center justify-between mb-1.5">
+                  <span class="level-badge text-xs bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300">L3</span>
+                  <span class="text-[11px] text-slate-400 dark:text-slate-500 font-mono">~30 min</span>
+                </div>
+                <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">Production Fix</p>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">Patches + boundary handling</p>
+              </label>
+            </div>
+          </div>
+
+          <!-- Generate Button -->
+          <button id="generateBtn" class="btn-gradient w-full py-4 px-6 rounded-xl text-lg font-bold uppercase tracking-wider focus:ring-4 focus:ring-[#667eea]/50 focus:outline-none flex items-center justify-center gap-3">
+            <svg id="genBtnIcon" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+            </svg>
+            <span id="genBtnText">Generate Code</span>
+          </button>
+        </section>
+
+        <!-- ===== LOADING ===== -->
+        <section id="loadingPanel" class="glass-panel p-10 md:p-12 text-center" style="display:none;">
+          <div class="spinner-ring mx-auto mb-5"></div>
+          <p class="text-lg font-semibold text-slate-700 dark:text-slate-200 mb-1">Generating Code</p>
+          <p class="text-sm text-slate-500 dark:text-slate-400">Analyzing request and building snippet...</p>
+        </section>
+
+        <!-- ===== ERROR ===== -->
+        <section id="errorPanel" class="glass-panel p-8 md:p-10 text-center" style="display:none;">
+          <div class="w-16 h-16 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center mx-auto mb-4">
+            <svg class="w-8 h-8 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+          </div>
+          <h3 class="text-lg font-semibold text-slate-700 dark:text-slate-200 mb-1">Generation Failed</h3>
+          <p id="errorMsg" class="text-sm text-red-500 dark:text-red-400 mb-5 max-w-md mx-auto"></p>
+          <button id="retryBtn" class="btn-gradient inline-flex items-center gap-2 py-3 px-8 rounded-xl text-base font-bold uppercase tracking-wider focus:ring-4 focus:ring-[#667eea]/50 focus:outline-none">
+            <svg class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            Retry
+          </button>
+        </section>
+
+        <!-- ===== EMPTY ===== -->
+        <section id="emptyPanel" class="glass-panel p-8 md:p-10">
+          <div class="text-center">
+            <div class="empty-icon-ring mb-4">
+              <svg class="w-9 h-9 text-[#667eea]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+              </svg>
+            </div>
+            <h3 class="text-lg font-semibold text-slate-700 dark:text-slate-200 mb-2">Ready to Generate</h3>
+            <p class="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed mb-5">
+              Describe the bug or debugging need, choose a driver type and debug level, then generate a tailored C code snippet.
+            </p>
+            <div class="inline-flex items-center gap-6 text-xs text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-800/40 rounded-xl px-5 py-3 flex-wrap justify-center">
+              <span class="flex items-center gap-1.5">
+                <svg class="w-4 h-4 text-[#667eea]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                L1 Quick Debug
+              </span>
+              <span class="flex items-center gap-1.5">
+                <svg class="w-4 h-4 text-[#667eea]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                L2 Full Diagnosis
+              </span>
+              <span class="flex items-center gap-1.5">
+                <svg class="w-4 h-4 text-[#667eea]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                L3 Production Fix
+              </span>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== RESULT PANEL ===== -->
+        <section id="resultPanel" class="glass-panel overflow-hidden" style="display:none;">
+          <!-- Code Block -->
+          <div>
+            <div class="code-header">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-medium text-slate-400">Generated Code</span>
+                <span id="levelBadge" class="badge text-[11px] bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">L1</span>
+                <span id="driverBadge" class="badge text-[11px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">pd_tcpm</span>
+              </div>
+              <button id="copyBtn" class="copy-btn" title="Copy to clipboard">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                </svg>
+                <span id="copyLabel">Copy</span>
+              </button>
+            </div>
+            <div class="code-block">
+              <pre><code id="codeContent"><span class="cm">/* Generated code will appear here */</span></code></pre>
+            </div>
+          </div>
+
+          <!-- Instructions -->
+          <div class="px-6 md:px-8 pt-6 pb-2">
+            <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-2">
+              <svg class="w-4 h-4 text-[#667eea]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              Instructions
+            </h3>
+            <div id="instructionsBlock" class="info-block">
+              <p class="text-sm text-slate-400 dark:text-slate-500 italic">No instructions provided.</p>
+            </div>
+          </div>
+
+          <!-- Test Suggestions -->
+          <div class="px-6 md:px-8 pt-4 pb-6 md:pb-8">
+            <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-2">
+              <svg class="w-4 h-4 text-[#667eea]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+              Test Suggestions
+            </h3>
+            <div id="testsBlock" class="info-block">
+              <p class="text-sm text-slate-400 dark:text-slate-500 italic">No test suggestions.</p>
+            </div>
+          </div>
+
+          <!-- Divider -->
+          <div class="border-t border-slate-200 dark:border-slate-700/50 mx-6 md:mx-8"></div>
+
+          <!-- Regenerate footer -->
+          <div class="px-6 md:px-8 py-4 flex justify-end">
+            <button id="regenerateBtn" class="btn-gradient inline-flex items-center gap-2 py-2.5 px-5 rounded-xl text-sm font-bold uppercase tracking-wider focus:ring-4 focus:ring-[#667eea]/50 focus:outline-none">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+              Regenerate
+            </button>
+          </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="mt-2 text-center">
+          <p class="text-xs text-slate-400 dark:text-slate-600">Code Generator &middot; Powered by Bug Hub API</p>
+        </footer>
+      </div>
+
+      <!-- ===== SIDEBAR: History ===== -->
+      <aside class="layout-side animate-fade-in-up delay-2">
+        <div class="sidebar-card sticky" style="top:24px;">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+              <svg class="w-4.5 h-4.5 text-[#667eea]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+              </svg>
+              <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-200">History</h3>
+              <span id="historyCount" class="text-[11px] text-slate-400 dark:text-slate-500">(0)</span>
+            </div>
+            <button id="clearHistoryBtn" class="text-[11px] text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 transition-colors" title="Clear history">Clear</button>
+          </div>
+          <div id="historyList" class="flex flex-col gap-1 max-h-[400px] overflow-y-auto">
+            <!-- Dynamically populated -->
+            <p class="text-xs text-slate-400 dark:text-slate-500 text-center py-6">No history yet. Generate some code!</p>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      'use strict';
+
+      // ============================================================
+      // Configuration
+      // ============================================================
+      const STORAGE_KEY = 'code_generator_history';
+      const MAX_HISTORY = 10;
+      const API_ENDPOINT = '/api/code-generator/generate';
+
+      const LEVEL_META = {
+        1: { name: 'Quick Debug', time: '~5 min', desc: 'pr_debug logging, basic state checks', cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
+        2: { name: 'Full Diagnosis', time: '~15 min', desc: 'State tracking + trace events', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
+        3: { name: 'Production Fix', time: '~30 min', desc: 'Patches + boundary handling', cls: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300' }
+      };
+
+      const DRIVER_LABELS = {
+        pd_tcpm: 'pd_tcpm',
+        usb_core: 'usb_core',
+        i2c_pmic: 'i2c_pmic',
+        thermal: 'thermal',
+        kernel: 'kernel'
+      };
+
+      // ============================================================
+      // DOM Refs
+      // ============================================================
+      const $ = (id) => document.getElementById(id);
+      const descInput     = $('descInput');
+      const driverSelect  = $('driverSelect');
+      const generateBtn   = $('generateBtn');
+      const genBtnIcon    = $('genBtnIcon');
+      const genBtnText    = $('genBtnText');
+      const loadingPanel  = $('loadingPanel');
+      const emptyPanel    = $('emptyPanel');
+      const errorPanel    = $('errorPanel');
+      const errorMsg      = $('errorMsg');
+      const retryBtn      = $('retryBtn');
+      const resultPanel   = $('resultPanel');
+      const codeContent   = $('codeContent');
+      const levelBadge    = $('levelBadge');
+      const driverBadge   = $('driverBadge');
+      const copyBtn       = $('copyBtn');
+      const copyLabel     = $('copyLabel');
+      const instructionsBlock = $('instructionsBlock');
+      const testsBlock    = $('testsBlock');
+      const regenerateBtn = $('regenerateBtn');
+      const historyList   = $('historyList');
+      const historyCount  = $('historyCount');
+      const clearHistoryBtn = $('clearHistoryBtn');
+      const toastContainer = $('toastContainer');
+      const themeToggle   = $('themeToggle');
+
+      // ============================================================
+      // Theme Management
+      // ============================================================
+      function detectParentTheme() {
+        try {
+          if (window.parent && window.parent.document) {
+            const parentDark = window.parent.document.documentElement.classList.contains('dark');
+            return parentDark ? 'dark' : 'light';
+          }
+        } catch (e) {}
+        const stored = localStorage.getItem('theme');
+        if (stored) return stored;
+        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+
+      function applyTheme(theme) {
+        document.body.classList.remove('dark', 'light');
+        document.body.classList.add(theme);
+      }
+
+      function initTheme() {
+        applyTheme(detectParentTheme());
+      }
+
+      function toggleTheme() {
+        const isDark = document.body.classList.contains('dark');
+        const newTheme = isDark ? 'light' : 'dark';
+        applyTheme(newTheme);
+        localStorage.setItem('theme', newTheme);
+        try {
+          if (window.parent && window.parent !== window) {
+            window.parent.postMessage({ type: 'theme-change', theme: newTheme }, '*');
+          }
+        } catch (e) {}
+      }
+
+      function listenForParentTheme() {
+        try {
+          if (window.parent && window.parent !== window) {
+            window.addEventListener('message', (e) => {
+              if (e.data && e.data.type === 'theme-change') {
+                applyTheme(e.data.theme);
+              }
+            });
+          }
+        } catch (e) {}
+      }
+
+      themeToggle.addEventListener('click', toggleTheme);
+      initTheme();
+      listenForParentTheme();
+
+      // ============================================================
+      // Toast
+      // ============================================================
+      function showToast(message, type = 'info', duration = 4000) {
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        const icons = {
+          success: '<svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+          error: '<svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+          info: '<svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
+        };
+        toast.innerHTML = (icons[type] || icons.info) + `<span>${message}</span>`;
+        toastContainer.appendChild(toast);
+        requestAnimationFrame(() => toast.classList.add('show'));
+        setTimeout(() => {
+          toast.classList.remove('show');
+          toast.classList.add('hide');
+          setTimeout(() => toast.remove(), 400);
+        }, duration);
+      }
+
+      // ============================================================
+      // History (localStorage)
+      // ============================================================
+      function getHistory() {
+        try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { return []; }
+      }
+
+      function saveHistory(data) {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch {}
+      }
+
+      function pushHistory(entry) {
+        let history = getHistory();
+        // Remove duplicate by description
+        history = history.filter(h => h.description !== entry.description);
+        history.unshift(entry);
+        if (history.length > MAX_HISTORY) history = history.slice(0, MAX_HISTORY);
+        saveHistory(history);
+        renderHistory();
+      }
+
+      function removeHistoryItem(index) {
+        let history = getHistory();
+        history.splice(index, 1);
+        saveHistory(history);
+        renderHistory();
+      }
+
+      function clearHistory() {
+        saveHistory([]);
+        renderHistory();
+        showToast('History cleared', 'info');
+      }
+
+      function renderHistory() {
+        const history = getHistory();
+        historyCount.textContent = `(${history.length})`;
+
+        if (history.length === 0) {
+          historyList.innerHTML = '<p class="text-xs text-slate-400 dark:text-slate-500 text-center py-6">No history yet. Generate some code!</p>';
+          return;
+        }
+
+        historyList.innerHTML = history.map((h, idx) => {
+          const meta = LEVEL_META[h.level] || LEVEL_META[1];
+          const levelCls = meta.cls;
+          const dt = h.driver_type || 'pd_tcpm';
+          const desc = h.description || 'Untitled';
+          const shortDesc = desc.length > 50 ? desc.slice(0, 48) + '...' : desc;
+          const time = h.timestamp ? new Date(h.timestamp).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+          return `<div class="history-item group" data-index="${idx}">
+            <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-[#667eea]/15 to-[#764ba2]/15 flex items-center justify-center shrink-0">
+              <svg class="w-3.5 h-3.5 text-[#667eea]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+            </div>
+            <div class="min-w-0 flex-1">
+              <p class="text-xs font-medium text-slate-700 dark:text-slate-200 truncate">${escapeHtml(shortDesc)}</p>
+              <p class="text-[10px] text-slate-400 dark:text-slate-500 flex items-center gap-1.5 mt-0.5">
+                <span class="inline-block px-1.5 py-0.5 rounded text-[9px] font-semibold ${levelCls}">L${h.level}</span>
+                <span>${escapeHtml(dt)}</span>
+                ${time ? `<span>&middot; ${time}</span>` : ''}
+              </p>
+            </div>
+            <button class="del-btn w-5 h-5 flex items-center justify-center text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors" data-index="${idx}" title="Remove">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>`;
+        }).join('');
+
+        // Click to restore
+        historyList.querySelectorAll('.history-item').forEach(el => {
+          el.addEventListener('click', (e) => {
+            if (e.target.closest('.del-btn')) return;
+            const idx = parseInt(el.dataset.index);
+            const history = getHistory();
+            const h = history[idx];
+            if (!h) return;
+            descInput.value = h.description || '';
+            driverSelect.value = h.driver_type || 'pd_tcpm';
+            // Select level radio
+            const lvl = h.level || 1;
+            document.querySelector(`.level-card[data-level="${lvl}"]`)?.click();
+            showToast('Restored from history', 'info');
+            descInput.focus();
+          });
+        });
+
+        // Delete buttons
+        historyList.querySelectorAll('.del-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            removeHistoryItem(parseInt(btn.dataset.index));
+          });
+        });
+      }
+
+      // ============================================================
+      // Syntax Highlight (Minimal C)
+      // ============================================================
+      function highlightC(code) {
+        // Escape HTML first
+        let s = escapeHtml(code);
+
+        // Preprocessor directives
+        s = s.replace(/(^#\s*(?:include|define|ifdef|ifndef|endif|if|else|elif|pragma|undef|error|warning).*$)/gm, '<span class="pp">$1</span>');
+
+        // Single-line comments
+        s = s.replace(/\/\/[^\n]*/g, '<span class="cm">$&</span>');
+
+        // Multi-line comments
+        s = s.replace(/\/\*[\s\S]*?\*\//g, '<span class="cm">$&</span>');
+
+        // Keywords
+        const keywords = /\b(break|case|continue|default|do|else|enum|extern|for|goto|if|register|return|sizeof|static|struct|switch|typedef|union|volatile|while|const|inline|restrict|_Bool|_Complex|_Imaginary|_Alignas|_Alignof|_Atomic|_Generic|_Noreturn|_Static_assert|_Thread_local)\b/g;
+        s = s.replace(keywords, '<span class="kw">$1</span>');
+
+        // Types
+        const types = /\b(void|char|short|int|long|float|double|signed|unsigned|size_t|ssize_t|uint8_t|uint16_t|uint32_t|uint64_t|int8_t|int16_t|int32_t|int64_t|bool|u8|u16|u32|u64|s8|s16|s32|s64|phys_addr_t|resource_size_t|gfp_t|atomic_t|wait_queue_head_t|spinlock_t|mutex|struct|union)\b/g;
+        s = s.replace(types, '<span class="type">$1</span>');
+
+        // Macro-like identifiers (ALL_CAPS)
+        s = s.replace(/\b([A-Z_][A-Z0-9_]{2,})\b/g, '<span class="macro">$1</span>');
+
+        // Function calls: identifier followed by (
+        s = s.replace(/\b([a-zA-Z_]\w*)\s*\(/g, '<span class="fn">$1</span>(');
+
+        // Numbers
+        s = s.replace(/\b(0x[0-9a-fA-F]+|\d+\.?\d*)\b/g, '<span class="num">$1</span>');
+
+        // String literals
+        s = s.replace(/"([^"\\]*(?:\\.[^"\\]*)*)"/g, '<span class="str">"$1"</span>');
+
+        return s;
+      }
+
+      // ============================================================
+      // Utility
+      // ============================================================
+      function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+      }
+
+      function escapeAttr(str) {
+        return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+      }
+
+      // ============================================================
+      // State Management
+      // ============================================================
+      function showPanel(panel) {
+        [loadingPanel, emptyPanel, errorPanel, resultPanel].forEach(p => p.style.display = 'none');
+        if (panel) panel.style.display = '';
+      }
+
+      function setGenerating(isLoading) {
+        generateBtn.disabled = isLoading;
+        if (isLoading) {
+          genBtnIcon.innerHTML = '<svg class="w-5 h-5 animate-spin3d" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg>';
+          genBtnText.textContent = 'Generating...';
+        } else {
+          genBtnIcon.innerHTML = '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>';
+          genBtnText.textContent = 'Generate Code';
+        }
+      }
+
+      // ============================================================
+      // Render Result
+      // ============================================================
+      function renderResult(data) {
+        // Code
+        const code = data.code || '/* No code generated */';
+        codeContent.innerHTML = highlightC(code);
+
+        // Level badge
+        const level = data.level || 1;
+        const meta = LEVEL_META[level] || LEVEL_META[1];
+        levelBadge.textContent = `L${level} · ${meta.name}`;
+        levelBadge.className = `badge text-[11px] ${meta.cls}`;
+
+        // Driver badge
+        const dt = data.driver_type || 'pd_tcpm';
+        driverBadge.textContent = DRIVER_LABELS[dt] || dt;
+        driverBadge.className = 'badge text-[11px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300';
+
+        // Instructions
+        const instructions = data.instructions || [];
+        if (instructions.length > 0) {
+          instructionsBlock.innerHTML = '<ul>' + instructions.map(i => `<li>${escapeHtml(i)}</li>`).join('') + '</ul>';
+        } else {
+          instructionsBlock.innerHTML = '<p class="text-sm text-slate-400 dark:text-slate-500 italic">No instructions provided.</p>';
+        }
+
+        // Tests
+        const tests = data.tests || [];
+        if (tests.length > 0) {
+          testsBlock.innerHTML = '<ul>' + tests.map(t => `<li>${escapeHtml(t)}</li>`).join('') + '</ul>';
+        } else {
+          testsBlock.innerHTML = '<p class="text-sm text-slate-400 dark:text-slate-500 italic">No test suggestions.</p>';
+        }
+
+        showPanel(resultPanel);
+      }
+
+      // ============================================================
+      // API Call
+      // ============================================================
+      async function generateCode(description, driverType, level) {
+        const response = await fetch(API_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ description, driver_type: driverType, level })
+        });
+
+        if (!response.ok) {
+          let errMsg = `HTTP ${response.status}`;
+          try {
+            const err = await response.json();
+            errMsg = err.message || err.error || errMsg;
+          } catch {}
+          throw new Error(errMsg);
+        }
+
+        const result = await response.json();
+        if (!result.ok) {
+          throw new Error(result.message || result.error || 'Unknown error');
+        }
+        return result.data;
+      }
+
+      // ============================================================
+      // Main Action
+      // ============================================================
+      async function handleGenerate() {
+        const description = descInput.value.trim();
+        if (!description) {
+          showToast('Please enter a problem description', 'error');
+          descInput.focus();
+          return;
+        }
+
+        const driverType = driverSelect.value;
+        const levelRadio = document.querySelector('input[name="level"]:checked');
+        const level = levelRadio ? parseInt(levelRadio.value) : 1;
+
+        showPanel(loadingPanel);
+        setGenerating(true);
+
+        try {
+          const data = await generateCode(description, driverType, level);
+          renderResult(data);
+
+          // Save to history
+          pushHistory({
+            description,
+            driver_type: driverType,
+            level,
+            timestamp: Date.now()
+          });
+
+          showToast('Code generated successfully!', 'success');
+        } catch (err) {
+          showPanel(errorPanel);
+          errorMsg.textContent = err.message || 'An unexpected error occurred.';
+          setGenerating(false);
+          showToast(err.message || 'Failed to generate code', 'error');
+        }
+      }
+
+      // ============================================================
+      // Copy
+      // ============================================================
+      async function handleCopy() {
+        const text = codeContent.textContent || '';
+        try {
+          await navigator.clipboard.writeText(text);
+          copyLabel.textContent = 'Copied!';
+          copyBtn.classList.add('copied');
+          setTimeout(() => {
+            copyLabel.textContent = 'Copy';
+            copyBtn.classList.remove('copied');
+          }, 2000);
+          showToast('Code copied to clipboard', 'success');
+        } catch {
+          // Fallback
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+          copyLabel.textContent = 'Copied!';
+          copyBtn.classList.add('copied');
+          setTimeout(() => {
+            copyLabel.textContent = 'Copy';
+            copyBtn.classList.remove('copied');
+          }, 2000);
+          showToast('Code copied to clipboard', 'success');
+        }
+      }
+
+      // ============================================================
+      // Level Card Selection
+      // ============================================================
+      function initLevelCards() {
+        document.querySelectorAll('.level-card').forEach(card => {
+          card.addEventListener('click', () => {
+            document.querySelectorAll('.level-card').forEach(c => c.classList.remove('selected'));
+            card.classList.add('selected');
+            card.querySelector('input[type="radio"]').checked = true;
+          });
+        });
+        // Default select L1
+        const defaultCard = document.querySelector('.level-card[data-level="1"]');
+        if (defaultCard) defaultCard.classList.add('selected');
+      }
+
+      // ============================================================
+      // Event Listeners
+      // ============================================================
+      generateBtn.addEventListener('click', handleGenerate);
+      retryBtn.addEventListener('click', () => {
+        showPanel(emptyPanel);
+        setGenerating(false);
+      });
+      regenerateBtn.addEventListener('click', handleGenerate);
+      copyBtn.addEventListener('click', handleCopy);
+      clearHistoryBtn.addEventListener('click', clearHistory);
+
+      // Enter key: Ctrl+Enter from textarea
+      descInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+          e.preventDefault();
+          handleGenerate();
+        }
+      });
+
+      // ============================================================
+      // Init
+      // ============================================================
+      function init() {
+        initLevelCards();
+        renderHistory();
+        showPanel(emptyPanel);
+        descInput.focus();
+      }
+
+      init();
+
+    })();
+  </script>
+
+</body>
+</html>

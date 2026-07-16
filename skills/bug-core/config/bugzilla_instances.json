@@ -1,0 +1,76 @@
+{
+  "default_instance": "unisoc",
+  "instances": {
+    "kernel": {
+      "name": "Linux Kernel Bugzilla",
+      "base_url": "https://bugzilla.kernel.org",
+      "rest_url": "https://bugzilla.kernel.org/rest",
+      "api_key": "",
+      "status_map": {
+        "needinfo": "NEEDINFO",
+        "assigned": "ASSIGNED",
+        "resolved": "RESOLVED",
+        "closed": "CLOSED",
+        "reopened": "REOPENED"
+      },
+      "notes": "公开Bugzilla，无需API key即可只读访问"
+    },
+    "mozilla": {
+      "name": "Mozilla Bugzilla",
+      "base_url": "https://bugzilla.mozilla.org",
+      "rest_url": "https://bugzilla.mozilla.org/rest",
+      "api_key": "",
+      "status_map": {
+        "needinfo": "NEEDINFO",
+        "assigned": "ASSIGNED",
+        "resolved": "RESOLVED",
+        "closed": "CLOSED",
+        "reopened": "REOPENED"
+      },
+      "notes": "公开Bugzilla，数据最丰富"
+    },
+    "gnome": {
+      "name": "GNOME Bugzilla",
+      "base_url": "https://bugzilla.gnome.org",
+      "rest_url": "https://bugzilla.gnome.org/rest",
+      "api_key": "",
+      "status_map": {
+        "needinfo": "NEEDINFO",
+        "assigned": "ASSIGNED",
+        "resolved": "RESOLVED",
+        "closed": "CLOSED",
+        "reopened": "REOPENED"
+      },
+      "notes": "公开Bugzilla"
+    },
+    "unisoc": {
+      "name": "Unisoc Bugzilla（内网）",
+      "base_url": "https://bugzilla.unisoc.com/bugzilla",
+      "rest_url": "https://bugzilla.unisoc.com/bugzilla/rest",
+      "api_key": "GzzXtl8A0nU5M8HmTbnYYt0Yapc3skDCRfI0vmaa",
+      "user": "",
+      "status_map": {
+        "needinfo": "Need_Info",
+        "assigned": "Assigned",
+        "resolved": "Resolved",
+        "closed": "Closed",
+        "reopened": "Reopened"
+      },
+      "ftp_host": "unitrans.unisoc.com",
+      "ftp_port": "2443",
+      "ftp_user": "ctd01",
+      "ftp_password": "ctd01@abAB",
+      "ftp_use_ssl": true,
+      "rayfile_exe": "E:\\08_Bug\\sync-cmd-windows\\rayfile-c_cmd.exe",
+      "default_workspace": "E:\\08_Bug",
+      "notes": "办公网可用，需API key，绿网不可达。附件通过rayfile下载"
+    },
+    "local": {
+      "name": "本地模拟数据",
+      "base_url": "local",
+      "rest_url": "local",
+      "api_key": "",
+      "notes": "离线模式，使用 sample_bugs.json 模拟数据"
+    }
+  }
+}

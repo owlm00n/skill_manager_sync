@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bug Logs</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Outfit', sans-serif;
+      min-height: 100vh;
+      transition: background 0.3s, color 0.3s;
+      position: relative;
+      overflow-x: hidden;
+    }
+    body.dark  { background: #0f172a; color: #e2e8f0; }
+    body.light { background: #f8fafc; color: #1e293b; }
+
+    /* --- Aurora Background --- */
+    .aurora {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+    .aurora .blob {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.35;
+      animation: auroraFloat 18s ease-in-out infinite alternate;
+    }
+    .aurora .blob:nth-child(1) {
+      width: 500px; height: 500px;
+      background: radial-gradient(circle, #667eea, #764ba2);
+      top: -10%; left: -5%;
+      animation-duration: 22s;
+    }
+    .aurora .blob:nth-child(2) {
+      width: 400px; height: 400px;
+      background: radial-gradient(circle, #764ba2, #667eea);
+      bottom: -8%; right: -5%;
+      animation-duration: 26s;
+      animation-delay: -6s;
+    }
+    .aurora .blob:nth-child(3) {
+      width: 300px; height: 300px;
+      background: radial-gradient(circle, #a78bfa, #667eea);
+      top: 40%; left: 50%;
+      transform: translateX(-50%);
+      animation-duration: 20s;
+      animation-delay: -12s;
+    }
+    @keyframes auroraFloat {
+      0%   { transform: translate(0, 0) scale(1); }
+      33%  { transform: translate(40px, -30px) scale(1.1); }
+      66%  { transform: translate(-20px, 40px) scale(0.95); }
+      100% { transform: translate(30px, -20px) scale(1.05); }
+    }
+
+    /* --- Glass Panel --- */
+    .glass {
+      backdrop-filter: blur(40px);
+      -webkit-backdrop-filter: blur(40px);
+      border-radius: 16px;
+      transition: background 0.3s, border-color 0.3s;
+    }
+    .dark .glass {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .light .glass {
+      background: rgba(255, 255, 255, 0.7);
+      border: 1px solid rgba(0,0,0,0.06);
+    }
+
+    /* --- Gradient Button --- */
+    .btn-gradient {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #fff;
+      font-weight: 600;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.15s;
+    }
+    .btn-gradient:hover { opacity: 0.9; transform: translateY(-1px); }
+    .btn-gradient:active { transform: scale(0.97); }
+    .btn-gradient:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    /* --- Gradient Text --- */
+    .gradient-text {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* --- Spinner --- */
+    .spinner {
+      width: 44px; height: 44px;
+      border: 4px solid rgba(102, 126, 234, 0.2);
+      border-top-color: #667eea;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* --- Toast --- */
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: none;
+    }
+    .toast {
+      pointer-events: auto;
+      padding: 12px 20px;
+      border-radius: 12px;
+      font-weight: 500;
+      font-size: 0.9rem;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+      animation: toastIn 0.35s ease-out forwards;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .dark .toast { background: rgba(30, 41, 59, 0.95); color: #e2e8f0; border: 1px solid rgba(255,255,255,0.06); }
+    .light .toast { background: rgba(255,255,255,0.95); color: #1e293b; border: 1px solid rgba(0,0,0,0.06); }
+    .toast.removing { animation: toastOut 0.3s ease-in forwards; }
+    & @keyframes toastIn {
+      0%   { opacity: 0; transform: translateX(60px); }
+      100% { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes toastOut {
+      0%   { opacity: 1; transform: translateX(0); }
+      100% { opacity: 0; transform: translateX(60px); }
+    }
+
+    /* --- Misc --- */
+    select, input {
+      font-family: 'Outfit', sans-serif;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .dark select, .dark input {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: #e2e8f0;
+    }
+    .dark select:focus, .dark input:focus {
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102,126,234,0.2);
+    }
+    .light select, .light input {
+      background: #fff;
+      border: 1px solid #cbd5e1;
+      color: #1e293b;
+    }
+    .light select:focus, .light input:focus {
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102,126,234,0.15);
+    }
+    .channel-unc  { background: rgba(16,185,129,0.18); color: #34d399; }
+    .channel-ftp  { background: rgba(251,191,36,0.18);  color: #fbbf24; }
+
+    .log-entry {
+      transition: background 0.15s;
+      border-radius: 10px;
+    }
+    .dark .log-entry:hover { background: rgba(255,255,255,0.04); }
+    .light .log-entry:hover { background: rgba(0,0,0,0.02); }
+
+    .copy-btn {
+      cursor: pointer;
+      transition: opacity 0.15s;
+      opacity: 0.4;
+    }
+    .copy-btn:hover { opacity: 1; }
+    .log-entry:hover .copy-btn { opacity: 0.7; }
+    .log-entry:hover .copy-btn:hover { opacity: 1; }
+  </style>
+</head>
+<body>
+  <!-- Aurora Background -->
+  <div class="aurora">
+    <div class="blob"></div>
+    <div class="blob"></div>
+    <div class="blob"></div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Main Content -->
+  <div class="relative z-10 max-w-4xl mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="text-center mb-8">
+      <h1 class="text-4xl font-extrabold gradient-text tracking-tight">Bug Logs</h1>
+      <p class="text-sm font-light mt-1 opacity-60">Log directory browser</p>
+    </div>
+
+    <!-- Form -->
+    <div class="glass p-5 mb-6">
+      <div class="flex flex-col sm:flex-row gap-4 items-end">
+        <div class="flex-1 w-full">
+          <label for="bugId" class="block text-xs font-medium uppercase tracking-wider mb-1 opacity-60">Bug ID</label>
+          <input type="text" id="bugId" placeholder="e.g. 12345" class="w-full px-4 py-2.5 rounded-lg text-sm outline-none">
+        </div>
+        <div class="w-full sm:w-40">
+          <label for="instance" class="block text-xs font-medium uppercase tracking-wider mb-1 opacity-60">Instance</label>
+          <select id="instance" class="w-full px-4 py-2.5 rounded-lg text-sm outline-none appearance-none">
+            <option value="">Auto</option>
+            <option value="SH">SH</option>
+            <option value="SZ">SZ</option>
+            <option value="US">US</option>
+          </select>
+        </div>
+        <button id="queryBtn" class="btn-gradient px-7 py-2.5 text-sm whitespace-nowrap w-full sm:w-auto">
+          Query
+        </button>
+      </div>
+    </div>
+
+    <!-- Results Container -->
+    <div id="resultsContainer">
+      <!-- Empty Default State -->
+      <div id="emptyDefault" class="glass p-12 text-center">
+        <svg class="inline-block w-16 h-16 mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9.776c.112-.017.227-.026.344-.026h15.812c.117 0 .232.009.344.026m-16.5 0a2.25 2.25 0 0 0-1.883 2.542l.857 6a2.25 2.25 0 0 0 2.227 1.932H19.05a2.25 2.25 0 0 0 2.227-1.932l.857-6a2.25 2.25 0 0 0-1.883-2.542m-16.5 0V6A2.25 2.25 0 0 1 6 3.75h3.879a1.5 1.5 0 0 1 1.06.44l2.122 2.12a1.5 1.5 0 0 0 1.06.44H18A2.25 2.25 0 0 1 20.25 9v.776" />
+        </svg>
+        <p class="text-lg font-medium opacity-50">Enter a Bug ID to browse log directories</p>
+        <p class="text-sm mt-1 opacity-30">Log files are organized per bug across instances</p>
+      </div>
+
+      <!-- Loading State -->
+      <div id="loadingState" class="glass p-12 text-center" style="display:none;">
+        <div class="spinner mx-auto"></div>
+        <p class="mt-5 font-medium opacity-60">Searching logs...</p>
+      </div>
+
+      <!-- Error State -->
+      <div id="errorState" class="glass p-6" style="display:none;">
+        <div class="flex items-start gap-4">
+          <svg class="w-6 h-6 mt-0.5 flex-shrink-0 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+          </svg>
+          <div>
+            <p class="font-semibold text-red-400">Error</p>
+            <p id="errorMsg" class="text-sm mt-1 opacity-70"></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Empty Results State -->
+      <div id="emptyResults" class="glass p-12 text-center" style="display:none;">
+        <svg class="inline-block w-14 h-14 mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5m8.25 3v3.75m-7.5-10.5h15m-3-3H7.5a1.5 1.5 0 0 0 0 3h9a1.5 1.5 0 0 0 0-3Z" />
+        </svg>
+        <p class="text-lg font-medium opacity-50">No log directories found for this bug</p>
+        <p class="text-sm mt-1 opacity-30">Try a different Bug ID or instance</p>
+      </div>
+
+      <!-- Results List -->
+      <div id="resultsList" class="glass p-5" style="display:none;">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-semibold gradient-text">Log Directories</h2>
+          <span id="resultCount" class="text-xs font-medium px-3 py-1 rounded-full glass opacity-70"></span>
+        </div>
+        <div id="logEntries" class="space-y-2"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      'use strict';
+
+      // --- Theme detection from parent ---
+      function detectTheme() {
+        try {
+          if (window.parent && window.parent.document) {
+            const isDark = window.parent.document.documentElement.classList.contains('dark');
+            document.body.classList.toggle('dark', isDark);
+            document.body.classList.toggle('light', !isDark);
+            return;
+          }
+        } catch(_) { /* cross-origin */ }
+        // fallback: prefer dark
+        document.body.classList.add('dark');
+      }
+      detectTheme();
+
+      // --- DOM refs ---
+      const bugIdInput       = document.getElementById('bugId');
+      const instanceSelect   = document.getElementById('instance');
+      const queryBtn         = document.getElementById('queryBtn');
+      const emptyDefault     = document.getElementById('emptyDefault');
+      const loadingState     = document.getElementById('loadingState');
+      const errorState       = document.getElementById('errorState');
+      const errorMsg         = document.getElementById('errorMsg');
+      const emptyResults     = document.getElementById('emptyResults');
+      const resultsList      = document.getElementById('resultsList');
+      const resultCount      = document.getElementById('resultCount');
+      const logEntries       = document.getElementById('logEntries');
+      const toastContainer   = document.getElementById('toastContainer');
+
+      // --- Helpers ---
+      function showOnly(el) {
+        [emptyDefault, loadingState, errorState, emptyResults, resultsList].forEach(e => e.style.display = 'none');
+        if (el) el.style.display = '';
+      }
+
+      function showToast(message, icon) {
+        const toast = document.createElement('div');
+        toast.className = 'toast';
+        toast.innerHTML = `<span>${icon || '&#10003;'}</span><span>${message}</span>`;
+        toastContainer.appendChild(toast);
+        setTimeout(() => {
+          toast.classList.add('removing');
+          setTimeout(() => toast.remove(), 300);
+        }, 4000);
+      }
+
+      function getChannelType(path) {
+        if (!path) return 'UNC';
+        const upper = path.toUpperCase();
+        if (upper.startsWith('\\\\') || upper.startsWith('UNC') || upper.includes('\\\\')) return 'UNC';
+        if (upper.startsWith('FTP://') || upper.startsWith('FTP:')) return 'FTP';
+        return 'UNC';
+      }
+
+      function formatSize(bytes) {
+        if (bytes == null) return '';
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+      }
+
+      function copyToClipboard(text) {
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(text).then(() => {
+            showToast('Path copied to clipboard', '&#128203;');
+          }).catch(() => {
+            fallbackCopy(text);
+          });
+        } else {
+          fallbackCopy(text);
+        }
+      }
+
+      function fallbackCopy(text) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+          document.execCommand('copy');
+          showToast('Path copied to clipboard', '&#128203;');
+        } catch(_) {
+          showToast('Failed to copy', '&#9888;');
+        }
+        document.body.removeChild(ta);
+      }
+
+      // --- Render log entries ---
+      function renderResults(data) {
+        const dirs = [];
+        // Normalize: data may have log_dirs array, or be an object with paths
+        if (data && data.log_dirs && Array.isArray(data.log_dirs)) {
+          data.log_dirs.forEach(d => {
+            if (typeof d === 'string') dirs.push({ path: d });
+            else if (typeof d === 'object' && d !== null) dirs.push(d);
+          });
+        } else if (Array.isArray(data)) {
+          data.forEach(d => {
+            if (typeof d === 'string') dirs.push({ path: d });
+            else if (typeof d === 'object' && d !== null) dirs.push(d);
+          });
+        } else if (data && typeof data === 'object') {
+          // Try to find any array property
+          Object.keys(data).forEach(k => {
+            if (Array.isArray(data[k])) {
+              data[k].forEach(item => {
+                if (typeof item === 'string') dirs.push({ path: item });
+                else if (typeof item === 'object' && item !== null) dirs.push(item);
+              });
+            }
+          });
+          // Also include attachment paths
+          if (data.attachments && Array.isArray(data.attachments)) {
+            data.attachments.forEach(a => {
+              if (typeof a === 'string') {
+                if (!dirs.find(d => d.path === a)) dirs.push({ path: a, attachment: true });
+              } else if (a && a.path) {
+                if (!dirs.find(d => d.path === a.path)) dirs.push({ ...a, attachment: true });
+              }
+            });
+          }
+        }
+
+        if (dirs.length === 0) {
+          showOnly(emptyResults);
+          return;
+        }
+
+        resultCount.textContent = dirs.length + (dirs.length === 1 ? ' entry' : ' entries');
+        logEntries.innerHTML = dirs.map((entry, idx) => {
+          const path = entry.path || '';
+          const channel = getChannelType(path);
+          const fileCount = entry.file_count != null ? entry.file_count : entry.files?.length;
+          const size = formatSize(entry.size_bytes != null ? entry.size_bytes : entry.size);
+          const isAttachment = entry.attachment;
+
+          return `
+            <div class="log-entry px-4 py-3 flex items-center justify-between gap-3 cursor-pointer" data-path="${path.replace(/"/g, '&quot;')}">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-1">
+                  ${isAttachment ? '<svg class="w-4 h-4 flex-shrink-0 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m18.375 12.739-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941-7.81 7.81a1.5 1.5 0 0 0 2.112 2.13" /></svg>' : ''}
+                  <span class="text-xs font-mono font-medium truncate" title="${path.replace(/"/g, '&quot;')}">${path}</span>
+                </div>
+                <div class="flex items-center gap-3 text-xs opacity-50">
+                  <span class="channel-badge px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase channel-${channel.toLowerCase()}">${channel}</span>
+                  ${fileCount != null ? `<span>${fileCount} file${fileCount !== 1 ? 's' : ''}</span>` : ''}
+                  ${size ? `<span>${size}</span>` : ''}
+                </div>
+              </div>
+              <button class="copy-btn flex-shrink-0 p-1.5 rounded-lg" title="Copy path" data-copy="${path.replace(/"/g, '&quot;')}">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.376H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75" />
+                </svg>
+              </button>
+            </div>
+          `;
+        }).join('');
+
+        // Click on row copies path
+        logEntries.querySelectorAll('.log-entry').forEach(el => {
+          el.addEventListener('click', function(e) {
+            if (e.target.closest('.copy-btn')) return; // handled below
+            const path = this.dataset.path;
+            if (path) copyToClipboard(path);
+          });
+        });
+
+        // Copy button
+        logEntries.querySelectorAll('.copy-btn').forEach(btn => {
+          btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const path = this.dataset.copy;
+            if (path) copyToClipboard(path);
+          });
+        });
+
+        showOnly(resultsList);
+      }
+
+      // --- API call ---
+      async function queryLogs() {
+        const bugId = bugIdInput.value.trim();
+        if (!bugId) {
+          showToast('Please enter a Bug ID', '&#9888;');
+          return;
+        }
+
+        showOnly(loadingState);
+
+        const instance = instanceSelect.value || null;
+        const payload = { bug_id: bugId, instance };
+
+        try {
+          const res = await fetch('/api/bug-logs/list', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          if (!res.ok) {
+            throw new Error(`Server responded with ${res.status} ${res.statusText}`);
+          }
+
+          const json = await res.json();
+
+          if (!json.ok) {
+            throw new Error(json.message || json.error || 'Unknown error from server');
+          }
+
+          renderResults(json.data);
+
+        } catch (err) {
+          errorMsg.textContent = err.message || 'An unexpected error occurred';
+          showOnly(errorState);
+        }
+      }
+
+      // --- Events ---
+      queryBtn.addEventListener('click', queryLogs);
+
+      bugIdInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') queryLogs();
+      });
+
+      // Auto-submit on paste if input is non-empty
+      bugIdInput.addEventListener('paste', function() {
+        setTimeout(() => {
+          if (this.value.trim()) queryLogs();
+        }, 50);
+      });
+
+    })();
+  </script>
+</body>
+</html>
