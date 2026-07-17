@@ -109,7 +109,7 @@ if(localStorage.theme==='dark'||(!('theme' in localStorage)&&window.matchMedia('
 <!-- Toast -->
 <div id="toast" class="fixed bottom-6 right-6 px-5 py-3 rounded-xl shadow-2xl transform translate-y-20 opacity-0 transition-all duration-300 z-50 hidden items-center gap-2 backdrop-blur-md font-semibold text-sm border"></div>
 
-<!-- Scripts -->
+<!-- Scripts (order matters: app.js first, then pages, init last) -->
 <script src="/static/js/app.js"></script>
 <script src="/static/js/dashboard.js"></script>
 <script src="/static/js/library.js"></script>
@@ -117,5 +117,9 @@ if(localStorage.theme==='dark'||(!('theme' in localStorage)&&window.matchMedia('
 <script src="/static/js/presets.js"></script>
 <script src="/static/js/agents.js"></script>
 <script src="/static/js/backup.js"></script>
+<script>
+// Init after all scripts loaded
+(async () => { await refresh(); navigate('dashboard'); })();
+</script>
 </body>
 </html>

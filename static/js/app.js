@@ -66,8 +66,9 @@ const PAGE_TITLES = {
   'project-ws': 'Project Workspace', 'presets': 'Presets', 'agents': 'Agents', 'backup': 'Backup'
 };
 const RENDERERS = {
-  'dashboard': renderDashboard, 'library': renderLibrary, 'global-ws': renderGlobalWS,
-  'project-ws': renderProjectWS, 'presets': renderPresets, 'agents': renderAgents, 'backup': renderBackup
+  'dashboard': () => renderDashboard(), 'library': () => renderLibrary(),
+  'global-ws': () => renderGlobalWS(), 'project-ws': () => renderProjectWS(),
+  'presets': () => renderPresets(), 'agents': () => renderAgents(), 'backup': () => renderBackup()
 };
 
 function navigate(page) {
@@ -125,8 +126,4 @@ async function toggleAgentSkill(skillName, agentKey, isSynced) {
   else showToast(r.error || 'Failed', 'error');
 }
 
-/* ── Init ────────────────────────────────────── */
-(async () => {
-  await refresh();
-  navigate('dashboard');
-})();
+/* ── Init is in index.html after all scripts loaded ── */
