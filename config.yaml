@@ -19,7 +19,10 @@ presets:
     description: "所有技能"
     skills: ["*"]
 
-# ── Agent 目标配置 ─────────────────────────
+# ── Agent 目标配置 ─────────────────────────  test-preset:
+    description: "Test preset"
+    skills: ["bug-core", "bug-logs"]
+
 agents:
   claude_code_global:
     tool: claude_code
@@ -42,7 +45,8 @@ agents:
   #   skills: ["*"]
 
 # ── Skill 分组标签 ─────────────────────────
+
 tags:
   debug: ["bug-core", "bug-logs", "bug-workspace", "log-analyzer", "code-generator"]
-  protocol: ["protocol-parser", "bug-core"]
   management: ["skill-manager", "session-manager", "hook-manager", "memory-manager", "permission-manager"]
+  protocol: ["protocol-parser", "bug-core"]

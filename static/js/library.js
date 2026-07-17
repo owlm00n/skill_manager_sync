@@ -70,6 +70,7 @@ function renderLibrary() {
               <th class="px-3 py-3 text-left font-semibold text-slate-500 text-xs uppercase tracking-wider">Description</th>
               <th class="px-3 py-3 text-left font-semibold text-slate-500 text-xs uppercase tracking-wider">Tags</th>
               <th class="px-3 py-3 text-left font-semibold text-slate-500 text-xs uppercase tracking-wider">Agents</th>
+              <th class="px-3 py-3 text-left font-semibold text-slate-500 text-xs uppercase tracking-wider w-8"></th>
             </tr>
           </thead>
           <tbody id="skillBody">
@@ -100,6 +101,11 @@ function renderSkillRows(skills) {
       <td class="px-3 py-3 text-slate-500 text-xs max-w-[200px] truncate">${esc((s.description || '').substring(0, 60))}</td>
       <td class="px-3 py-3"><div class="flex gap-1 flex-wrap">${tags}</div></td>
       <td class="px-3 py-3"><div class="flex gap-1 flex-wrap">${agentBadgeHTML(s.dir)}</div></td>
+      <td class="px-3 py-3">
+        <button onclick="event.stopPropagation();openFolder('${esc(s.folder || '')}')" class="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors" title="${esc(s.folder || '')}">
+          <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+        </button>
+      </td>
     </tr>`;
   }).join('');
 }

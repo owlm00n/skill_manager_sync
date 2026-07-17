@@ -478,6 +478,82 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._json({"ok": ok})
             return
 
+        # ── /api/skills/install/* and batch/* (must be before <name>/... routes) ──
+        if path == "/api/skills/install/local" and method == "POST":
+            body = self._read_body()
+            src_path = body.get("path", "")
+            if not src_path or not Path(src_path).exists():
+                self._json({"ok": False, "error": "path not found"}, 400)
+                return
+            src = Path(src_path)
+            name = src.name if src.is_dir() else src.stem
+            target = SKILLS_DIR / name
+            if target.exists():
+                self._json({"ok": False, "error": "already exists"}, 400)
+                return
+            if src.is_dir():
+                shutil.copytree(str(src), str(target))
+            else:
+                target.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(str(src), str(target / src.name))
+            self._json({"ok": True, "name": name})
+            return
+
+        if path == "/api/skills/install/git" and method == "POST":
+            body = self._read_body()
+            git_url = body.get("url", "")
+            if not git_url:
+                self._json({"ok": False, "error": "url required"}, 400)
+                return
+            import tempfile
+            with tempfile.TemporaryDirectory() as tmp:
+                r = subprocess.run(["git", "clone", "--depth=1", git_url, tmp],
+                                   capture_output=True, text=True, encoding="utf-8", errors="replace")
+                if r.returncode != 0:
+                    self._json({"ok": False, "error": r.stderr})
+                    return
+                for skill_dir in Path(tmp).rglob("SKILL.md"):
+                    src = skill_dir.parent
+                    name = src.name
+                    target = SKILLS_DIR / name
+                    if not target.exists():
+                        shutil.copytree(str(src), str(target))
+            self._json({"ok": True})
+            return
+
+        if len(parts) >= 4 and parts[1] == "api" and parts[2] == "skills" and parts[3].startswith("batch"):
+            batch_action = parts[3]
+            body = self._read_body()
+            skill_names = body.get("skills", [])
+            results = []
+            for sn in skill_names:
+                skill_dir = SKILLS_DIR / sn
+                if not skill_dir.exists():
+                    results.append({"name": sn, "ok": False, "error": "not found"})
+                    continue
+                if batch_action == "batch-enable":
+                    disabled = skill_dir / "SKILL.md.disabled"
+                    if disabled.exists():
+                        disabled.rename(skill_dir / "SKILL.md")
+                    results.append({"name": sn, "ok": True})
+                elif batch_action == "batch-disable":
+                    enabled = skill_dir / "SKILL.md"
+                    if enabled.exists():
+                        enabled.rename(skill_dir / "SKILL.md.disabled")
+                    results.append({"name": sn, "ok": True})
+                elif batch_action == "batch-delete":
+                    trash = load_trash()
+                    trash.append({"name": sn, "deleted_at": datetime.now().isoformat(), "dir": str(skill_dir)})
+                    save_trash(trash)
+                    trash_dir = SCRIPT_DIR / ".trash" / sn
+                    trash_dir.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.move(str(skill_dir), str(trash_dir))
+                    results.append({"name": sn, "ok": True})
+                elif batch_action == "batch-export":
+                    results.append({"name": sn, "ok": True, "path": str(skill_dir)})
+            self._json({"ok": True, "results": results})
+            return
+
         # ── /api/skills/<name>/... routes ──
         if len(parts) >= 4 and parts[1] == "api" and parts[2] == "skills":
             skill_name = parts[3]
@@ -717,7 +793,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return
 
         # ── /api/workspace/global/<agent_key> ──
-        if len(parts) >= 5 and parts[1] == "api" and parts[2] == "workspace" and parts[3] == "global":
+        if len(parts) == 5 and parts[1] == "api" and parts[2] == "workspace" and parts[3] == "global":
             agent_key = parts[4]
             agent = find_agent_by_key(agent_key)
             if not agent:
@@ -840,85 +916,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 lines = [l for l in r["stdout"].splitlines() if l.strip()]
                 self._json({"ok": r["ok"], "commits": lines})
                 return
-
-        # ── /api/skills/install/local ──
-        if path == "/api/skills/install/local" and method == "POST":
-            body = self._read_body()
-            src_path = body.get("path", "")
-            if not src_path or not Path(src_path).exists():
-                self._json({"ok": False, "error": "path not found"}, 400)
-                return
-            src = Path(src_path)
-            name = src.name if src.is_dir() else src.stem
-            target = SKILLS_DIR / name
-            if target.exists():
-                self._json({"ok": False, "error": "already exists"}, 400)
-                return
-            if src.is_dir():
-                shutil.copytree(str(src), str(target))
-            else:
-                target.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(str(src), str(target / src.name))
-            self._json({"ok": True, "name": name})
-            return
-
-        # ── /api/skills/install/git ──
-        if path == "/api/skills/install/git" and method == "POST":
-            body = self._read_body()
-            git_url = body.get("url", "")
-            if not git_url:
-                self._json({"ok": False, "error": "url required"}, 400)
-                return
-            import tempfile
-            with tempfile.TemporaryDirectory() as tmp:
-                r = subprocess.run(["git", "clone", "--depth=1", git_url, tmp],
-                                   capture_output=True, text=True, encoding="utf-8", errors="replace")
-                if r.returncode != 0:
-                    self._json({"ok": False, "error": r.stderr})
-                    return
-                # Find SKILL.md in cloned repo
-                for skill_dir in Path(tmp).rglob("SKILL.md"):
-                    src = skill_dir.parent
-                    name = src.name
-                    target = SKILLS_DIR / name
-                    if not target.exists():
-                        shutil.copytree(str(src), str(target))
-            self._json({"ok": True})
-            return
-
-        # ── /api/skills/batch/* ──
-        if len(parts) >= 4 and parts[1] == "api" and parts[2] == "skills" and parts[3].startswith("batch"):
-            batch_action = parts[3]
-            body = self._read_body()
-            skill_names = body.get("skills", [])
-            results = []
-            for sn in skill_names:
-                skill_dir = SKILLS_DIR / sn
-                if not skill_dir.exists():
-                    results.append({"name": sn, "ok": False, "error": "not found"})
-                    continue
-                if batch_action == "batch-enable":
-                    disabled = skill_dir / "SKILL.md.disabled"
-                    if disabled.exists():
-                        disabled.rename(skill_dir / "SKILL.md")
-                    results.append({"name": sn, "ok": True})
-                elif batch_action == "batch-disable":
-                    enabled = skill_dir / "SKILL.md"
-                    if enabled.exists():
-                        enabled.rename(skill_dir / "SKILL.md.disabled")
-                    results.append({"name": sn, "ok": True})
-                elif batch_action == "batch-delete":
-                    trash = load_trash()
-                    trash.append({"name": sn, "deleted_at": datetime.now().isoformat(), "dir": str(skill_dir)})
-                    save_trash(trash)
-                    trash_dir = SCRIPT_DIR / ".trash" / sn
-                    trash_dir.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.move(str(skill_dir), str(trash_dir))
-                    results.append({"name": sn, "ok": True})
-                elif batch_action == "batch-export":
-                    results.append({"name": sn, "ok": True, "path": str(skill_dir)})
-            self._json({"ok": True, "results": results})
-            return
 
         self._json({"error": "not found"}, 404)
 
