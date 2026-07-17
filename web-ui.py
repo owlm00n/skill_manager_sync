@@ -1,5 +1,963 @@
 #!/usr/bin/env python3
 """Skills Sync Manager - Web UI Server
+Python HTTP server with static file serving + REST API.
+Port: 8770 (default)
+"""
+import http.server
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import time
+from datetime import datetime
+from pathlib import Path
+from urllib.parse import urlparse, parse_qs, unquote
+
+# ── Paths ──────────────────────────────────────────────
+SCRIPT_DIR = Path(__file__).resolve().parent
+SKILLS_DIR = SCRIPT_DIR / "skills"
+CONFIG_FILE = SCRIPT_DIR / "config.yaml"
+TRASH_FILE = SCRIPT_DIR / ".trash.json"
+STATIC_DIR = SCRIPT_DIR / "static"
+PS = "powershell.exe"
+HOME = Path.home()
+
+MIME_TYPES = {
+    ".html": "text/html; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".js": "application/javascript; charset=utf-8",
+    ".json": "application/json; charset=utf-8",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".svg": "image/svg+xml",
+    ".ico": "image/x-icon",
+}
+
+
+# ── Simple YAML parser (no deps) ──────────────────────
+def parse_yaml(path):
+    text = Path(path).read_text(encoding="utf-8")
+    return _parse_yaml_text(text)
+
+def _parse_yaml_text(text):
+    root = {}
+    stack = [(root, -1)]
+    for line in text.splitlines():
+        stripped = line.lstrip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        indent = len(line) - len(stripped)
+        while len(stack) > 1 and indent <= stack[-1][1]:
+            stack.pop()
+        parent, _ = stack[-1]
+        if stripped.startswith("- "):
+            val = stripped[2:].strip()
+            if isinstance(parent, list):
+                parent.append(_yaml_val(val))
+            continue
+        if ":" not in stripped:
+            continue
+        key, _, val = stripped.partition(":")
+        key = key.strip()
+        val = val.strip().strip('"').strip("'")
+        if val.startswith("[") and val.endswith("]"):
+            items = [x.strip().strip('"').strip("'") for x in val[1:-1].split(",") if x.strip()]
+            parent[key] = items
+        elif val == "":
+            child = {}
+            parent[key] = child
+            stack.append((child, indent))
+        else:
+            parent[key] = _yaml_val(val)
+    return root
+
+def _yaml_val(s):
+    if s.lower() == "true": return True
+    if s.lower() == "false": return False
+    return s
+
+def write_yaml_value(path, key_path, value):
+    text = Path(path).read_text(encoding="utf-8")
+    lines = text.splitlines(keepends=True)
+    if key_path == "active_presets":
+        for i, line in enumerate(lines):
+            if "active_presets:" in line:
+                indent = line[:len(line) - len(line.lstrip())]
+                lines[i] = f'{indent}active_presets: {json.dumps(value)}\n'
+                break
+    Path(path).write_text("".join(lines), encoding="utf-8")
+
+
+# ── Trash management ──────────────────────────────────
+def load_trash():
+    if TRASH_FILE.exists():
+        return json.loads(TRASH_FILE.read_text(encoding="utf-8"))
+    return []
+
+def save_trash(items):
+    TRASH_FILE.write_text(json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+# ── Skill scanning ────────────────────────────────────
+def parse_frontmatter(text):
+    m = re.match(r'^---\s*\n(.*?)\n---', text, re.DOTALL)
+    fm = {}
+    if m:
+        for line in m.group(1).splitlines():
+            if ":" in line:
+                k, _, v = line.partition(":")
+                fm[k.strip()] = v.strip().strip('"').strip("'")
+    return fm
+
+def scan_skills():
+    skills = []
+    if not SKILLS_DIR.exists():
+        return skills
+    # Load tags from config
+    cfg = parse_yaml(CONFIG_FILE) if CONFIG_FILE.exists() else {}
+    tags_map = cfg.get("tags", {})
+    for d in sorted(SKILLS_DIR.iterdir()):
+        if not d.is_dir():
+            continue
+        skill_md = d / "SKILL.md"
+        disabled = d / "SKILL.md.disabled"
+        if skill_md.exists():
+            enabled = True
+            md_path = skill_md
+        elif disabled.exists():
+            enabled = False
+            md_path = disabled
+        else:
+            continue
+        text = md_path.read_text(encoding="utf-8", errors="replace")
+        fm = parse_frontmatter(text)
+        # Get tags for this skill from config
+        skill_tags = []
+        if isinstance(tags_map, dict):
+            skill_tags = tags_map.get(d.name, [])
+            if isinstance(skill_tags, str):
+                skill_tags = [skill_tags]
+        skills.append({
+            "name": fm.get("name", d.name),
+            "dir": d.name,
+            "description": fm.get("description", ""),
+            "enabled": enabled,
+            "size": md_path.stat().st_size,
+            "path": str(md_path),
+            "frontmatter": fm,
+            "tags": skill_tags,
+        })
+    return skills
+
+
+# ── Agent detection ───────────────────────────────────
+AGENT_REGISTRY = [
+    {"key": "claude_code", "label": "Claude Code", "detect": ".claude", "skills": ".claude/skills"},
+    {"key": "qoder", "label": "Qoder", "detect": ".qoder", "skills": ".qoder/skills"},
+    {"key": "cursor", "label": "Cursor", "detect": ".cursor", "skills": ".cursor/skills"},
+    {"key": "codex", "label": "Codex", "detect": ".codex", "skills": ".codex/skills"},
+    {"key": "copilot", "label": "GitHub Copilot", "detect": ".copilot", "skills": ".copilot/skills"},
+    {"key": "gemini_cli", "label": "Gemini CLI", "detect": ".gemini", "skills": ".gemini/skills"},
+    {"key": "windsurf", "label": "Windsurf", "detect": ".codeium\\windsurf", "skills": ".codeium\\windsurf\\skills"},
+    {"key": "trae", "label": "TRAE IDE", "detect": ".trae", "skills": ".trae/skills"},
+    {"key": "trae_cn", "label": "TRAE CN", "detect": ".trae-cn", "skills": ".trae-cn/skills"},
+    {"key": "grok", "label": "Grok", "detect": ".grok", "skills": ".grok/skills"},
+    {"key": "opencode", "label": "OpenCode", "detect": ".config\\opencode", "skills": ".config\\opencode\\skills"},
+    {"key": "continue", "label": "Continue", "detect": ".continue", "skills": ".continue/skills"},
+    {"key": "deepseek", "label": "DeepSeek", "detect": ".deepseek", "skills": ".deepseek/skills"},
+    {"key": "qwen", "label": "Qwen", "detect": ".qwen", "skills": ".qwen/skills"},
+    {"key": "amp", "label": "Amp", "detect": ".agents", "skills": ".agents/skills"},
+    {"key": "kilo_code", "label": "Kilo Code", "detect": ".kilocode", "skills": ".kilocode/skills"},
+    {"key": "roo_code", "label": "Roo Code", "detect": ".roo", "skills": ".roo/skills"},
+    {"key": "goose", "label": "Goose", "detect": ".config\\goose", "skills": ".config\\goose\\skills"},
+    {"key": "cline", "label": "Cline", "detect": ".cline", "skills": ".cline/skills"},
+    {"key": "cc_switch", "label": "CC Switch", "detect": ".cc-switch", "skills": ".cc-switch/skills"},
+    {"key": "skills_mgr", "label": "Skills Manager", "detect": ".skills-manager", "skills": ".skills-manager/skills"},
+    {"key": "droid", "label": "Droid", "detect": ".factory", "skills": ".factory/skills"},
+]
+
+def detect_agents():
+    found = []
+    for a in AGENT_REGISTRY:
+        detect_dir = HOME / a["detect"]
+        if detect_dir.exists():
+            skills_dir = HOME / a["skills"]
+            count = 0
+            synced = []
+            if skills_dir.exists():
+                for sd in skills_dir.iterdir():
+                    if sd.is_dir() and ((sd / "SKILL.md").exists() or (sd / "SKILL.md.disabled").exists()):
+                        count += 1
+                        synced.append(sd.name)
+            found.append({
+                "key": a["key"], "label": a["label"], "installed": True,
+                "skills_dir": str(skills_dir), "skill_count": count, "synced": synced,
+            })
+    return found
+
+def get_sync_status():
+    cfg = parse_yaml(CONFIG_FILE) if CONFIG_FILE.exists() else {}
+    agents_cfg = cfg.get("agents", {})
+    results = []
+    for name, acfg in agents_cfg.items():
+        if not isinstance(acfg, dict):
+            continue
+        agent_path = acfg.get("path", "")
+        tool = acfg.get("tool", "")
+        presets = acfg.get("active_presets", [])
+        skills_list = acfg.get("skills", [])
+        p = Path(agent_path.replace("~", str(HOME)))
+        synced, missing = [], []
+        if p.exists():
+            for sd in sorted(SKILLS_DIR.iterdir()):
+                if not sd.is_dir(): continue
+                target = p / sd.name
+                if target.exists() or target.is_symlink():
+                    synced.append(sd.name)
+                else:
+                    missing.append(sd.name)
+        results.append({
+            "name": name, "tool": tool, "path": agent_path,
+            "active_presets": presets, "skills": skills_list,
+            "synced": synced, "missing": missing,
+            "synced_count": len(synced), "total_count": len(synced) + len(missing),
+        })
+    return results
+
+
+# ── PowerShell helpers ────────────────────────────────
+def run_ps(script, args=None, timeout=30):
+    cmd = [PS, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(SCRIPT_DIR / script)]
+    if args:
+        cmd.extend(args)
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, encoding="utf-8", errors="replace")
+        return {"ok": r.returncode == 0, "stdout": r.stdout, "stderr": r.stderr, "code": r.returncode}
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "stdout": "", "stderr": "timeout", "code": -1}
+    except Exception as e:
+        return {"ok": False, "stdout": "", "stderr": str(e), "code": -1}
+
+def scan_projects(scan_path, max_depth=3):
+    r = run_ps("scan-agents.ps1", ["-ScanPath", scan_path, "-MaxDepth", str(max_depth), "-Json"])
+    if r["ok"]:
+        try:
+            text = r["stdout"]
+            json_start = text.find("{")
+            if json_start >= 0:
+                text = text[json_start:]
+            return json.loads(text)
+        except:
+            return {"projects": [], "global_agents": []}
+    return {"projects": [], "global_agents": [], "error": r["stderr"]}
+
+
+# ── Workspace helpers ─────────────────────────────────
+def find_agent_by_key(key):
+    for a in AGENT_REGISTRY:
+        if a["key"] == key:
+            return a
+    return None
+
+def scan_agent_skills_dir(skills_dir_path):
+    """Scan a directory for skills, return list of skill records."""
+    results = []
+    p = Path(skills_dir_path)
+    if not p.exists():
+        return results
+    for d in sorted(p.iterdir()):
+        if not d.is_dir():
+            continue
+        skill_md = d / "SKILL.md"
+        disabled = d / "SKILL.md.disabled"
+        if skill_md.exists():
+            text = skill_md.read_text(encoding="utf-8", errors="replace")
+            fm = parse_frontmatter(text)
+            results.append({
+                "name": fm.get("name", d.name), "dir": d.name,
+                "description": fm.get("description", ""), "enabled": True,
+                "path": str(skill_md), "source": "check_central",
+            })
+        elif disabled.exists():
+            text = disabled.read_text(encoding="utf-8", errors="replace")
+            fm = parse_frontmatter(text)
+            results.append({
+                "name": fm.get("name", d.name), "dir": d.name,
+                "description": fm.get("description", ""), "enabled": False,
+                "path": str(disabled), "source": "check_central",
+            })
+    return results
+
+
+# ── HTTP Handler ──────────────────────────────────────
+class Handler(http.server.BaseHTTPRequestHandler):
+    def log_message(self, fmt, *args):
+        pass
+
+    def _json(self, data, code=200):
+        body = json.dumps(data, ensure_ascii=False).encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _read_body(self):
+        length = int(self.headers.get("Content-Length", 0))
+        if length:
+            return json.loads(self.rfile.read(length))
+        return {}
+
+    def _serve_static(self, rel_path):
+        fpath = STATIC_DIR / rel_path
+        if not fpath.exists() or not fpath.is_file():
+            self._json({"error": "not found"}, 404)
+            return
+        ext = fpath.suffix.lower()
+        ctype = MIME_TYPES.get(ext, "application/octet-stream")
+        data = fpath.read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _route(self, method):
+        parsed = urlparse(self.path)
+        path = parsed.path.rstrip("/")
+        parts = path.split("/")
+
+        # ── Static files ──
+        if path.startswith("/static/"):
+            rel = path[len("/static/"):]
+            self._serve_static(rel)
+            return
+
+        # ── Index ──
+        if path == "" or path == "/":
+            self._serve_static("index.html")
+            return
+
+        # ══════════════════ API ROUTES ══════════════════
+
+        # GET /api/skills
+        if path == "/api/skills" and method == "GET":
+            self._json({"skills": scan_skills()})
+            return
+
+        # GET /api/agents
+        if path == "/api/agents" and method == "GET":
+            self._json({"agents": detect_agents(), "sync_status": get_sync_status()})
+            return
+
+        # GET /api/presets
+        if path == "/api/presets" and method == "GET":
+            cfg = parse_yaml(CONFIG_FILE) if CONFIG_FILE.exists() else {}
+            presets_cfg = cfg.get("presets", {})
+            presets = []
+            all_names = [s["dir"] for s in scan_skills()]
+            for name, pcfg in presets_cfg.items():
+                if not isinstance(pcfg, dict): continue
+                skills = pcfg.get("skills", [])
+                if skills == ["*"]: skills = all_names
+                presets.append({"name": name, "description": pcfg.get("description", ""), "skills": skills})
+            self._json({"presets": presets})
+            return
+
+        # GET /api/tags
+        if path == "/api/tags" and method == "GET":
+            cfg = parse_yaml(CONFIG_FILE) if CONFIG_FILE.exists() else {}
+            tags_map = cfg.get("tags", {})
+            tags_list = []
+            if isinstance(tags_map, dict):
+                for tag_name, skill_names in tags_map.items():
+                    if isinstance(skill_names, list):
+                        tags_list.append({"name": tag_name, "count": len(skill_names)})
+                    else:
+                        tags_list.append({"name": tag_name, "count": 1})
+            self._json({"tags": tags_list})
+            return
+
+        # GET /api/trash
+        if path == "/api/trash" and method == "GET":
+            self._json({"items": load_trash()})
+            return
+
+        # GET /api/status
+        if path == "/api/status" and method == "GET":
+            self._json({"skills": scan_skills(), "agents": detect_agents(), "sync_status": get_sync_status()})
+            return
+
+        # POST /api/sync
+        if path == "/api/sync" and method == "POST":
+            body = self._read_body()
+            args = []
+            if body.get("agent"): args.extend(["-Agent", body["agent"]])
+            if body.get("mode"): args.extend(["-Mode", body["mode"]])
+            r = run_ps("sync.ps1", args if args else None)
+            self._json({"ok": r["ok"], "output": r["stdout"], "error": r["stderr"]})
+            return
+
+        # POST /api/scan
+        if path == "/api/scan" and method == "POST":
+            body = self._read_body()
+            result = scan_projects(body.get("path", "."), body.get("max_depth", 3))
+            self._json(result)
+            return
+
+        # POST /api/scan/import
+        if path == "/api/scan/import" and method == "POST":
+            body = self._read_body()
+            r = run_ps("scan-agents.ps1", ["-ScanPath", body.get("path", "."), "-MaxDepth", str(body.get("max_depth", 3)), "-Import"])
+            self._json({"ok": r["ok"], "output": r["stdout"], "error": r["stderr"]})
+            return
+
+        # POST /api/presets (create)
+        if path == "/api/presets" and method == "POST":
+            body = self._read_body()
+            name = body.get("name", "")
+            desc = body.get("description", "")
+            skills = body.get("skills", [])
+            if not name:
+                self._json({"ok": False, "error": "name required"}, 400)
+                return
+            skills_yaml = "[" + ", ".join(f'"{s}"' for s in skills) + "]"
+            new_block = f'  {name}:\n    description: "{desc}"\n    skills: {skills_yaml}\n'
+            text = Path(CONFIG_FILE).read_text(encoding="utf-8")
+            if "\nagents:" in text:
+                text = text.replace("\nagents:", new_block + "\nagents:")
+            else:
+                text += "\n" + new_block
+            Path(CONFIG_FILE).write_text(text, encoding="utf-8")
+            self._json({"ok": True})
+            return
+
+        # ── /api/skills/<name>/... ──
+        if len(parts) >= 4 and parts[1] == "api" and parts[2] == "skills":
+            skill_name = unquote(parts[3])
+            action = unquote(parts[4]) if len(parts) > 4 else None
+
+            # GET /api/skills/<name>/content
+            if action == "content" and method == "GET":
+                skill_dir = SKILLS_DIR / skill_name
+                for fname in ["SKILL.md", "SKILL.md.disabled"]:
+                    fp = skill_dir / fname
+                    if fp.exists():
+                        text = fp.read_text(encoding="utf-8", errors="replace")
+                        fm = parse_frontmatter(text)
+                        cfg = parse_yaml(CONFIG_FILE) if CONFIG_FILE.exists() else {}
+                        tags = cfg.get("tags", {}).get(skill_name, [])
+                        if isinstance(tags, str): tags = [tags]
+                        self._json({
+                            "skill": {"name": fm.get("name", skill_name), "description": fm.get("description", ""),
+                                      "enabled": fname == "SKILL.md", "size": fp.stat().st_size, "path": str(fp), "tags": tags},
+                            "content": text,
+                        })
+                        return
+                self._json({"error": "not found"}, 404)
+                return
+
+            # POST /api/skills/<name>/edit
+            if action == "edit" and method == "POST":
+                body = self._read_body()
+                skill_dir = SKILLS_DIR / skill_name
+                for fname in ["SKILL.md", "SKILL.md.disabled"]:
+                    fp = skill_dir / fname
+                    if fp.exists():
+                        text = fp.read_text(encoding="utf-8")
+                        for key in ["name", "description"]:
+                            if key in body:
+                                text = re.sub(rf'^({key}:\s*)(.*)$', rf'\g<1>"{body[key]}"', text, count=1, flags=re.MULTILINE)
+                        fp.write_text(text, encoding="utf-8")
+                        self._json({"ok": True})
+                        return
+                self._json({"error": "not found"}, 404)
+                return
+
+            # POST /api/skills/<name>/toggle-agent
+            if action == "toggle-agent" and method == "POST":
+                body = self._read_body()
+                agent_key = body.get("agent_key", "")
+                act = body.get("action", "install")
+                agent_def = find_agent_by_key(agent_key)
+                if not agent_def:
+                    self._json({"error": "agent not found"}, 404)
+                    return
+                skills_dir = HOME / agent_def["skills"]
+                target = skills_dir / skill_name
+                source = SKILLS_DIR / skill_name
+                if not source.exists():
+                    self._json({"error": "skill not found in central repo"}, 404)
+                    return
+                skills_dir.mkdir(parents=True, exist_ok=True)
+                if act == "install":
+                    if target.exists() or target.is_symlink():
+                        self._json({"ok": True, "msg": "already installed"})
+                        return
+                    # Try symlink, fall back to copy
+                    try:
+                        os.symlink(str(source), str(target), target_is_directory=True)
+                    except (OSError, NotImplementedError):
+                        shutil.copytree(str(source), str(target))
+                    self._json({"ok": True, "msg": "installed"})
+                elif act == "remove":
+                    if target.is_symlink():
+                        target.unlink()
+                    elif target.exists():
+                        shutil.rmtree(str(target))
+                    self._json({"ok": True, "msg": "removed"})
+                return
+
+            # POST /api/skills/<name>/tags
+            if action == "tags" and method == "POST":
+                body = self._read_body()
+                tag_action = body.get("action", "add")
+                tag = body.get("tag", "")
+                if not tag:
+                    self._json({"error": "tag required"}, 400)
+                    return
+                text = Path(CONFIG_FILE).read_text(encoding="utf-8")
+                cfg = parse_yaml(CONFIG_FILE) if CONFIG_FILE.exists() else {}
+                tags_map = cfg.get("tags", {})
+                if not isinstance(tags_map, dict):
+                    tags_map = {}
+                skill_tags = tags_map.get(skill_name, [])
+                if isinstance(skill_tags, str):
+                    skill_tags = [skill_tags]
+                if tag_action == "add":
+                    if tag not in skill_tags:
+                        skill_tags.append(tag)
+                elif tag_action == "remove":
+                    skill_tags = [t for t in skill_tags if t != tag]
+                tags_map[skill_name] = skill_tags
+                # Rebuild tags section in config
+                tags_lines = ["tags:"]
+                for sn, st in tags_map.items():
+                    if isinstance(st, list) and st:
+                        quoted = ", ".join('"' + t + '"' for t in st)
+                        tags_lines.append(f'  {sn}: [{quoted}]')
+                # Replace tags section
+                if "\ntags:" in text:
+                    # Find tags section and replace until next top-level key
+                    lines = text.splitlines(keepends=True)
+                    new_lines = []
+                    in_tags = False
+                    for line in lines:
+                        stripped = line.lstrip()
+                        if stripped.startswith("tags:"):
+                            in_tags = True
+                            continue
+                        if in_tags and stripped and not line.startswith(" ") and not line.startswith("\t"):
+                            in_tags = False
+                        if in_tags and (line.startswith("  ") or line.startswith("\t")):
+                            continue
+                        if in_tags and stripped.startswith("tags:"):
+                            continue
+                        new_lines.append(line)
+                    text = "".join(new_lines)
+                    text = text.rstrip() + "\n" + "\n".join(tags_lines) + "\n"
+                else:
+                    text = text.rstrip() + "\n" + "\n".join(tags_lines) + "\n"
+                Path(CONFIG_FILE).write_text(text, encoding="utf-8")
+                self._json({"ok": True})
+                return
+
+            # POST /api/skills/<name>/delete
+            if action == "delete" and method == "POST":
+                skill_dir = SKILLS_DIR / skill_name
+                if not skill_dir.exists():
+                    self._json({"error": "not found"}, 404)
+                    return
+                trash = load_trash()
+                trash.append({"name": skill_name, "deleted_at": datetime.now().isoformat(), "dir": str(skill_dir)})
+                save_trash(trash)
+                trash_dir = SCRIPT_DIR / ".trash" / skill_name
+                trash_dir.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(skill_dir), str(trash_dir))
+                self._json({"ok": True})
+                return
+
+            # POST /api/skills/<name>/enable|disable
+            if action in ("enable", "disable") and method == "POST":
+                skill_dir = SKILLS_DIR / skill_name
+                active = skill_dir / "SKILL.md"
+                disabled = skill_dir / "SKILL.md.disabled"
+                if action == "enable" and disabled.exists():
+                    disabled.rename(active)
+                elif action == "disable" and active.exists():
+                    active.rename(disabled)
+                self._json({"ok": True})
+                return
+
+            # POST /api/skills/install/local
+            if action == "install" and len(parts) > 5 and parts[5] == "local" and method == "POST":
+                body = self._read_body()
+                src_path = body.get("path", "")
+                if not src_path or not Path(src_path).exists():
+                    self._json({"error": "path not found"}, 404)
+                    return
+                src = Path(src_path)
+                # Find skill folders (dirs with SKILL.md)
+                installed = []
+                if (src / "SKILL.md").exists():
+                    dest = SKILLS_DIR / src.name
+                    if dest.exists(): shutil.rmtree(str(dest))
+                    shutil.copytree(str(src), str(dest))
+                    installed.append(src.name)
+                else:
+                    for d in src.iterdir():
+                        if d.is_dir() and (d / "SKILL.md").exists():
+                            dest = SKILLS_DIR / d.name
+                            if dest.exists(): shutil.rmtree(str(dest))
+                            shutil.copytree(str(d), str(dest))
+                            installed.append(d.name)
+                self._json({"ok": True, "installed": installed})
+                return
+
+            # POST /api/skills/install/git
+            if action == "install" and len(parts) > 5 and parts[5] == "git" and method == "POST":
+                body = self._read_body()
+                url = body.get("url", "")
+                if not url:
+                    self._json({"error": "url required"}, 400)
+                    return
+                import tempfile
+                tmp = Path(tempfile.mkdtemp())
+                try:
+                    r = subprocess.run(["git", "clone", "--depth", "1", url, str(tmp / "repo")],
+                                       capture_output=True, text=True, timeout=60, encoding="utf-8", errors="replace")
+                    if r.returncode != 0:
+                        self._json({"error": f"git clone failed: {r.stderr}"}, 400)
+                        return
+                    repo = tmp / "repo"
+                    installed = []
+                    # Check root and subdirs for SKILL.md
+                    candidates = [repo] + [d for d in repo.iterdir() if d.is_dir()]
+                    for c in candidates:
+                        if (c / "SKILL.md").exists():
+                            dest = SKILLS_DIR / c.name
+                            if dest.exists(): shutil.rmtree(str(dest))
+                            shutil.copytree(str(c), str(dest))
+                            installed.append(c.name)
+                        for d in c.iterdir():
+                            if d.is_dir() and (d / "SKILL.md").exists():
+                                dest = SKILLS_DIR / d.name
+                                if dest.exists(): shutil.rmtree(str(dest))
+                                shutil.copytree(str(d), str(dest))
+                                installed.append(d.name)
+                    self._json({"ok": True, "installed": installed})
+                finally:
+                    shutil.rmtree(str(tmp), ignore_errors=True)
+                return
+
+        # ── Batch operations ──
+        if len(parts) >= 4 and parts[1] == "api" and parts[2] == "skills" and parts[3] == "batch":
+            batch_action = parts[4] if len(parts) > 4 else None
+            body = self._read_body()
+            names = body.get("names", [])
+            if batch_action == "enable":
+                for n in names:
+                    d = SKILLS_DIR / n
+                    dis = d / "SKILL.md.disabled"
+                    if dis.exists(): dis.rename(d / "SKILL.md")
+                self._json({"ok": True})
+            elif batch_action == "disable":
+                for n in names:
+                    d = SKILLS_DIR / n
+                    act = d / "SKILL.md"
+                    if act.exists(): act.rename(d / "SKILL.md.disabled")
+                self._json({"ok": True})
+            elif batch_action == "delete":
+                trash = load_trash()
+                for n in names:
+                    d = SKILLS_DIR / n
+                    if d.exists():
+                        trash.append({"name": n, "deleted_at": datetime.now().isoformat(), "dir": str(d)})
+                        td = SCRIPT_DIR / ".trash" / n
+                        td.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.move(str(d), str(td))
+                save_trash(trash)
+                self._json({"ok": True})
+            elif batch_action == "export":
+                dest = body.get("dest", "")
+                if not dest:
+                    self._json({"error": "dest required"}, 400)
+                    return
+                dest_p = Path(dest)
+                dest_p.mkdir(parents=True, exist_ok=True)
+                for n in names:
+                    src = SKILLS_DIR / n
+                    if src.exists():
+                        shutil.copytree(str(src), str(dest_p / n), dirs_exist_ok=True)
+                self._json({"ok": True})
+            else:
+                self._json({"error": "unknown batch action"}, 400)
+            return
+
+        # ── /api/trash/<name>/restore ──
+        if len(parts) >= 5 and parts[1] == "api" and parts[2] == "trash" and parts[4] == "restore":
+            skill_name = unquote(parts[3])
+            trash_dir = SCRIPT_DIR / ".trash" / skill_name
+            target_dir = SKILLS_DIR / skill_name
+            if not trash_dir.exists():
+                self._json({"error": "not in trash"}, 404)
+                return
+            shutil.move(str(trash_dir), str(target_dir))
+            trash = load_trash()
+            trash = [t for t in trash if t["name"] != skill_name]
+            save_trash(trash)
+            self._json({"ok": True})
+            return
+
+        # ── /api/presets/<name>/... ──
+        if len(parts) >= 5 and parts[1] == "api" and parts[2] == "presets":
+            preset_name = unquote(parts[3])
+            action = unquote(parts[4])
+
+            if action == "activate" and method == "POST":
+                body = self._read_body()
+                agent = body.get("agent", "")
+                cfg = parse_yaml(CONFIG_FILE) if CONFIG_FILE.exists() else {}
+                agents_cfg = cfg.get("agents", {})
+                if agent in agents_cfg:
+                    current = agents_cfg[agent].get("active_presets", [])
+                    if preset_name not in current: current.append(preset_name)
+                    write_yaml_value(CONFIG_FILE, "active_presets", current)
+                    run_ps("sync.ps1", ["-Agent", agent])
+                    self._json({"ok": True})
+                else:
+                    self._json({"error": "agent not found"}, 404)
+                return
+
+            if action == "deactivate" and method == "POST":
+                body = self._read_body()
+                agent = body.get("agent", "")
+                cfg = parse_yaml(CONFIG_FILE) if CONFIG_FILE.exists() else {}
+                agents_cfg = cfg.get("agents", {})
+                if agent in agents_cfg:
+                    current = agents_cfg[agent].get("active_presets", [])
+                    if preset_name in current: current.remove(preset_name)
+                    write_yaml_value(CONFIG_FILE, "active_presets", current)
+                    run_ps("sync.ps1", ["-Agent", agent])
+                    self._json({"ok": True})
+                else:
+                    self._json({"error": "agent not found"}, 404)
+                return
+
+            if action == "edit" and method == "POST":
+                body = self._read_body()
+                text = Path(CONFIG_FILE).read_text(encoding="utf-8")
+                # Update description
+                if "description" in body:
+                    pattern = rf'({re.escape(preset_name)}:[\s\S]*?description:\s*)"[^"]*"'
+                    text = re.sub(pattern, rf'\g<1>"{body["description"]}"', text)
+                # Update skills
+                if "skills" in body:
+                    skills_yaml = "[" + ", ".join(f'"{s}"' for s in body["skills"]) + "]"
+                    pattern = rf'({re.escape(preset_name)}:[\s\S]*?skills:\s*)\[.*?\]'
+                    text = re.sub(pattern, rf'\g<1>{skills_yaml}', text)
+                Path(CONFIG_FILE).write_text(text, encoding="utf-8")
+                self._json({"ok": True})
+                return
+
+            if action == "add-skill" and method == "POST":
+                body = self._read_body()
+                skill = body.get("skill", "")
+                text = Path(CONFIG_FILE).read_text(encoding="utf-8")
+                pattern = rf'({preset_name}:[\s\S]*?skills:\s*\[)(.*?)(\])'
+                m = re.search(pattern, text)
+                if m:
+                    existing = m.group(2).strip()
+                    new_skill = f', "{skill}"' if existing else f'"{skill}"'
+                    text = text[:m.start(2)] + existing + new_skill + text[m.end(2):]
+                    Path(CONFIG_FILE).write_text(text, encoding="utf-8")
+                    self._json({"ok": True})
+                else:
+                    self._json({"error": "preset not found"}, 404)
+                return
+
+            if action == "remove-skill" and method == "POST":
+                body = self._read_body()
+                skill = body.get("skill", "")
+                text = Path(CONFIG_FILE).read_text(encoding="utf-8")
+                pattern = rf'({preset_name}:[\s\S]*?skills:\s*\[)(.*?)(\])'
+                m = re.search(pattern, text)
+                if m:
+                    skills_str = re.sub(rf'[",\s]*"{re.escape(skill)}"[",\s]*', '', m.group(2))
+                    skills_str = re.sub(r',\s*,', ',', skills_str).strip().strip(',')
+                    text = text[:m.start(2)] + skills_str + text[m.end(2):]
+                    Path(CONFIG_FILE).write_text(text, encoding="utf-8")
+                    self._json({"ok": True})
+                else:
+                    self._json({"error": "preset not found"}, 404)
+                return
+
+        # ── /api/workspace/global/<agent_key> ──
+        if len(parts) >= 5 and parts[1] == "api" and parts[2] == "workspace" and parts[3] == "global":
+            agent_key = unquote(parts[4])
+            agent_def = find_agent_by_key(agent_key)
+            if not agent_def:
+                self._json({"error": "agent not found"}, 404)
+                return
+            skills_dir = HOME / agent_def["skills"]
+            central_names = {s["dir"] for s in scan_skills()}
+
+            if method == "GET" and len(parts) == 5:
+                agent_skills = scan_agent_skills_dir(skills_dir)
+                for s in agent_skills:
+                    s["source"] = "central" if s["dir"] in central_names else "external"
+                self._json({"skills": agent_skills, "agent": agent_def})
+                return
+
+            # POST /api/workspace/global/<agent_key>/add
+            if len(parts) > 5 and parts[5] == "add" and method == "POST":
+                body = self._read_body()
+                names = body.get("skill_names", [])
+                skills_dir.mkdir(parents=True, exist_ok=True)
+                added = []
+                for n in names:
+                    src = SKILLS_DIR / n
+                    target = skills_dir / n
+                    if not src.exists() or target.exists(): continue
+                    try:
+                        os.symlink(str(src), str(target), target_is_directory=True)
+                    except (OSError, NotImplementedError):
+                        shutil.copytree(str(src), str(target))
+                    added.append(n)
+                self._json({"ok": True, "added": added})
+                return
+
+            # POST /api/workspace/global/<agent_key>/remove
+            if len(parts) > 5 and parts[5] == "remove" and method == "POST":
+                body = self._read_body()
+                names = body.get("skill_names", [])
+                removed = []
+                for n in names:
+                    target = skills_dir / n
+                    if target.is_symlink():
+                        target.unlink()
+                        removed.append(n)
+                    elif target.exists():
+                        shutil.rmtree(str(target))
+                        removed.append(n)
+                self._json({"ok": True, "removed": removed})
+                return
+
+        # ── /api/workspace/project/... ──
+        if len(parts) >= 5 and parts[1] == "api" and parts[2] == "workspace" and parts[3] == "project":
+            if parts[4] == "import" and method == "POST":
+                body = self._read_body()
+                names = body.get("skill_names", [])
+                proj_path = body.get("path", "")
+                imported = []
+                for n in names:
+                    # Search for skill in project
+                    src = None
+                    for agent in AGENT_REGISTRY:
+                        candidate = Path(proj_path) / agent["skills"] / n
+                        if candidate.exists():
+                            src = candidate
+                            break
+                    if src:
+                        dest = SKILLS_DIR / n
+                        if dest.exists(): shutil.rmtree(str(dest))
+                        shutil.copytree(str(src), str(dest))
+                        imported.append(n)
+                self._json({"ok": True, "imported": imported})
+                return
+
+        # ── /api/backup/... ──
+        if len(parts) >= 4 and parts[1] == "api" and parts[2] == "backup":
+            baction = parts[3]
+
+            if baction == "status" and method == "GET":
+                try:
+                    r = subprocess.run(["git", "remote", "get-url", "origin"], capture_output=True, text=True,
+                                       cwd=str(SCRIPT_DIR), encoding="utf-8")
+                    remote = r.stdout.strip() if r.returncode == 0 else None
+                    r2 = subprocess.run(["git", "log", "-1", "--format=%ci %s"], capture_output=True, text=True,
+                                        cwd=str(SCRIPT_DIR), encoding="utf-8")
+                    last = r2.stdout.strip() if r2.returncode == 0 else None
+                    self._json({"remote": remote, "last_commit": last})
+                except:
+                    self._json({"remote": None, "last_commit": None})
+                return
+
+            if baction == "now" and method == "POST":
+                r1 = run_git(["add", "-A"])
+                r2 = run_git(["commit", "-m", f"backup: {datetime.now().strftime('%Y-%m-%d %H:%M')}"])
+                r3 = run_git(["push"])
+                self._json({"ok": r2["ok"], "output": r2.get("stdout", "")})
+                return
+
+            if baction == "pull" and method == "POST":
+                r = run_git(["pull", "--rebase"])
+                self._json({"ok": r["ok"], "output": r.get("stdout", "")})
+                return
+
+            if baction == "configure" and method == "POST":
+                body = self._read_body()
+                url = body.get("remote_url", "")
+                if url:
+                    run_git(["remote", "set-url", "origin", url])
+                    # If no remote exists, add it
+                    r = run_git(["remote", "get-url", "origin"])
+                    if not r["ok"]:
+                        run_git(["remote", "add", "origin", url])
+                self._json({"ok": True})
+                return
+
+            if baction == "history" and method == "GET":
+                try:
+                    r = subprocess.run(["git", "log", "--oneline", "-20"], capture_output=True, text=True,
+                                       cwd=str(SCRIPT_DIR), encoding="utf-8")
+                    commits = []
+                    if r.returncode == 0:
+                        for line in r.stdout.strip().splitlines():
+                            parts = line.split(" ", 1)
+                            commits.append({"hash": parts[0], "message": parts[1] if len(parts) > 1 else ""})
+                    self._json({"commits": commits})
+                except:
+                    self._json({"commits": []})
+                return
+
+        self._json({"error": "not found"}, 404)
+
+    def do_GET(self): self._route("GET")
+    def do_POST(self): self._route("POST")
+
+
+def run_git(args):
+    try:
+        r = subprocess.run(["git"] + args, capture_output=True, text=True,
+                           cwd=str(SCRIPT_DIR), encoding="utf-8", errors="replace")
+        return {"ok": r.returncode == 0, "stdout": r.stdout, "stderr": r.stderr}
+    except Exception as e:
+        return {"ok": False, "stdout": "", "stderr": str(e)}
+
+
+def main():
+    port = int(sys.argv[1]) if len(sys.argv) > 1 else 8770
+    server = http.server.HTTPServer(("127.0.0.1", port), Handler)
+    print(f"Skills Sync Manager Web UI")
+    print(f"  http://127.0.0.1:{port}")
+    print(f"  Skills dir: {SKILLS_DIR}")
+    print(f"  Config: {CONFIG_FILE}")
+    print(f"  Static: {STATIC_DIR}")
+    print(f"Press Ctrl+C to stop.")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nStopped.")
+        server.server_close()
+
+
+if __name__ == "__main__":
+    main()
+#!/usr/bin/env python3
+"""Skills Sync Manager - Web UI Server
 A single-file Python HTTP server providing a web management interface.
 Port: 8770 (default)
 """

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en" class="antialiased">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Skills Sync Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config={darkMode:"class",theme:{extend:{fontFamily:{sans:['Outfit','sans-serif']},colors:{primary:{50:'#eef2ff',100:'#e0e7ff',200:'#c3dafe',300:'#a3bffa',400:'#7f9cf5',500:'#667eea',600:'#5a67d8',700:'#4c51bf',800:'#434190',900:'#3c366b'}},animation:{'blob':'blob 7s infinite','fade-in-up':'fadeInUp 0.5s cubic-bezier(0.16,1,0.3,1) forwards'},keyframes:{blob:{'0%':{transform:'translate(0px,0px) scale(1)'},'33%':{transform:'translate(30px,-50px) scale(1.1)'},'66%':{transform:'translate(-20px,20px) scale(0.9)'},'100%':{transform:'translate(0px,0px) scale(1)'}},fadeInUp:{'0%':{opacity:'0',transform:'translateY(16px)'},'100%':{opacity:'1',transform:'translateY(0)'}}}}}
+</script>
+<link rel="stylesheet" href="/static/css/app.css">
+<script>
+if(localStorage.theme==='dark'||(!('theme' in localStorage)&&window.matchMedia('(prefers-color-scheme:dark)').matches)){document.documentElement.classList.add('dark')}
+</script>
+</head>
+<body class="bg-slate-50 dark:bg-black text-slate-800 dark:text-slate-200 min-h-screen transition-colors duration-300">
+
+<!-- Animated Background -->
+<div class="fixed inset-0 overflow-hidden pointer-events-none z-0">
+  <div class="absolute top-0 -left-4 w-72 h-72 bg-purple-400 rounded-full mix-blend-multiply filter blur-2xl opacity-15 dark:opacity-10 animate-blob"></div>
+  <div class="absolute top-0 -right-4 w-72 h-72 bg-blue-400 rounded-full mix-blend-multiply filter blur-2xl opacity-15 dark:opacity-10 animate-blob" style="animation-delay:2s"></div>
+  <div class="absolute -bottom-8 left-20 w-72 h-72 bg-pink-400 rounded-full mix-blend-multiply filter blur-2xl opacity-15 dark:opacity-10 animate-blob" style="animation-delay:4s"></div>
+</div>
+
+<!-- App Layout -->
+<div class="relative z-10 min-h-screen flex">
+
+  <!-- Sidebar -->
+  <aside class="sidebar glass-panel m-3 mr-0 rounded-2xl flex flex-col py-4 px-3 gap-1">
+    <div class="px-3 py-2 mb-2">
+      <h1 class="text-lg font-bold tracking-tight flex items-center gap-2">
+        <svg class="w-5 h-5 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+        <span>Skills</span><span class="gradient-text">Sync</span>
+      </h1>
+    </div>
+
+    <div class="sidebar-item active" data-page="dashboard" onclick="navigate('dashboard')">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+      <span>Dashboard</span>
+    </div>
+    <div class="sidebar-item" data-page="library" onclick="navigate('library')">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+      <span>Library</span>
+    </div>
+    <div class="sidebar-item" data-page="global-ws" onclick="navigate('global-ws')">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <span>Global WS</span>
+    </div>
+    <div class="sidebar-item" data-page="project-ws" onclick="navigate('project-ws')">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+      <span>Project WS</span>
+    </div>
+    <div class="sidebar-item" data-page="presets" onclick="navigate('presets')">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+      <span>Presets</span>
+    </div>
+    <div class="sidebar-item" data-page="agents" onclick="navigate('agents')">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+      <span>Agents</span>
+    </div>
+    <div class="sidebar-item" data-page="backup" onclick="navigate('backup')">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+      <span>Backup</span>
+    </div>
+
+    <div class="mt-auto px-3 py-2">
+      <button onclick="toggleTheme()" class="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-slate-500 hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-colors text-sm">
+        <svg id="theme-icon-dark" class="hidden w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+        <svg id="theme-icon-light" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+        <span id="theme-label">Theme</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="flex-1 flex flex-col min-w-0 p-3">
+    <!-- Top bar -->
+    <div class="glass-panel rounded-2xl px-5 py-3 mb-3 flex items-center gap-4">
+      <h2 id="pageTitle" class="text-lg font-bold text-slate-800 dark:text-white">Dashboard</h2>
+      <div class="ml-auto flex items-center gap-2">
+        <button onclick="syncAll()" class="btn-gradient px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-1.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          Sync All
+        </button>
+      </div>
+    </div>
+
+    <!-- Page Container -->
+    <div class="flex-1 overflow-hidden">
+      <div id="page-dashboard" class="page h-full overflow-auto"></div>
+      <div id="page-library" class="page h-full hidden"></div>
+      <div id="page-global-ws" class="page h-full hidden"></div>
+      <div id="page-project-ws" class="page h-full hidden"></div>
+      <div id="page-presets" class="page h-full hidden overflow-auto"></div>
+      <div id="page-agents" class="page h-full hidden overflow-auto"></div>
+      <div id="page-backup" class="page h-full hidden overflow-auto"></div>
+    </div>
+  </main>
+</div>
+
+<!-- Modal -->
+<div class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden transition-opacity" id="modalBg">
+  <div class="glass-panel rounded-2xl p-6 min-w-[400px] max-w-[640px] max-h-[80vh] overflow-auto mx-4 animate-fade-in-up" id="modal"></div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="fixed bottom-6 right-6 px-5 py-3 rounded-xl shadow-2xl transform translate-y-20 opacity-0 transition-all duration-300 z-50 hidden items-center gap-2 backdrop-blur-md font-semibold text-sm border"></div>
+
+<!-- Scripts -->
+<script src="/static/js/app.js"></script>
+<script src="/static/js/dashboard.js"></script>
+<script src="/static/js/library.js"></script>
+<script src="/static/js/workspace.js"></script>
+<script src="/static/js/presets.js"></script>
+<script src="/static/js/agents.js"></script>
+<script src="/static/js/backup.js"></script>
+</body>
+</html>
