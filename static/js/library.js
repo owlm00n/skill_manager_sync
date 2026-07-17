@@ -166,7 +166,8 @@ async function selectSkill(dir) {
   document.getElementById('skillDrawer').innerHTML = `
     <div class="animate-fade-in-up">
       <h2 class="text-lg font-bold text-slate-800 dark:text-white mb-1">${esc(s.name || dir)}</h2>
-      <p class="text-xs text-slate-500 mb-3">${esc(s.description || '')} · ${s.size || 0}B</p>
+      <p class="text-xs text-slate-500 mb-1">${esc(s.description || '')} · ${s.size || 0}B</p>
+      <p class="text-xs text-slate-400 font-mono mb-3 truncate" title="${esc(s.folder || '')}">${esc(s.folder || '')}</p>
       <div class="flex items-center gap-2 mb-3">
         <span class="px-2 py-0.5 text-xs rounded-full font-medium ${s.enabled ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300' : 'bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-300'}">${s.enabled ? 'Enabled' : 'Disabled'}</span>
         ${tags}
@@ -181,6 +182,10 @@ async function selectSkill(dir) {
         <button onclick="toggleSkill('${dir}',${s.enabled})" class="px-3 py-1.5 text-xs font-semibold rounded-lg ${s.enabled ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200' : 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-200'} transition-colors">${s.enabled ? 'Disable' : 'Enable'}</button>
         <button onclick="editSkillModal('${dir}')" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition-colors">Edit</button>
         <button onclick="tagSkillModal('${dir}')" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 hover:bg-primary-200 transition-colors">Tags</button>
+        <button onclick="openFolder('${esc(s.folder || '')}')" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 hover:bg-amber-200 transition-colors flex items-center gap-1" title="${esc(s.folder || '')}">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+          Open Folder
+        </button>
         <button onclick="deleteSkill('${dir}')" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-50 dark:bg-red-900/20 text-red-500 hover:bg-red-100 transition-colors">Delete</button>
       </div>
       <!-- Content -->

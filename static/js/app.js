@@ -126,4 +126,10 @@ async function toggleAgentSkill(skillName, agentKey, isSynced) {
   else showToast(r.error || 'Failed', 'error');
 }
 
+/* ── Open Folder Helper ──────────────────────── */
+async function openFolder(path) {
+  const r = await api('/api/open-folder', { method: 'POST', body: JSON.stringify({ path }) });
+  if (!r.ok) showToast('Cannot open folder', 'error');
+}
+
 /* ── Init is in index.html after all scripts loaded ── */
