@@ -1119,12 +1119,43 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return
 
             if action == "now" and method == "POST":
-                msg = f"Backup {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-                run_git(["add", "-A"])
-                r = run_git(["commit", "-m", msg])
-                if has_remote := bool(run_git(["remote", "-v"])["stdout"].strip()):
-                    run_git(["push"])
-                self._json({"ok": r["ok"], "message": msg})
+                body = self._read_body() if self.command == "POST" else {}
+                msg = body.get("message") or f"Backup {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                add_r = run_git(["add", "-A"])
+                commit_r = run_git(["commit", "-m", msg])
+                # commit returns non-zero when there's nothing to commit; treat as success
+                nothing_to_commit = (not commit_r["ok"]) and ("nothing to commit" in commit_r["stdout"] or "nothing to commit" in commit_r["stderr"] or "no changes" in commit_r["stdout"] or "no changes" in commit_r["stderr"])
+                push_ok = True
+                push_output = ""
+                push_err = ""
+                # Push only if a remote exists
+                remote_r = run_git(["remote", "-v"])
+                has_remote = bool(remote_r["stdout"].strip())
+                if has_remote:
+                    # Try with rebase to avoid merge commits; fall back to plain push
+                    push_r = run_git(["push", "origin", "HEAD"])
+                    if not push_r["ok"]:
+                        push_r2 = run_git(["push"])
+                        if not push_r2["ok"]:
+                            push_ok = False
+                            push_err = push_r2["stderr"] or push_r["stderr"] or "push failed"
+                            push_output = push_r2["stdout"] + push_r["stdout"]
+                        else:
+                            push_output = push_r2["stdout"]
+                    else:
+                        push_output = push_r["stdout"]
+                ok = (commit_r["ok"] or nothing_to_commit) and push_ok
+                self._json({
+                    "ok": ok,
+                    "message": msg,
+                    "commit_ok": commit_r["ok"] or nothing_to_commit,
+                    "nothing_to_commit": nothing_to_commit,
+                    "commit_output": commit_r["stdout"],
+                    "commit_error": commit_r["stderr"],
+                    "pushed": has_remote and push_ok,
+                    "push_output": push_output,
+                    "push_error": push_err,
+                })
                 return
 
             if action == "pull" and method == "POST":
