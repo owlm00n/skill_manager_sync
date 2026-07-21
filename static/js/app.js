@@ -74,7 +74,7 @@ const PAGE_TITLES = {
 const RENDERERS = {
   'dashboard': () => renderDashboard(), 'library': () => renderLibrary(),
   'global-ws': () => renderGlobalWS(), 'project-ws': () => renderProjectWS(),
-  'presets': () => renderPresets(), 'backup': () => renderBackup()
+  'presets': () => renderPresets(), 'backup': () => { renderBackup(); checkBackupStatus(); }
 };
 
 function navigate(page) {

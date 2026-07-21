@@ -1,7 +1,7 @@
 /* ── Backup Page ─────────────────────────────── */
 function renderBackup() {
-  const el = document.getElementById('page-backup');
-  el.innerHTML = `<div class="glass-panel rounded-2xl p-6 animate-fade-in-up">
+	const el = document.getElementById('page-backup');
+	el.innerHTML = `<div class="glass-panel rounded-2xl p-6 animate-fade-in-up">
     <h2 class="text-lg font-bold text-slate-800 dark:text-white mb-6">Backup & Sync</h2>
 
     <!-- Status -->
@@ -58,48 +58,73 @@ function renderBackup() {
 }
 
 async function configureBackup() {
-  const url = document.getElementById('backupRemoteUrl').value.trim();
-  if (!url) { showToast('Enter a URL', 'error'); return; }
-  const r = await api('/api/backup/configure', { method: 'POST', body: JSON.stringify({ remote_url: url }) });
-  if (r.ok) { showToast('Configured'); checkBackupStatus(); } else showToast(r.error || 'Failed', 'error');
+	const url = document.getElementById('backupRemoteUrl').value.trim();
+	if (!url) { showToast('Enter a URL', 'error'); return; }
+	const r = await api('/api/backup/configure', { method: 'POST', body: JSON.stringify({ remote_url: url }) });
+	if (r.ok) { showToast('Configured'); checkBackupStatus(); } else showToast(r.error || 'Failed', 'error');
 }
 
 async function checkBackupStatus() {
-  const r = await api('/api/backup/status');
-  const el = document.getElementById('backupStatus');
-  if (r.remote) {
-    el.innerHTML = `<span class="text-green-500 font-medium">Connected</span> — ${esc(r.remote)}<br><span class="text-xs text-slate-400">Last commit: ${esc(r.last_commit || 'unknown')}</span>`;
-    document.getElementById('backupRemoteUrl').value = r.remote;
-  } else {
-    el.innerHTML = '<span class="text-amber-500 font-medium">Not configured</span> — Set up a remote repository below.';
-  }
+	const r = await api('/api/backup/status');
+	const el = document.getElementById('backupStatus');
+	if (r.remote) {
+		let status = `<span class="text-green-500 font-medium">Connected</span> — ${esc(r.remote)}`;
+		if (r.last_commit) {
+			status += `<br><span class="text-xs text-slate-400">Last commit: ${esc(r.last_commit)} (${esc(r.last_commit_date || '')})</span>`;
+		}
+		if (!r.clean) {
+			status += `<br><span class="text-xs text-amber-500">⚠ Uncommitted changes</span>`;
+		}
+		if (r.ahead > 0) {
+			status += `<br><span class="text-xs text-amber-500">↑ ${r.ahead} commit(s) ahead of remote (need to push)</span>`;
+		}
+		if (r.behind > 0) {
+			status += `<br><span class="text-xs text-blue-500">↓ ${r.behind} commit(s) behind remote (need to pull)</span>`;
+		}
+		el.innerHTML = status;
+		document.getElementById('backupRemoteUrl').value = r.remote;
+	} else {
+		el.innerHTML = '<span class="text-amber-500 font-medium">Not configured</span> — Set up a remote repository below.';
+	}
 }
 
 async function doBackupNow() {
-  showToast('Backing up...');
-  const r = await api('/api/backup/now', { method: 'POST' });
-  if (r.ok) { showToast('Backup complete'); } else showToast(r.error || 'Failed', 'error');
+	showToast('Backing up...');
+	const r = await api('/api/backup/now', { method: 'POST' });
+	if (r.ok) {
+		let detail = '';
+		if (r.nothing_to_commit) detail = ' (no changes)';
+		else if (r.pushed) detail = ' (committed & pushed)';
+		else detail = ' (committed locally)';
+		showToast(`Backup complete${detail}`);
+	} else {
+		// Build a meaningful error message
+		let err = r.error || r.push_error || r.commit_error || 'Backup failed';
+		if (r.commit_ok === false && !r.nothing_to_commit) err = `Commit failed: ${r.commit_error || 'unknown'}`;
+		else if (r.pushed === false) err = `Push failed: ${r.push_error || 'unknown'}`;
+		showToast(err, 'error');
+	}
 }
 
 async function doGitPull() {
-  showToast('Pulling...');
-  const r = await api('/api/backup/pull', { method: 'POST' });
-  if (r.ok) { showToast('Pull complete'); await refresh(); } else showToast(r.error || 'Failed', 'error');
+	showToast('Pulling...');
+	const r = await api('/api/backup/pull', { method: 'POST' });
+	if (r.ok) { showToast('Pull complete'); await refresh(); } else showToast(r.error || 'Failed', 'error');
 }
 
 async function loadGitLog() {
-  const el = document.getElementById('gitLog');
-  el.innerHTML = '<p class="text-slate-400">Loading...</p>';
-  const r = await api('/api/backup/history');
-  if (r.commits && r.commits.length > 0) {
-    el.innerHTML = r.commits.map(c => `
+	const el = document.getElementById('gitLog');
+	el.innerHTML = '<p class="text-slate-400">Loading...</p>';
+	const r = await api('/api/backup/history');
+	if (r.commits && r.commits.length > 0) {
+		el.innerHTML = r.commits.map(c => `
       <div class="flex items-center gap-3 py-2 border-b border-slate-200/50 dark:border-slate-700/30">
         <span class="text-xs font-mono text-slate-400 w-20">${esc(c.date || '')}</span>
         <span class="text-sm text-slate-700 dark:text-slate-300">${esc(c.message || '')}</span>
         <span class="ml-auto text-xs font-mono text-slate-400">${esc(c.hash || '').substring(0, 7)}</span>
       </div>
     `).join('');
-  } else {
-    el.innerHTML = '<p class="text-slate-400">No commits found</p>';
-  }
+	} else {
+		el.innerHTML = '<p class="text-slate-400">No commits found</p>';
+	}
 }

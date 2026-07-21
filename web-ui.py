@@ -1115,7 +1115,35 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     if line.startswith("origin") and "(fetch)" in line:
                         remote_url = line.split("\t")[-1].split(" ")[0] if "\t" in line else ""
                         break
-                self._json({"ok": True, "clean": r["stdout"] == "", "has_remote": bool(remote_url), "remote": remote_url})
+                # Fetch last commit info
+                last_commit = ""
+                last_commit_date = ""
+                lr = run_git(["log", "-1", "--format=%s|%ai"])
+                if lr["ok"] and lr["stdout"].strip():
+                    parts = lr["stdout"].strip().split("|", 1)
+                    if len(parts) == 2:
+                        last_commit, last_commit_date = parts[0], parts[1][:16]
+                # Ahead/behind remote
+                ahead = 0
+                behind = 0
+                if remote_url:
+                    abr = run_git(["rev-list", "--left-right", "--count", "HEAD...origin/HEAD"])
+                    if abr["ok"] and abr["stdout"].strip():
+                        try:
+                            l, r_side = abr["stdout"].split()
+                            ahead, behind = int(l), int(r_side)
+                        except Exception:
+                            pass
+                self._json({
+                    "ok": True,
+                    "clean": r["stdout"] == "",
+                    "has_remote": bool(remote_url),
+                    "remote": remote_url,
+                    "last_commit": last_commit,
+                    "last_commit_date": last_commit_date,
+                    "ahead": ahead,
+                    "behind": behind,
+                })
                 return
 
             if action == "now" and method == "POST":
