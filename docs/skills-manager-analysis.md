@@ -1,280 +1,254 @@
-# Skills Manager 功能逻辑分析
+# Skills Sync Manager — 功能设计与实现状态
 
-> 基于 https://github.com/xingkongliang/skills-manager 的完整功能梳理
-> 用于指导 skills_sync Web UI 的功能设计
+> 项目路径：`D:\06_Project\skills_sync`
+> 技术栈：Python 3.8 (web-ui.py) + PowerShell (sync.ps1) + 原生 JS 前端
+> 服务地址：http://127.0.0.1:8770
 
 ---
 
-## 一、核心概念模型
+## 一、项目概述
 
+Skills Sync Manager 是一个多 Agent 技能同步管理工具，用于将中央技能库中的 skills 同步到各种 AI agent 的全局/项目目录。
+
+### 核心概念
 ```
-                    ┌─────────────────────┐
-                    │   Central Library    │  ← 中央仓库 (~/.skills-manager/skills/)
-                    │   (所有 skill 的单一源) │     所有 skill 先安装到这里
-                    └──────────┬──────────┘
-                               │
-              ┌────────────────┼────────────────┐
-              │                │                │
-       ┌──────▼──────┐ ┌──────▼──────┐ ┌───────▼──────┐
-       │   Presets   │ │   Global    │ │   Project    │
-       │  (预设分组)  │ │  Workspace  │ │  Workspace   │
-       │ 命名 skill   │ │ (全局工作区) │ │ (项目工作区)  │
-       │ 集合，一键    │ │ 每个 agent  │ │ 项目级 skill  │
-       │ 激活/停用    │ │ 独立管理页面 │ │ 管理         │
-       └─────────────┘ └─────────────┘ └──────────────┘
+┌──────────────────────────┐
+│   Central Library (技能库) │  ← D:\06_Project\skills_sync\skills\
+│   26 个 skills            │     所有 skill 的单一源
+└────────────┬─────────────┘
+             │  三种同步模式
+    ┌────────┼────────┐
+    ▼        ▼        ▼
+ Junction  Symlink  Copy
+ (免管理员) (需管理员) (复制文件)
+             │
+    ┌────────┼────────┐
+    ▼        ▼        ▼
+ Claude    Qoder    Hermes  ... (23+ agents)
+ ~/.claude  ~/.qoder  ~/.hermes
+ /skills/   /skills/  /skills/
 ```
 
-### 关键区分：Install vs Sync
-- **Install（安装）**：将 skill 从外部来源（Git/本地/zip/市场）导入到**中央仓库**
-- **Sync（同步）**：将中央仓库的 skill **部署到** agent 的全局/项目目录
-- 这是两步操作，install 不等于 sync
+### 与 skills-manager 的关系
+本项目参考了 [skills-manager](https://github.com/xingkongliang/skills-manager) 的功能设计，但采用 Python+PowerShell 混合技术栈，专注于 Windows 环境下的多 agent 技能同步。
 
 ---
 
-## 二、技能库（Library）
+## 二、已实现功能
 
-### 2.1 安装来源
-| 来源 | 说明 |
-|------|------|
-| 本地文件夹 | `skills install ./my-skill` |
-| Git 仓库 | `skills install https://github.com/foo/bar.git` |
-| skills.sh 市场 | `skills install vercel-labs/agent-skills@react-best-practices` |
-| .zip / .skill 归档 | 拖拽或选择归档文件 |
-
-### 2.2 安装行为
-1. 从来源复制 skill 到中央仓库 `~/.skills-manager/skills/<name>/`
-2. 解析 SKILL.md frontmatter（name, description, tags）
-3. 记录来源元数据（Git URL、本地路径等）用于后续更新检查
-4. **默认仅安装到仓库，不同步到 agent**（除非加 `--sync` 参数）
-
-### 2.3 技能卡片信息
-每张 skill 卡片显示：
-- 名称、描述、标签
-- 来源标识（user/project/plugin）
-- 启用/禁用状态
-- **Agent 图标徽章**：每个已启用的 agent 显示一个图标
-  - 点击图标 → 为该 agent 安装/移除此 skill
-  - 图标样式反映实时同步状态
-
-### 2.4 技能操作
-| 操作 | 说明 |
-|------|------|
-| Enable/Disable | 重命名 SKILL.md ↔ SKILL.md.disabled（非破坏性） |
-| Edit | 修改 frontmatter（name/description），自动创建 .bak |
-| Delete | 软删除到回收站（~/.skills-manager/trash/），记录原始路径 |
-| Undelete | 从回收站恢复，支持单个或全部恢复 |
-| Tag | 添加/移除标签，用于分组和过滤 |
-| Update | 检查 Git 上游更新，重新导入本地 skill |
-| Preview | 查看 SKILL.md / README.md 完整内容 |
-| Export | 一次性复制到任意目录（不受管理） |
-
-### 2.5 批量操作
-- 多选 skill → 批量 enable/disable/export/delete
-- 过滤：按来源（user/project/plugin）、按标签、未标记（Untagged）
-
----
-
-## 三、Preset（预设）
-
-### 3.1 概念
-- Preset 是**命名的 skill 集合**
-- 在任何工作区中，点击 preset 标签即可**一键激活/停用**其所有 skill
-- **重要：激活 preset 是一次性复制操作，不是实时同步**
-  - 激活后，preset 包含的 skill 被复制到 agent 目录
-  - 之后向 preset 添加新 skill 不会自动同步到已激活的 agent
-  - 需要重新 apply preset 才能更新
-
-### 3.2 状态显示
-| 状态 | 显示 | 含义 |
+### 2.1 中央技能库 (Library)
+| 功能 | 状态 | 说明 |
 |------|------|------|
-| ✓ 激活 | 绿色/高亮 | preset 所有 skill 已部署到当前 agent |
-| 3/5 | 数量徽章 | 部分 skill 已部署（5 个中 3 个） |
-| 无标记 | 灰色 | preset 未对当前 agent 激活 |
+| 技能列表展示 | ✅ | 显示所有 skills 的名称、描述、标签 |
+| 打开技能文件夹 | ✅ | 点击图标打开中央库目录 |
+| 技能详情预览 | ✅ | 查看 SKILL.md 内容 |
+| Sync All | ✅ | 一键同步所有 skills 到所有已安装 agents |
+| 技能来源显示 | ✅ | 显示 skill 在哪些 agents 中已同步 |
 
-### 3.3 操作
-| 命令 | 说明 |
-|------|------|
-| `presets list` | 列出所有 preset |
-| `presets preview <name>` | 查看 preset 包含的 skill |
-| `presets apply <name>` | 在当前工作区激活 preset |
-| `presets add-skill <preset> <skill>` | 向 preset 添加 skill |
-| `presets remove-skill <preset> <skill>` | 从 preset 移除 skill |
+### 2.2 同步模式
+| 模式 | 状态 | 说明 |
+|------|------|------|
+| Junction | ✅ | Windows 目录联接，免管理员权限 |
+| Symlink | ✅ | 符号链接，需要管理员权限 |
+| Copy | ✅ | 文件复制，独立副本 |
+| 模式切换 | ✅ | 公共导航栏下拉切换，带说明弹窗 |
 
-### 3.4 重叠处理
-- 多个 preset 可包含同一 skill
-- 停用某个 preset 时，只移除该 preset **独有**的 skill
-- 与其他活跃 preset 共享的 skill 保留
+### 2.3 Global Workspace（全局工作区）
+| 功能 | 状态 | 说明 |
+|------|------|------|
+| Agent 列表侧栏 | ✅ | 显示所有已安装的 agents |
+| Agent skills 展示 | ✅ | 表格展示选中 agent 的所有 skills |
+| 勾选 + Remove | ⚠️ | 批量删除 junction/copy，**前端刷新有问题** |
+| Add Skills | ✅ | 从中央库选择 skills 添加到 agent |
+| Preset Pills | ⚠️ | 点击激活/去激活 preset，**前端状态更新有问题** |
+| 打开 agent 文件夹 | ✅ | 点击图标打开 agent skills 目录 |
+| 自动扫描新 agent | ✅ | 扫描按钮发现新安装的 agents |
 
----
+### 2.4 Project Workspace（项目工作区）
+| 功能 | 状态 | 说明 |
+|------|------|------|
+| 添加关联工作区 | ✅ | 手动添加项目路径 |
+| Auto-detect 扫描 | ✅ | 自动扫描指定路径下的 agent 工作区 |
+| 扫描深度配置 | ✅ | 2-5 层子目录，齿轮图标设置 |
+| Auto-detect 路径配置 | ✅ | 设置弹窗中配置扫描路径 |
+| Workspace 列表 | ✅ | 左侧列表 + 右侧详情布局 |
+| 打开工作区文件夹 | ✅ | 列表项旁的文件夹图标 |
+| Agent 详情展示 | ✅ | 显示扫描到的 agents 和 skills |
 
-## 四、全局工作区（Global Workspace）
+### 2.5 Preset（预设）
+| 功能 | 状态 | 说明 |
+|------|------|------|
+| Preset 定义 | ✅ | config.yaml 中定义命名 skill 集合 |
+| 后端激活/去激活 | ✅ | API 正常工作，config 正确更新，sync.ps1 正确执行 |
+| 前端 UI 更新 | ❌ | **Preset pill 高亮状态不更新** — 前端 bug |
+| Preset 编辑 | ✅ | 修改描述和 skills 列表 |
+| Preset 创建/删除 | ✅ | 通过 API 管理 |
 
-### 4.1 概念
-- 每个已安装的 agent 有**独立的全局 skill 目录**
-  - Claude Code: `~/.claude/skills/`
-  - Cursor: `~/.cursor/skills/`
-  - 等等...
-- 全局工作区为每个 agent 提供**独立页面**
-- 页面显示该 agent 全局目录中的**所有 skill**，包括非 Skills Manager 安装的
-
-### 4.2 Agent 页面
-- **每个 agent 一个页面**：侧边栏选择 agent（如 Claude Code）
-- 显示该 agent skills 目录中的所有内容
-- 即使 skill 不是通过 Skills Manager 安装的，也会显示（"adopt" 概念）
-- 操作：
-  - **+ Add Skills**：从中央仓库选择 skill 添加到该 agent
-    - 打开统一选择器
-    - 搜索中央仓库
-    - 可切换目标 agent（always-visible chips）
-    - 支持批量添加
-  - **Remove**：从 agent 目录移除 skill
-  - **Enable/Disable**：切换 skill 状态
-  - **Preset 标签**：在页面顶部显示所有 preset，点击激活/停用
-
-### 4.3 All Agents 总览
-- 一个页面管理**所有 agent** 的 skill
-- 每个 skill 显示 agent 图标徽章，反映各 agent 的同步状态
-- 点击徽章 → 为该 agent 安装/移除此 skill
-
----
-
-## 五、项目工作区（Project Workspace）
-
-### 5.1 概念
-- 管理**项目本地**的 skill 文件夹
-- 例如 `<project>/.claude/skills/` 中的 skill
-- 与全局工作区独立，skill 只对该项目生效
-
-### 5.2 功能
-- 查看项目中的所有 agent skill 目录
-- 与中央仓库**对比**：哪些 skill 是最新的，哪些需要更新
-- **双向同步**：
-  - 中央仓库 → 项目（添加/更新 skill）
-  - 项目 → 中央仓库（导入项目独有的 skill）
-- 支持嵌套 skill 目录
-- 支持 per-agent 分配（导出时选择目标 agent）
-- 支持批量 enable/disable
-- 支持 preset 标签（与全局工作区相同的 preset pills）
-
-### 5.3 与全局工作区的区别
-| | 全局工作区 | 项目工作区 |
-|---|---|---|
-| 路径 | `~/.claude/skills/` | `<project>/.claude/skills/` |
-| 作用域 | 所有项目 | 仅当前项目 |
-| 参与 preset | 是 | 是（独立管理） |
-| 显示非 SM 安装的 skill | 是 | 是 |
+### 2.6 其他功能
+| 功能 | 状态 | 说明 |
+|------|------|------|
+| Dashboard | ✅ | 总览统计 |
+| Agent 自动发现 | ✅ | 扫描 HOME 目录发现 23+ 种 agent |
+| 备份页面 | ✅ | 基础备份功能 |
+| Tags 标签系统 | ✅ | 技能打标签 + 按标签过滤 |
 
 ---
 
-## 六、Linked Workspaces（链接工作区）
+## 三、技术架构
 
-- 指向任意目录作为 skill 根目录
-- 用于管理不在默认 agent 路径中的 skill
-- 作为独立工作区管理，**不参与全局 preset 同步**
-
----
-
-## 七、多工具同步（Multi-tool Sync）
-
-### 7.1 同步模式
-| 模式 | 说明 |
-|------|------|
-| Symlink | 创建符号链接，修改即生效 |
-| Copy | 复制文件，需要手动触发同步 |
-
-### 7.2 同步操作
-- **一键同步**：点击 Sync 将 skill 部署到所有已启用的 agent
-- **Per-agent 同步**：每个 skill 卡片的 agent 徽章，点击单独安装/移除
-- **Per-skill 控制**：每个 skill 可以单独选择在哪些 agent 上启用
-
-### 7.3 状态反馈
-- 每个 skill 卡片显示 agent 图标徽章
-- 图标样式反映**实时同步状态**：
-  - 已同步 → 高亮/彩色
-  - 未同步 → 灰色
-  - 点击 → 切换安装/移除
-
----
-
-## 八、备份与多设备同步（Backup）
-
-### 8.1 概念
-- 将中央仓库版本化到 Git 仓库
-- 支持 GitHub 一键登录（设备流）
-- 自动后台备份 + 多设备同步
-
-### 8.2 同步特性
-- **Skill-aware merging**：按 skill 粒度合并，不是按行
-  - 设备 A 重命名 skill + 设备 B 编辑内容 → 干净合并
-- **冲突不阻塞**：冲突的 skill 保留本地版本，标记为 "Needs attention"
-  - 用户选择：keep mine / use remote / keep both
-- **快照恢复**：手动备份创建快照版本，可随时恢复
-
-### 8.3 备份内容
-- ✅ Skills 文件
-- ✅ Tags 标签
-- ✅ Presets 预设
-- ✅ Per-agent skill 开关状态
-- ❌ API keys、tokens、proxy 设置（不离开本机）
-- ❌ 超过 100MB 的 skill（自动排除）
-
----
-
-## 九、市场与搜索（Marketplace）
-
-- 浏览 skills.sh 市场的热门 skill
-- 关键词搜索
-- AI 搜索（需要 API key）
-- 一键安装到中央仓库
-
----
-
-## 十、Web UI 界面结构（当前 skill-manager.py）
-
-### 10.1 布局
+### 3.1 文件结构
 ```
-┌─────────────────────────────────────────────────────┐
-│  Header: 标题 + 搜索 + 来源过滤 + 显示禁用 + 刷新 + 回收站 │
-├──────────────────────────┬──────────────────────────┤
-│  左侧：Skill 表格         │  右侧：详情抽屉           │
-│  # | On | Name | Source  │  名称、来源、状态          │
-│  点击行 → 选中            │  Enable/Disable/Edit/Del │
-│  显示所有来源的 skill      │  SKILL.md 内容预览        │
-├──────────────────────────┴──────────────────────────┤
-│  回收站模式：显示已删除 skill + restore 按钮           │
-└─────────────────────────────────────────────────────┘
+skills_sync/
+├── web-ui.py              # Python 后端 (HTTP 服务器 + API 路由)
+├── sync.ps1               # PowerShell 同步脚本 (junction/symlink/copy)
+├── scan-agents.ps1        # PowerShell agent 扫描脚本
+├── config.yaml            # 配置文件 (agents, presets, default_mode)
+├── skills/                # 中央技能库 (26 个 skills)
+├── static/
+│   ├── index.html         # 单页应用入口
+│   ├── css/style.css      # 全局样式 (glassmorphism + gradient)
+│   └── js/
+│       ├── app.js         # 全局状态管理、refresh()、导航
+│       ├── workspace.js   # Global/Project Workspace 逻辑
+│       ├── library.js     # Library 页面逻辑
+│       └── ...
+└── docs/
+    ├── skills-manager-analysis.md  # 功能分析文档
+    ├── BUG_REPORT.md               # Bug 报告
+    └── ...
 ```
 
-### 10.2 当前 Web UI 的局限
-- 只有技能库管理（list/preview/edit/delete/enable/disable）
-- **没有**全局工作区视图
-- **没有**项目工作区视图
-- **没有**Preset 管理界面
-- **没有**Agent 同步状态显示
-- **没有**多工具同步功能
-- **没有**备份功能
-- **没有**市场浏览功能
+### 3.2 数据流
+```
+前端 (JS)                    后端 (Python)              PowerShell
+    │                            │                          │
+    ├── GET /api/agents ────────►│                          │
+    │                            ├── detect_agents()        │
+    │                            ├── get_sync_status() ─────┤
+    │                            │   └── parse_yaml()       │
+    │◄── {sync_status: [...]} ──┤                          │
+    │                            │                          │
+    ├── POST /presets/X/activate►│                          │
+    │                            ├── write_yaml_value()     │
+    │                            ├── run_ps("sync.ps1") ───►│
+    │                            │                          ├── 创建/删除 junction
+    │◄── {ok: true} ────────────┤◄── sync result ──────────┤
+    │                            │                          │
+    ├── POST /workspace/remove ─►│                          │
+    │                            ├── 检测 junction          │
+    │                            ├── os.rmdir() 删除        │
+    │◄── {ok: true} ────────────┤                          │
+```
+
+### 3.3 配置结构 (config.yaml)
+```yaml
+default_mode: junction
+
+presets:
+  debug-toolkit:
+    description: "调试工具包"
+    skills: ["bug-core", "bug-logs", "bug-workspace", ...]
+  management:
+    description: "管理员工具包"
+    skills: ["skill-manager", "session-manager", ...]
+  all:
+    description: "全部技能"
+    skills: ["*"]
+
+agents:
+  claude_code_global:
+    tool: claude_code
+    path: "C:/Users/xianjun.zeng/.claude/skills"
+    active_presets: []
+    skills: ["*"]
+  qoder_auto:
+    tool: qoder
+    path: "C:/Users/xianjun.zeng/.qoder/skills"
+    active_presets: []
+    skills: ["*"]
+```
 
 ---
 
-## 十一、skills_sync 需要补充的核心功能
+## 四、Preset 运作逻辑（设计意图）
 
-对比 skills-manager，当前 skills_sync Web UI 缺少：
+### 4.1 核心逻辑
+```
+有 active_presets → 只同步这些 preset 定义的 skills
+无 active_presets → 同步全部 skills（skills: ["*"]）
+```
 
-### 高优先级
-1. **全局工作区视图**：每个 agent 独立页面，显示其 skills 目录中的所有内容
-2. **Agent 图标徽章**：每个 skill 卡片显示各 agent 同步状态，点击切换
-3. **+ Add Skills 选择器**：从中央仓库选择 skill 添加到指定 agent
-4. **Preset 实际部署逻辑**：当前 preset activate 只是修改 config，需要实际复制/symlink skill
+### 4.2 Junction 模式
+- **激活 preset**：更新 `active_presets` → 运行 sync.ps1 → 只创建 preset 内 skills 的 junction 链接 → 清理不在列表中的旧 junction
+- **去激活 preset**：从 `active_presets` 移除 → 运行 sync.ps1 → 如果无 active_presets 则同步全部，否则同步剩余 preset 的 skills
 
-### 中优先级
-5. **项目工作区**：扫描项目目录，显示项目级 skill，与中央仓库对比
-6. **Skill 安装功能**：从 Git/本地/zip 导入到中央仓库
-7. **回收站管理**：Web UI 中的 trash 查看和恢复
-8. **批量操作**：多选 enable/disable/delete
+### 4.3 Copy 模式
+- **激活 preset**：同上，但操作是复制文件而非创建链接
+- **去激活 preset**：同上，删除不需要的 skill 副本
 
-### 低优先级
-9. **标签系统**：skill 打标签 + 按标签过滤
-10. **备份页面**：Git 远程仓库配置 + 快照管理
-11. **市场浏览**：skills.sh 搜索和安装
-12. **更新检查**：Git 上游更新检测
+### 4.4 sync.ps1 的 Resolve-SkillsForAgent
+```powershell
+# 检查 active_presets
+# 有 presets → 收集所有 active preset 的 skills（去重）
+# 无 presets → 回退到 skills: ["*"]（全部）
+# Clean-StaleSkills → 删除不在预期列表中的旧 skills
+```
+
+---
+
+## 五、已知 Bug
+
+### 5.1 前端 Preset 状态不更新（未解决）
+- **现象**：点击 preset pill 后，pill 不高亮，skills 列表不更新
+- **后端验证**：API 正常，config.yaml 正确更新，sync.ps1 正确执行
+- **问题定位**：前端 `SYNC_STATUS` 在 `refresh()` 后未正确更新
+- **详见**：`docs/BUG_REPORT.md`
+
+### 5.2 前端 Remove 后状态不刷新（未解决）
+- **现象**：全选 remove 后，个别 skill 残留显示
+- **后端验证**：remove API 正常删除 junction
+- **问题定位**：与 5.1 相同的前端状态同步问题
+
+### 5.3 已修复的 Bug
+| Bug | 修复 |
+|-----|------|
+| Junction 删除失败 | `os.rmdir()` 替代 `shutil.rmtree()` |
+| YAML 空数组 `[]` 解析错误 | `Convert-YamlValue` 显式处理 |
+| 嵌套路径问题 | 修复扫描逻辑避免 `skills/skills` 嵌套 |
+
+---
+
+## 六、Agent 注册表
+
+系统支持 23+ 种 agent，注册在 `AGENT_REGISTRY` 中：
+
+| Key | Label | Skills 路径 |
+|-----|-------|------------|
+| claude_code | Claude Code | ~/.claude/skills |
+| qoder | Qoder | ~/.qoder/skills |
+| cursor | Cursor | ~/.cursor/skills |
+| hermes | Hermes | ~/.hermes/skills |
+| trae_cn | TRAE CN | ~/.trae-cn/skills |
+| copilot | GitHub Copilot | ~/.copilot/skills |
+| windsurf | Windsurf | ~/.codeium/windsurf/skills |
+| ... | ... | ... |
+
+---
+
+## 七、对比 skills-manager
+
+| 功能 | skills-manager | skills_sync |
+|------|---------------|-------------|
+| 技术栈 | Node.js CLI + Web UI | Python + PowerShell + JS |
+| 中央技能库 | ✅ | ✅ |
+| Preset 预设 | ✅ (apply 一次性复制) | ✅ (active_presets 持续管理) |
+| Global Workspace | ✅ | ✅ |
+| Project Workspace | ✅ | ✅ |
+| 多 Agent 自动发现 | ✅ | ✅ (23+ agents) |
+| Junction 模式 | ❌ | ✅ (Windows 免管理员) |
+| Symlink 模式 | ✅ | ✅ |
+| Copy 模式 | ✅ | ✅ |
+| 市场浏览 | ✅ (skills.sh) | ❌ |
+| Git 备份 | ✅ | ❌ |
+| 回收站 | ✅ | ❌ |
+| Enable/Disable | ✅ (重命名 SKILL.md) | ❌ |

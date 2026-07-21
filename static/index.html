@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
-tailwind.config={darkMode:"class",theme:{extend:{fontFamily:{sans:['Outfit','sans-serif']},colors:{primary:{50:'#eef2ff',100:'#e0e7ff',200:'#c3dafe',300:'#a3bffa',400:'#7f9cf5',500:'#667eea',600:'#5a67d8',700:'#4c51bf',800:'#434190',900:'#3c366b'}},animation:{'blob':'blob 7s infinite','fade-in-up':'fadeInUp 0.5s cubic-bezier(0.16,1,0.3,1) forwards'},keyframes:{blob:{'0%':{transform:'translate(0px,0px) scale(1)'},'33%':{transform:'translate(30px,-50px) scale(1.1)'},'66%':{transform:'translate(-20px,20px) scale(0.9)'},'100%':{transform:'translate(0px,0px) scale(1)'}},fadeInUp:{'0%':{opacity:'0',transform:'translateY(16px)'},'100%':{opacity:'1',transform:'translateY(0)'}}}}}
+tailwind.config={darkMode:"class",theme:{extend:{fontFamily:{sans:['Outfit','sans-serif']},colors:{primary:{50:'#eef2ff',100:'#e0e7ff',200:'#c3dafe',300:'#a3bffa',400:'#7f9cf5',500:'#667eea',600:'#5a67d8',700:'#4c51bf',800:'#434190',900:'#3c366b'}},animation:{'blob':'blob 7s infinite','fade-in-up':'fadeInUp 0.5s cubic-bezier(0.16,1,0.3,1) forwards'},keyframes:{blob:{'0%':{transform:'translate(0px,0px) scale(1)'},'33%':{transform:'translate(30px,-50px) scale(1.1)'},'66%':{transform:'translate(-20px,20px) scale(0.9)'},'100%':{transform:'translate(0px,0px) scale(1)'}},fadeInUp:{'0%':{opacity:'0',transform:'translateY(16px)'},'100%':{opacity:'1',transform:'translateY(0)'}}}}}}
 </script>
 <link rel="stylesheet" href="/static/css/app.css">
 <script>
@@ -57,10 +57,6 @@ if(localStorage.theme==='dark'||(!('theme' in localStorage)&&window.matchMedia('
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
       <span>Presets</span>
     </div>
-    <div class="sidebar-item" data-page="agents" onclick="navigate('agents')">
-      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-      <span>Agents</span>
-    </div>
     <div class="sidebar-item" data-page="backup" onclick="navigate('backup')">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
       <span>Backup</span>
@@ -81,6 +77,15 @@ if(localStorage.theme==='dark'||(!('theme' in localStorage)&&window.matchMedia('
     <div class="glass-panel rounded-2xl px-5 py-3 mb-3 flex items-center gap-4">
       <h2 id="pageTitle" class="text-lg font-bold text-slate-800 dark:text-white">Dashboard</h2>
       <div class="ml-auto flex items-center gap-2">
+        <!-- Sync Mode Selector -->
+        <div class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100/80 dark:bg-slate-800/60" title="Click to change sync mode">
+          <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          <select id="syncModeSelect" onchange="changeSyncMode(this.value)" class="bg-transparent text-sm font-semibold text-slate-600 dark:text-slate-300 cursor-pointer border-0 focus:outline-none">
+            <option value="junction">⚡ Junction</option>
+            <option value="symlink">🔗 Symlink</option>
+            <option value="copy">📋 Copy</option>
+          </select>
+        </div>
         <button onclick="syncAll()" class="btn-gradient px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-1.5">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
           Sync All
@@ -91,11 +96,10 @@ if(localStorage.theme==='dark'||(!('theme' in localStorage)&&window.matchMedia('
     <!-- Page Container -->
     <div class="flex-1 overflow-hidden">
       <div id="page-dashboard" class="page h-full overflow-auto"></div>
-      <div id="page-library" class="page h-full hidden"></div>
-      <div id="page-global-ws" class="page h-full hidden"></div>
-      <div id="page-project-ws" class="page h-full hidden"></div>
+      <div id="page-library" class="page h-full hidden overflow-auto"></div>
+      <div id="page-global-ws" class="page h-full hidden overflow-auto"></div>
+      <div id="page-project-ws" class="page h-full hidden overflow-auto"></div>
       <div id="page-presets" class="page h-full hidden overflow-auto"></div>
-      <div id="page-agents" class="page h-full hidden overflow-auto"></div>
       <div id="page-backup" class="page h-full hidden overflow-auto"></div>
     </div>
   </main>

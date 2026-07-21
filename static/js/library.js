@@ -37,9 +37,17 @@ function renderLibrary() {
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
             Install
           </button>
+          <button onclick="scanImportModal()" class="px-3 py-2 rounded-xl text-sm font-semibold bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 transition-colors flex items-center gap-1.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+            Scan & Import
+          </button>
           <button onclick="LIB_FILTER.viewTrash=!LIB_FILTER.viewTrash;renderLibrary()" class="px-3 py-2 rounded-xl text-sm font-semibold ${LIB_FILTER.viewTrash ? 'bg-red-100 dark:bg-red-900/30 text-red-600' : 'bg-slate-100 dark:bg-slate-700 text-slate-500'} transition-colors flex items-center gap-1.5">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
             ${LIB_FILTER.viewTrash ? 'Back' : 'Trash'}
+          </button>
+          <button onclick="openFolder(SKILLS_DIR)" class="px-3 py-2 rounded-xl text-sm font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 transition-colors flex items-center gap-1.5" title="${esc(SKILLS_DIR)}">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+            Open
           </button>
         </div>
         <!-- Tag filters -->
@@ -102,7 +110,7 @@ function renderSkillRows(skills) {
       <td class="px-3 py-3"><div class="flex gap-1 flex-wrap">${tags}</div></td>
       <td class="px-3 py-3"><div class="flex gap-1 flex-wrap">${agentBadgeHTML(s.dir)}</div></td>
       <td class="px-3 py-3">
-        <button onclick="event.stopPropagation();openFolder('${esc(s.folder || '')}')" class="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors" title="${esc(s.folder || '')}">
+        <button onclick="event.stopPropagation();openFolder('${escPath(s.folder || '')}')" class="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors" title="${esc(s.folder || '')}">
           <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
         </button>
       </td>
@@ -188,7 +196,7 @@ async function selectSkill(dir) {
         <button onclick="toggleSkill('${dir}',${s.enabled})" class="px-3 py-1.5 text-xs font-semibold rounded-lg ${s.enabled ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200' : 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-200'} transition-colors">${s.enabled ? 'Disable' : 'Enable'}</button>
         <button onclick="editSkillModal('${dir}')" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition-colors">Edit</button>
         <button onclick="tagSkillModal('${dir}')" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 hover:bg-primary-200 transition-colors">Tags</button>
-        <button onclick="openFolder('${esc(s.folder || '')}')" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 hover:bg-amber-200 transition-colors flex items-center gap-1" title="${esc(s.folder || '')}">
+        <button onclick="openFolder('${escPath(s.folder || '')}')" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 hover:bg-amber-200 transition-colors flex items-center gap-1" title="${esc(s.folder || '')}">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
           Open Folder
         </button>
@@ -260,6 +268,7 @@ function installSkillModal() {
     <div class="space-y-4">
       <div>
         <label class="block text-sm font-semibold text-slate-600 dark:text-slate-400 mb-1">From Local Path</label>
+        <p class="text-xs text-slate-400 mb-1">Folder should contain SKILL.md file, e.g. <code class="bg-slate-100 dark:bg-slate-700 px-1 rounded">D:\\skills\\my-skill\\</code></p>
         <div class="flex gap-2">
           <input id="installPath" placeholder="D:\\path\\to\\skill-folder" class="input-modern flex-1 px-4 py-2.5 rounded-xl text-sm font-mono">
           <button onclick="installLocal()" class="btn-gradient px-4 py-2 rounded-xl text-sm font-bold">Install</button>
@@ -288,4 +297,137 @@ async function installGit() {
   const r = await api('/api/skills/install/git', { method: 'POST', body: JSON.stringify({ url }) });
   closeModal();
   if (r.ok) { await refresh(); showToast('Installed'); } else showToast(r.error || 'Failed', 'error');
+}
+
+/* ── Sync Mode ──────────────────────────────── */
+const SYNC_MODE_INFO = {
+  junction: {
+    label: '⚡ Junction',
+    desc: 'Junction (目录联接) - 无需管理员权限，功能等同 Symlink。中央库更新后所有 agent 自动生效。',
+    pros: '无需权限 | 自动跟随中央库 | 不占额外空间'
+  },
+  symlink: {
+    label: '🔗 Symlink', 
+    desc: 'Symbolic Link (符号链接) - 需要管理员权限或开发者模式。功能与 Junction 相同。',
+    pros: '自动跟随中央库 | 需要管理员权限'
+  },
+  copy: {
+    label: '📋 Copy',
+    desc: 'Copy (复制) - 独立副本，不需要权限。中央库更新后需要手动同步才能更新到 agent。',
+    pros: '无需权限 | 独立副本 | 需手动同步更新'
+  }
+};
+
+async function changeSyncMode(mode) {
+  const info = SYNC_MODE_INFO[mode];
+  if (!info) return;
+  
+  // Show explanation modal
+  openModal(`
+    <h3 class="text-lg font-bold text-slate-800 dark:text-white mb-3">切换同步模式</h3>
+    <div class="space-y-3">
+      <div class="p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+        <p class="font-semibold text-blue-700 dark:text-blue-300">${info.label}</p>
+        <p class="text-sm text-blue-600 dark:text-blue-400 mt-1">${info.desc}</p>
+        <p class="text-xs text-blue-500 dark:text-blue-500 mt-2">✓ ${info.pros}</p>
+      </div>
+      <p class="text-sm text-slate-500 dark:text-slate-400">切换后需要点击 "Sync All" 重新同步所有 agent。</p>
+    </div>
+    <div class="flex justify-end gap-2 mt-4">
+      <button onclick="closeModal()" class="px-4 py-2 text-sm font-semibold rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">取消</button>
+      <button onclick="confirmSyncMode('${mode}')" class="btn-gradient px-4 py-2 rounded-xl text-sm font-bold">确认切换</button>
+    </div>
+  `);
+}
+
+async function confirmSyncMode(mode) {
+  closeModal();
+  showToast(`切换到 ${mode} 模式...`);
+  const r = await api('/api/settings/mode', { method: 'POST', body: JSON.stringify({ mode }) });
+  if (r.ok) {
+    SYNC_MODE = mode;
+    document.querySelectorAll('#syncModeSelect').forEach(el => el.value = mode);
+    showToast(`已切换到 ${mode} 模式`);
+  } else {
+    showToast(r.error || 'Failed', 'error');
+  }
+}
+
+/* ── Scan & Import ─────────────────────────────── */
+let LIB_SCAN_PATH = 'D:\\06_Project';
+let LIB_SCAN_DEPTH = 3;
+let LIB_SCAN_RESULTS = null;
+
+function scanImportModal() {
+  openModal(`<h3 class="text-lg font-bold text-slate-800 dark:text-white mb-4">Scan & Import Skills</h3>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mb-3">Scan a directory for agent workspaces and import unique skills into the central library.</p>
+    <label class="block text-sm font-semibold text-slate-600 dark:text-slate-400 mb-1">Scan Path</label>
+    <input id="libScanPath" value="${esc(LIB_SCAN_PATH)}" class="input-modern w-full px-4 py-2.5 rounded-xl text-sm font-mono mb-3">
+    <label class="block text-sm font-semibold text-slate-600 dark:text-slate-400 mb-1">Depth</label>
+    <select id="libScanDepth" class="input-modern w-full px-3 py-2.5 rounded-xl text-sm mb-4">
+      <option value="2" ${LIB_SCAN_DEPTH == 2 ? 'selected' : ''}>2</option>
+      <option value="3" ${LIB_SCAN_DEPTH == 3 ? 'selected' : ''}>3</option>
+      <option value="4" ${LIB_SCAN_DEPTH == 4 ? 'selected' : ''}>4</option>
+    </select>
+    <div id="libScanResults">${LIB_SCAN_RESULTS ? renderLibScanResults() : ''}</div>
+    <div class="flex justify-end gap-2 mt-4">
+      <button onclick="closeModal()" class="px-4 py-2 text-sm font-semibold rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">Close</button>
+      <button onclick="doLibScan()" class="btn-gradient px-4 py-2 text-sm font-bold rounded-xl">Scan</button>
+      <button onclick="doLibScanImport()" class="btn-success px-4 py-2 text-sm font-bold rounded-xl">Scan & Import All</button>
+    </div>
+  `);
+}
+
+function renderLibScanResults() {
+  if (!LIB_SCAN_RESULTS) return '';
+  const workspaces = LIB_SCAN_RESULTS.workspaces || [];
+  if (workspaces.length === 0) return '<p class="text-sm text-slate-400 py-2">No workspaces found</p>';
+  
+  let uniqueCount = 0;
+  return workspaces.map(w => {
+    const skills = w.skills || [];
+    const unique = skills.filter(s => !SKILLS.find(c => c.dir === s.name));
+    uniqueCount += unique.length;
+    return `<div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 mb-2">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-400">${esc(w.label)}</span>
+        <span class="text-sm font-medium truncate">${esc(w.project_name)}</span>
+        <span class="ml-auto text-xs text-slate-400">${skills.length} skills (${unique.length} unique)</span>
+      </div>
+      ${unique.length > 0 ? `<div class="flex flex-wrap gap-1 mt-2">
+        ${unique.map(s => `<span class="px-2 py-0.5 text-xs rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">${esc(s.display_name || s.name)}</span>`).join('')}
+      </div>` : ''}
+    </div>`;
+  }).join('') + `<p class="text-xs text-slate-400 mt-2">Found ${uniqueCount} unique skill(s) to import</p>`;
+}
+
+async function doLibScan() {
+  LIB_SCAN_PATH = document.getElementById('libScanPath').value;
+  LIB_SCAN_DEPTH = document.getElementById('libScanDepth').value;
+  showToast('Scanning...');
+  LIB_SCAN_RESULTS = await api('/api/workspace/scan', { method: 'POST', body: JSON.stringify({ path: LIB_SCAN_PATH, max_depth: parseInt(LIB_SCAN_DEPTH) }) });
+  document.getElementById('libScanResults').innerHTML = renderLibScanResults();
+  showToast('Scan complete');
+}
+
+async function doLibScanImport() {
+  LIB_SCAN_PATH = document.getElementById('libScanPath').value;
+  LIB_SCAN_DEPTH = document.getElementById('libScanDepth').value;
+  showToast('Scanning and importing...');
+  LIB_SCAN_RESULTS = await api('/api/workspace/scan', { method: 'POST', body: JSON.stringify({ path: LIB_SCAN_PATH, max_depth: parseInt(LIB_SCAN_DEPTH) }) });
+  
+  let importCount = 0;
+  for (const w of (LIB_SCAN_RESULTS.workspaces || [])) {
+    for (const s of (w.skills || [])) {
+      if (!SKILLS.find(c => c.dir === s.name)) {
+        const r = await api('/api/workspace/project/import', {
+          method: 'POST', body: JSON.stringify({ path: w.project_path, skill_names: [s.name] })
+        });
+        if (r.ok) importCount++;
+      }
+    }
+  }
+  closeModal();
+  await refresh();
+  showToast(`Imported ${importCount} unique skill(s)`);
 }

@@ -1,14 +1,15 @@
 # Skills Sync Manager Configuration
 # ====================================
 
-# 同步模式: symlink | copy
-default_mode: symlink
+# 同步模式: symlink | junction | copy
+# symlink: 需要管理员权限，junction: 无需权限（推荐），copy: 独立副本
+default_mode: junction
 
 # ── Preset 预设 ──────────────────────────────
 presets:
   debug-toolkit:
-    description: "调试工具包"
-    skills: ["bug-core", "bug-logs", "bug-workspace", "log-analyzer", "code-generator"]
+    description: "Updated desc"
+    skills: ["bug-core"]
   protocol-dev:
     description: "协议开发工具包"
     skills: ["protocol-parser", "bug-core", "keyword-vault"]
@@ -17,17 +18,35 @@ presets:
     skills: ["skill-manager", "session-manager", "hook-manager", "memory-manager", "permission-manager"]
   all:
     description: "所有技能"
-    skills: ["*"]
-
-# ── Agent 目标配置 ─────────────────────────  test-preset:
-    description: "Test preset"
-    skills: ["bug-core", "bug-logs"]
+    skills: ["apply-comments", "bug-core", "bug-hub", "bug-logs", "bug-workspace", "cc-hub", "code-generator", "create-slide", "create-theme", "current-slide", "find-skills", "hello-skill", "hook-manager", "isupport-downloader", "keyword-vault", "log-analyzer", "memory-manager", "pd_auth_analyse", "permission-manager", "Powerpoint-PPTX", "protocol-parser", "session-manager", "skill-manager", "slide-authoring", "ui-style", "Unisoc-PPT"]
+# ── Agent 目标配置 ─────────────────────────
+  bug:
+    description: "bughub"
+    skills: ["bug-core", "bug-hub", "bug-logs", "bug-workspace", "isupport-downloader", "keyword-vault", "log-analyzer", "protocol-parser"]
 
 agents:
+  trae_cn_auto:
+    tool: trae_cn
+    path: "C:/Users/xianjun.zeng/.trae-cn/skills"
+    active_presets: ["debug-toolkit"]
+    skills: ["*"]
+
+  hermes_auto:
+    tool: hermes
+    path: "C:/Users/xianjun.zeng/.hermes/skills"
+    active_presets: ["debug-toolkit", "bug"]
+    skills: ["*"]
+
+  qoder_auto:
+    tool: qoder
+    path: "C:/Users/xianjun.zeng/.qoder/skills"
+    active_presets: ["debug-toolkit"]
+    skills: ["*"]
+
   claude_code_global:
     tool: claude_code
     path: "C:/Users/xianjun.zeng/.claude/skills"
-    active_presets: ["all"]
+    active_presets: ["management", "all"]
     skills: ["*"]
 
   # 项目级（按需取消注释）
@@ -47,6 +66,15 @@ agents:
 # ── Skill 分组标签 ─────────────────────────
 
 tags:
-  debug: ["bug-core", "bug-logs", "bug-workspace", "log-analyzer", "code-generator"]
-  management: ["skill-manager", "session-manager", "hook-manager", "memory-manager", "permission-manager"]
-  protocol: ["protocol-parser", "bug-core"]
+  bug-core: ["debug"]
+  bug-logs: ["debug"]
+  bug-workspace: ["debug"]
+  log-analyzer: ["debug"]
+  code-generator: ["debug"]
+  protocol-parser: ["protocol"]
+  keyword-vault: ["debug"]
+  skill-manager: ["management"]
+  session-manager: ["management"]
+  hook-manager: ["management"]
+  memory-manager: ["management"]
+  permission-manager: ["management"]

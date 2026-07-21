@@ -12,7 +12,7 @@ function renderAgents() {
         </div>
         <div class="flex items-center gap-1 mb-2">
           <p class="text-xs text-slate-500 font-mono flex-1 truncate" title="${esc(a.skills_dir)}">${esc(a.skills_dir)}</p>
-          <button onclick="openFolder('${esc(a.skills_dir)}')" class="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors" title="Open folder">
+          <button onclick="openFolder('${escPath(a.skills_dir)}')" class="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors" title="Open folder">
             <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
           </button>
         </div>

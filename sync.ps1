@@ -20,7 +20,7 @@
 #>
 
 param(
-    [ValidateSet("symlink", "copy")]
+    [ValidateSet("symlink", "junction", "copy")]
     [string]$Mode,
     [string]$Agent,
     [string]$Skill,
@@ -104,6 +104,8 @@ function Convert-YamlValue {
     # Remove quotes
     $val = $val.Trim()
     if ($val -match '^"(.*)"$' -or $val -match "^'(.*)'$") { $val = $Matches[1] }
+    # Empty array: []
+    if ($val -eq '[]') { return @() }
     # Array: ["a", "b", "c"]
     if ($val -match '^\[(.+)\]$') {
         $items = $Matches[1] -split ',' | ForEach-Object {
@@ -132,9 +134,9 @@ if (-not $Mode) {
     if (-not $Mode) { $Mode = "symlink" }
 }
 
-# Get all available skills
+# Get all available skills (skip hidden directories starting with .)
 $allSkills = Get-ChildItem -Path $SkillsDir -Directory | Where-Object {
-    Test-Path (Join-Path $_.FullName "SKILL.md")
+    -not $_.Name.StartsWith('.') -and (Test-Path (Join-Path $_.FullName "SKILL.md"))
 } | Select-Object -ExpandProperty Name
 
 if ($allSkills.Count -eq 0) {
@@ -159,6 +161,10 @@ if ($Agent) {
 }
 
 # Resolve which skills to sync for an agent
+# Logic:
+#   - Skills referenced by ANY preset are "preset-managed": only synced when their preset is active.
+#   - Skills NOT in any preset are "free": always synced (subject to agent.skills filter).
+#   - Final set = (active preset skills union) U (free skills)
 function Resolve-SkillsForAgent {
     param($agentConf, [string[]]$allAvailable)
 
@@ -175,10 +181,54 @@ function Resolve-SkillsForAgent {
         }
     }
 
+    # Base candidate set from agent.skills (* = all available)
     if ($skillList -contains "*") {
-        return $allAvailable
+        $baseCandidates = $allAvailable
+    } else {
+        $baseCandidates = @($skillList)
     }
-    return @($skillList)
+
+    $presetsConfig = $config['presets']
+
+    # Collect all skills referenced by ANY preset (the "preset-managed" pool)
+    $allPresetSkills = @()
+    if ($presetsConfig) {
+        foreach ($presetName in $presetsConfig.Keys) {
+            $preset = $presetsConfig[$presetName]
+            if ($preset -and $preset['skills']) {
+                $allPresetSkills += $preset['skills']
+            }
+        }
+    }
+    $allPresetSkills = $allPresetSkills | Select-Object -Unique
+
+    # Collect skills from ACTIVE presets only
+    $activePresets = $agentConf['active_presets']
+    $activePresetSkills = @()
+    if ($activePresets -and $activePresets.Count -gt 0) {
+        foreach ($presetName in $activePresets) {
+            $preset = $presetsConfig[$presetName]
+            if ($preset -and $preset['skills']) {
+                $activePresetSkills += $preset['skills']
+            } else {
+                Write-Host "  WARNING: Preset '$presetName' not found or has no skills" -ForegroundColor Yellow
+            }
+        }
+    }
+    $activePresetSkills = $activePresetSkills | Select-Object -Unique
+
+    # Final set = (free skills not in any preset) + (active preset skills)
+    $result = @()
+    foreach ($s in $baseCandidates) {
+        if ($allPresetSkills -notcontains $s) {
+            $result += $s
+        }
+    }
+    $result += $activePresetSkills
+
+    # Filter to those actually available on disk and dedupe
+    $result = $result | Where-Object { $allAvailable -contains $_ } | Select-Object -Unique
+    return @($result)
 }
 
 # Sync a single skill to a target directory
@@ -196,8 +246,9 @@ function Sync-SkillToTarget {
         return @{ Status = "MISSING_SOURCE"; Skill = $SkillName }
     }
 
-    if ($SyncMode -eq "symlink") {
-        # Check if already a correct symlink
+    if ($SyncMode -eq "symlink" -or $SyncMode -eq "junction") {
+        $linkType = if ($SyncMode -eq "junction") { "Junction" } else { "SymbolicLink" }
+        # Check if already a correct symlink/junction
         if (Test-Path $destDir) {
             $item = Get-Item $destDir -Force
             if ($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) {
@@ -205,10 +256,10 @@ function Sync-SkillToTarget {
                 if ($target -and (Resolve-Path $target -ErrorAction SilentlyContinue) -eq (Resolve-Path $sourceDir)) {
                     return @{ Status = "OK"; Skill = $SkillName }
                 }
-                # Wrong symlink target - remove and recreate
-                if (-not $DryRun) { Remove-Item $destDir -Force }
+                # Wrong target - remove and recreate
+                if (-not $DryRun) { Remove-Item $destDir -Recurse -Force }
             } else {
-                # It's a real directory (from copy mode) - remove and create symlink
+                # It's a real directory (from copy mode) - remove and create link
                 if (-not $DryRun) { Remove-Item $destDir -Recurse -Force }
             }
         }
@@ -221,7 +272,7 @@ function Sync-SkillToTarget {
 
         if (-not $DryRun) {
             try {
-                New-Item -ItemType SymbolicLink -Path $destDir -Target $sourceDir | Out-Null
+                New-Item -ItemType $linkType -Path $destDir -Target $sourceDir | Out-Null
                 return @{ Status = "LINKED"; Skill = $SkillName }
             } catch {
                 return @{ Status = "ERROR"; Skill = $SkillName; Error = $_.Exception.Message }
@@ -230,15 +281,44 @@ function Sync-SkillToTarget {
             return @{ Status = "WOULD_LINK"; Skill = $SkillName }
         }
     } else {
-        # Copy mode
+        # Copy mode - smart sync with change detection
         if (Test-Path $destDir) {
             $item = Get-Item $destDir -Force
             if ($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) {
-                # It's a symlink - remove and copy
-                if (-not $DryRun) { Remove-Item $destDir -Force }
+                # It's a symlink/junction - remove and copy
+                if (-not $DryRun) { Remove-Item $destDir -Recurse -Force }
             } else {
                 # Already a real directory - check if content differs
-                # For simplicity, always overwrite
+                $needsUpdate = $false
+                
+                # Compare file counts
+                $sourceFiles = Get-ChildItem -Path $sourceDir -Recurse -File
+                $destFiles = Get-ChildItem -Path $destDir -Recurse -File
+                
+                if ($sourceFiles.Count -ne $destFiles.Count) {
+                    $needsUpdate = $true
+                } else {
+                    # Compare modification times of key files (SKILL.md and any .py/.js files)
+                    foreach ($sf in $sourceFiles) {
+                        $relPath = $sf.FullName.Substring($sourceDir.Length)
+                        $df = Join-Path $destDir $relPath
+                        if (-not (Test-Path $df)) {
+                            $needsUpdate = $true
+                            break
+                        }
+                        $destFile = Get-Item $df
+                        if ($sf.LastWriteTime -gt $destFile.LastWriteTime) {
+                            $needsUpdate = $true
+                            break
+                        }
+                    }
+                }
+                
+                if (-not $needsUpdate) {
+                    return @{ Status = "OK"; Skill = $SkillName }
+                }
+                
+                # Content differs - remove and re-copy
                 if (-not $DryRun) { Remove-Item $destDir -Recurse -Force }
             }
         }
@@ -268,8 +348,10 @@ function Clean-StaleSkills {
     if (-not (Test-Path $TargetDir)) { return @() }
     $cleaned = @()
 
-    Get-ChildItem -Path $TargetDir -Directory | ForEach-Object {
+    Get-ChildItem -Path $TargetDir -Directory -Force | ForEach-Object {
         $dirName = $_.Name
+        # Skip hidden/system directories (starting with .)
+        if ($dirName.StartsWith('.')) { return }
         if ($ExpectedSkills -notcontains $dirName) {
             # Check if it's our managed skill (symlink to our repo or contains SKILL.md)
             $isManaged = $false

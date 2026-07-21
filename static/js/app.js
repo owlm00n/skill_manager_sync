@@ -2,6 +2,8 @@
 let SKILLS = [], AGENTS = [], PRESETS = [], SYNC_STATUS = [], TAGS = [];
 let SEL_SKILL = null, CURRENT_PAGE = 'dashboard';
 let INSTALLED_AGENTS = []; // agents with installed=true from detect_agents
+let SKILLS_DIR = ''; // root skills directory path
+let SYNC_MODE = 'junction'; // current sync mode: symlink | junction | copy
 
 /* ── API Helper ──────────────────────────────── */
 async function api(path, opts = {}) {
@@ -16,6 +18,10 @@ async function api(path, opts = {}) {
 
 function esc(s) {
   return (s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+/* Escape for use inside onclick="...('PATH')" attributes - doubles backslashes */
+function escPath(s) {
+  return esc((s || '').replace(/\\/g, '\\\\'));
 }
 
 /* ── Theme ───────────────────────────────────── */
@@ -63,12 +69,12 @@ document.addEventListener('DOMContentLoaded', () => {
 /* ── Navigation ──────────────────────────────── */
 const PAGE_TITLES = {
   'dashboard': 'Dashboard', 'library': 'Library', 'global-ws': 'Global Workspace',
-  'project-ws': 'Project Workspace', 'presets': 'Presets', 'agents': 'Agents', 'backup': 'Backup'
+  'project-ws': 'Project Workspace', 'presets': 'Presets', 'backup': 'Backup'
 };
 const RENDERERS = {
   'dashboard': () => renderDashboard(), 'library': () => renderLibrary(),
   'global-ws': () => renderGlobalWS(), 'project-ws': () => renderProjectWS(),
-  'presets': () => renderPresets(), 'agents': () => renderAgents(), 'backup': () => renderBackup()
+  'presets': () => renderPresets(), 'backup': () => renderBackup()
 };
 
 function navigate(page) {
@@ -85,15 +91,20 @@ function navigate(page) {
 
 /* ── Data Refresh ────────────────────────────── */
 async function refresh() {
-  const [sd, ad, pd, td] = await Promise.all([
-    api('/api/skills'), api('/api/agents'), api('/api/presets'), api('/api/tags')
+  const [sd, ad, pd, td, settings] = await Promise.all([
+    api('/api/skills'), api('/api/agents'), api('/api/presets'), api('/api/tags'), api('/api/settings')
   ]);
   SKILLS = sd.skills || [];
+  SKILLS_DIR = sd.skills_dir || '';
   AGENTS = ad.agents || [];
   SYNC_STATUS = ad.sync_status || [];
   PRESETS = pd.presets || [];
   TAGS = td.tags || [];
+  SYNC_MODE = settings.default_mode || 'junction';
   INSTALLED_AGENTS = AGENTS.filter(a => a.installed);
+  // Sync the dropdown value
+  const modeSelect = document.getElementById('syncModeSelect');
+  if (modeSelect) modeSelect.value = SYNC_MODE;
   // Re-render current page
   if (RENDERERS[CURRENT_PAGE]) RENDERERS[CURRENT_PAGE]();
 }
