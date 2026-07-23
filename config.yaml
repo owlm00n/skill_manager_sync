@@ -5,63 +5,79 @@
 # symlink: 需要管理员权限，junction: 无需权限（推荐），copy: 独立副本
 default_mode: junction
 
-# ── Preset 预设 ──────────────────────────────
+# ── Preset 预设（唯一分发通道）─────────────────
+# 规则：skill 必须归入某个 preset 才会被分发，未归属的 skill 仅存在于中央仓库
 presets:
+  # 通用基础（所有 agent 建议激活）
+  universal:
+    description: "所有 agent 通用基础 skill"
+    skills: ["find-skills", "skill-creator", "hello-skill"]
+
+  # 调试工具
   debug-toolkit:
-    description: "Updated desc"
-    skills: ["bug-core"]
-  protocol-dev:
-    description: "协议开发工具包"
-    skills: ["protocol-parser", "bug-core", "keyword-vault"]
-  management:
-    description: "管理员工具包"
-    skills: ["skill-manager", "session-manager", "hook-manager", "memory-manager", "permission-manager"]
-  all:
-    description: "所有技能"
-    skills: ["apply-comments", "bug-core", "bug-hub", "bug-logs", "bug-workspace", "cc-hub", "code-generator", "create-slide", "create-theme", "current-slide", "find-skills", "hello-skill", "hook-manager", "isupport-downloader", "keyword-vault", "log-analyzer", "memory-manager", "pd_auth_analyse", "permission-manager", "Powerpoint-PPTX", "protocol-parser", "session-manager", "skill-manager", "slide-authoring", "ui-style", "Unisoc-PPT"]
+    description: "Bug 调试核心工具"
+    skills: ["bug-core", "bug-logs", "bug-workspace", "log-analyzer", "code-generator"]
+
+  # 协议分析
+  protocol:
+    description: "USB/PD 协议分析"
+    skills: ["protocol-parser", "keyword-vault", "pd_auth_analyse"]
+
+  # Bug 全流程
+  bug-full:
+    description: "Bug 全流程（含 hub + 下载）"
+    skills: ["bug-hub", "isupport-downloader"]
+
+  # CC 专属管理工具
+  cc-management:
+    description: "Claude Code 管理工具（仅 CC）"
+    skills: ["skill-manager", "session-manager", "hook-manager", "memory-manager", "permission-manager", "cc-hub"]
+
+  # PPT/幻灯片
+  slides:
+    description: "PPT 制作相关（仅 CC）"
+    skills: ["create-slide", "create-theme", "current-slide", "slide-authoring", "Powerpoint-PPTX", "Unisoc-PPT", "ui-style"]
+
+  # 知识库/外部集成
+  knowledge:
+    description: "知识库与外部集成"
+    skills: ["aifoundry-kb", "apply-comments", "grill-me"]
+
 # ── Agent 目标配置 ─────────────────────────
-  bug:
-    description: "bughub"
-    skills: ["bug-core", "bug-hub", "bug-logs", "bug-workspace", "isupport-downloader", "keyword-vault", "log-analyzer", "protocol-parser"]
-
+# skills 字段为额外过滤器：["*"] 或不填 = 接收 active_presets 的全部 skill
+# 显式列表 = 仅接收列表与 preset 的交集
 agents:
-  trae_cn_auto:
-    tool: trae_cn
-    path: "C:/Users/xianjun.zeng/.trae-cn/skills"
-    active_presets: ["debug-toolkit"]
-    skills: ["*"]
-
-  hermes_auto:
-    tool: hermes
-    path: "C:/Users/xianjun.zeng/.hermes/skills"
-    active_presets: ["debug-toolkit", "bug"]
-    skills: ["*"]
+  claude_code_global:
+    tool: claude_code
+    path: "C:/Users/xianjun.zeng/.claude/skills"
+    active_presets: ["universal", "debug-toolkit", "protocol", "bug-full", "cc-management", "slides", "knowledge"]
 
   qoder_auto:
     tool: qoder
     path: "C:/Users/xianjun.zeng/.qoder/skills"
-    active_presets: ["debug-toolkit"]
-    skills: ["*"]
+    active_presets: ["universal", "debug-toolkit", "protocol"]
 
-  claude_code_global:
-    tool: claude_code
-    path: "C:/Users/xianjun.zeng/.claude/skills"
-    active_presets: ["management", "all"]
-    skills: ["*"]
+  hermes_auto:
+    tool: hermes
+    path: "C:/Users/xianjun.zeng/.hermes/skills"
+    active_presets: ["universal", "debug-toolkit", "protocol", "bug-full"]
+
+  trae_cn_auto:
+    tool: trae_cn
+    path: "C:/Users/xianjun.zeng/.trae-cn/skills"
+    active_presets: ["universal", "debug-toolkit"]
 
   # 项目级（按需取消注释）
   # claude_code_project_a:
   #   tool: claude_code
   #   path: "d:/06_Project/projectA/.claude/skills"
-  #   active_presets: ["debug-toolkit"]
-  #   skills: ["bug-core", "log-analyzer"]
+  #   active_presets: ["debug-toolkit", "protocol"]
 
   # 其他工具（按需取消注释）
   # cursor_global:
   #   tool: cursor
   #   path: "C:/Users/xianjun.zeng/.cursor/skills"
-  #   active_presets: []
-  #   skills: ["*"]
+  #   active_presets: ["universal"]
 
 # ── Skill 分组标签 ─────────────────────────
 

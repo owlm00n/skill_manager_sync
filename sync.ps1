@@ -161,17 +161,17 @@ if ($Agent) {
 }
 
 # Resolve which skills to sync for an agent
-# Logic:
-#   - Skills referenced by ANY preset are "preset-managed": only synced when their preset is active.
-#   - Skills NOT in any preset are "free": always synced (subject to agent.skills filter).
-#   - Final set = (active preset skills union) U (free skills)
+# Logic (preset-only distribution):
+#   - Only skills belonging to an ACTIVE preset are distributed.
+#   - Skills NOT in any preset are "unassigned": they stay in central repo but are NOT synced.
+#   - agent.skills acts as an optional filter on top of active preset skills:
+#       ["*"] or absent = no filter (all active preset skills pass)
+#       explicit list   = intersection (only skills in both list AND active presets)
+#   - Final set = active_preset_skills [∩ agent.skills filter]
 function Resolve-SkillsForAgent {
     param($agentConf, [string[]]$allAvailable)
 
-    $skillList = $agentConf['skills']
-    if (-not $skillList) { $skillList = @("*") }
-
-    # If specific skill filter from CLI
+    # If specific skill filter from CLI (-Skill parameter)
     if ($Skill) {
         if ($allAvailable -contains $Skill) {
             return @($Skill)
@@ -181,26 +181,7 @@ function Resolve-SkillsForAgent {
         }
     }
 
-    # Base candidate set from agent.skills (* = all available)
-    if ($skillList -contains "*") {
-        $baseCandidates = $allAvailable
-    } else {
-        $baseCandidates = @($skillList)
-    }
-
     $presetsConfig = $config['presets']
-
-    # Collect all skills referenced by ANY preset (the "preset-managed" pool)
-    $allPresetSkills = @()
-    if ($presetsConfig) {
-        foreach ($presetName in $presetsConfig.Keys) {
-            $preset = $presetsConfig[$presetName]
-            if ($preset -and $preset['skills']) {
-                $allPresetSkills += $preset['skills']
-            }
-        }
-    }
-    $allPresetSkills = $allPresetSkills | Select-Object -Unique
 
     # Collect skills from ACTIVE presets only
     $activePresets = $agentConf['active_presets']
@@ -217,14 +198,20 @@ function Resolve-SkillsForAgent {
     }
     $activePresetSkills = $activePresetSkills | Select-Object -Unique
 
-    # Final set = (free skills not in any preset) + (active preset skills)
+    # Apply agent.skills filter (intersection)
+    $skillFilter = $agentConf['skills']
     $result = @()
-    foreach ($s in $baseCandidates) {
-        if ($allPresetSkills -notcontains $s) {
-            $result += $s
+    if (-not $skillFilter -or $skillFilter -contains "*") {
+        # No filter: all active preset skills pass
+        $result = $activePresetSkills
+    } else {
+        # Explicit list: intersection
+        foreach ($s in $activePresetSkills) {
+            if ($skillFilter -contains $s) {
+                $result += $s
+            }
         }
     }
-    $result += $activePresetSkills
 
     # Filter to those actually available on disk and dedupe
     $result = $result | Where-Object { $allAvailable -contains $_ } | Select-Object -Unique

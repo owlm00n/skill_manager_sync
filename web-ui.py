@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Skills Sync Manager - Web UI Server
 Python HTTP server with static file serving + REST API.
-Port: 8770 (default)
+Port: 8780 (default, was 8770 — moved to avoid conflict with cc-hub Hook Manager)
 """
 import http.server
 import socketserver
@@ -11,19 +11,35 @@ import re
 import shutil
 import subprocess
 import sys
-import time
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, unquote
+
+from config import ConfigManager
+from skills import SkillManager
+from agents import AgentManager
+from workspace import WorkspaceScanner
+from trash import TrashManager
+from git_ops import GitManager
+from utils import run_ps, open_folder
 
 # ── Paths ──────────────────────────────────────────────
 SCRIPT_DIR = Path(__file__).resolve().parent
 SKILLS_DIR = SCRIPT_DIR / "skills"
 CONFIG_FILE = SCRIPT_DIR / "config.yaml"
 TRASH_FILE = SCRIPT_DIR / ".trash.json"
+TRASH_DIR = SCRIPT_DIR / ".trash"
 STATIC_DIR = SCRIPT_DIR / "static"
-PS = "powershell.exe"
 HOME = Path.home()
+
+# ── Module instances ──────────────────────────────────
+config_mgr = ConfigManager(CONFIG_FILE)
+skill_mgr = SkillManager(SKILLS_DIR, config_mgr)
+agent_mgr = AgentManager(HOME, SKILLS_DIR, config_mgr)
+workspace_mgr = WorkspaceScanner(SCRIPT_DIR)
+trash_mgr = TrashManager(TRASH_FILE, TRASH_DIR)
+git_mgr = GitManager(SCRIPT_DIR)
 
 MIME_TYPES = {
     ".html": "text/html; charset=utf-8",
@@ -35,431 +51,6 @@ MIME_TYPES = {
     ".svg": "image/svg+xml",
     ".ico": "image/x-icon",
 }
-
-
-# ── Simple YAML parser (no deps) ──────────────────────
-def parse_yaml(path):
-    text = Path(path).read_text(encoding="utf-8")
-    return _parse_yaml_text(text)
-
-def _parse_yaml_text(text):
-    root = {}
-    stack = [(root, -1)]
-    for line in text.splitlines():
-        stripped = line.lstrip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        indent = len(line) - len(stripped)
-        while len(stack) > 1 and indent <= stack[-1][1]:
-            stack.pop()
-        parent, _ = stack[-1]
-        if stripped.startswith("- "):
-            val = stripped[2:].strip()
-            if isinstance(parent, list):
-                parent.append(_yaml_val(val))
-            continue
-        if ":" not in stripped:
-            continue
-        key, _, val = stripped.partition(":")
-        key = key.strip()
-        val = val.strip().strip('"').strip("'")
-        if val.startswith("[") and val.endswith("]"):
-            items = [x.strip().strip('"').strip("'") for x in val[1:-1].split(",") if x.strip()]
-            parent[key] = items
-        elif val == "":
-            child = {}
-            parent[key] = child
-            stack.append((child, indent))
-        else:
-            parent[key] = _yaml_val(val)
-    return root
-
-def _yaml_val(s):
-    if s.lower() == "true": return True
-    if s.lower() == "false": return False
-    return s
-
-def write_yaml_value(path, key_path, value, agent_name=None):
-    text = Path(path).read_text(encoding="utf-8")
-    lines = text.splitlines(keepends=True)
-    if key_path == "default_mode":
-        for i, line in enumerate(lines):
-            if line.strip().startswith("default_mode:"):
-                indent = line[:len(line) - len(line.lstrip())]
-                lines[i] = f'{indent}default_mode: {value}\n'
-                break
-    elif key_path == "active_presets":
-        if agent_name:
-            # Find the specific agent's active_presets
-            in_agent = False
-            for i, line in enumerate(lines):
-                stripped = line.lstrip()
-                # Agent config lines start with 2 spaces (under agents:)
-                if stripped.startswith(f"{agent_name}:") and line.startswith("  "):
-                    in_agent = True
-                    continue
-                if in_agent and "active_presets:" in line:
-                    indent = line[:len(line) - len(line.lstrip())]
-                    lines[i] = f'{indent}active_presets: {json.dumps(value)}\n'
-                    break
-                # Exit agent block when hitting another agent or top-level section
-                if in_agent and line.strip() and not line.startswith("    ") and not line.startswith("\n"):
-                    break
-        else:
-            for i, line in enumerate(lines):
-                if "active_presets:" in line:
-                    indent = line[:len(line) - len(line.lstrip())]
-                    lines[i] = f'{indent}active_presets: {json.dumps(value)}\n'
-                    break
-    Path(path).write_text("".join(lines), encoding="utf-8")
-
-def add_agent_config(path, config_name, tool, skills_path, presets=None):
-    """Add a new agent config block to config.yaml."""
-    text = Path(path).read_text(encoding="utf-8")
-    presets_str = json.dumps(presets or [])
-    new_block = f"\n  {config_name}:\n    tool: {tool}\n    path: \"{skills_path}\"\n    active_presets: {presets_str}\n    skills: [\"*\"]\n"
-    # Insert after 'agents:' section
-    if "\nagents:" in text:
-        text = text.replace("\nagents:", "\nagents:" + new_block, 1)
-    else:
-        text += f"\nagents:{new_block}"
-    Path(path).write_text(text, encoding="utf-8")
-
-
-# ── Trash management ──────────────────────────────────
-def load_trash():
-    if TRASH_FILE.exists():
-        return json.loads(TRASH_FILE.read_text(encoding="utf-8"))
-    return []
-
-def save_trash(items):
-    TRASH_FILE.write_text(json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
-
-
-# ── Skill scanning ────────────────────────────────────
-def parse_frontmatter(text):
-    m = re.match(r'^---\s*\n(.*?)\n---', text, re.DOTALL)
-    fm = {}
-    if m:
-        for line in m.group(1).splitlines():
-            if ":" in line:
-                k, _, v = line.partition(":")
-                fm[k.strip()] = v.strip().strip('"').strip("'")
-    return fm
-
-def scan_skills():
-    skills = []
-    if not SKILLS_DIR.exists():
-        return skills
-    cfg = parse_yaml(CONFIG_FILE) if CONFIG_FILE.exists() else {}
-    tags_map = cfg.get("tags", {})
-    for d in sorted(SKILLS_DIR.iterdir()):
-        if not d.is_dir():
-            continue
-        skill_md = d / "SKILL.md"
-        disabled = d / "SKILL.md.disabled"
-        if skill_md.exists():
-            enabled = True
-            md_path = skill_md
-        elif disabled.exists():
-            enabled = False
-            md_path = disabled
-        else:
-            continue
-        text = md_path.read_text(encoding="utf-8", errors="replace")
-        fm = parse_frontmatter(text)
-        skill_tags = []
-        if isinstance(tags_map, dict):
-            skill_tags = tags_map.get(d.name, [])
-            if isinstance(skill_tags, str):
-                skill_tags = [skill_tags]
-        skills.append({
-            "name": fm.get("name", d.name),
-            "dir": d.name,
-            "description": fm.get("description", ""),
-            "enabled": enabled,
-            "size": md_path.stat().st_size,
-            "path": str(md_path),
-            "folder": str(d),
-            "frontmatter": fm,
-            "tags": skill_tags,
-        })
-    return skills
-
-
-# ── Agent detection ───────────────────────────────────
-AGENT_REGISTRY = [
-    {"key": "claude_code", "label": "Claude Code", "detect": ".claude", "skills": ".claude/skills"},
-    {"key": "qoder", "label": "Qoder", "detect": ".qoder", "skills": ".qoder/skills"},
-    {"key": "cursor", "label": "Cursor", "detect": ".cursor", "skills": ".cursor/skills"},
-    {"key": "codex", "label": "Codex", "detect": ".codex", "skills": ".codex/skills"},
-    {"key": "copilot", "label": "GitHub Copilot", "detect": ".copilot", "skills": ".copilot/skills"},
-    {"key": "gemini_cli", "label": "Gemini CLI", "detect": ".gemini", "skills": ".gemini/skills"},
-    {"key": "windsurf", "label": "Windsurf", "detect": ".codeium\\windsurf", "skills": ".codeium\\windsurf\\skills"},
-    {"key": "trae", "label": "TRAE IDE", "detect": ".trae", "skills": ".trae/skills"},
-    {"key": "trae_cn", "label": "TRAE CN", "detect": ".trae-cn", "skills": ".trae-cn/skills"},
-    {"key": "grok", "label": "Grok", "detect": ".grok", "skills": ".grok/skills"},
-    {"key": "opencode", "label": "OpenCode", "detect": ".config\\opencode", "skills": ".config\\opencode\\skills"},
-    {"key": "continue", "label": "Continue", "detect": ".continue", "skills": ".continue/skills"},
-    {"key": "deepseek", "label": "DeepSeek", "detect": ".deepseek", "skills": ".deepseek/skills"},
-    {"key": "qwen", "label": "Qwen", "detect": ".qwen", "skills": ".qwen/skills"},
-    {"key": "amp", "label": "Amp", "detect": ".agents", "skills": ".agents/skills"},
-    {"key": "kilo_code", "label": "Kilo Code", "detect": ".kilocode", "skills": ".kilocode/skills"},
-    {"key": "roo_code", "label": "Roo Code", "detect": ".roo", "skills": ".roo/skills"},
-    {"key": "goose", "label": "Goose", "detect": ".config\\goose", "skills": ".config\\goose\\skills"},
-    {"key": "cline", "label": "Cline", "detect": ".cline", "skills": ".cline/skills"},
-    {"key": "cc_switch", "label": "CC Switch", "detect": ".cc-switch", "skills": ".cc-switch/skills"},
-    {"key": "skills_mgr", "label": "Skills Manager", "detect": ".skills-manager", "skills": ".skills-manager/skills"},
-    {"key": "hermes", "label": "Hermes", "detect": ".hermes", "skills": ".hermes/skills"},
-    {"key": "droid", "label": "Droid", "detect": ".factory", "skills": ".factory/skills"},
-]
-
-def detect_agents():
-    found = []
-    for a in AGENT_REGISTRY:
-        detect_dir = HOME / a["detect"]
-        if detect_dir.exists():
-            skills_dir = HOME / a["skills"]
-            count = 0
-            synced = []
-            if skills_dir.exists():
-                for sd in skills_dir.iterdir():
-                    if sd.name.startswith('.'):  # Skip hidden/system directories
-                        continue
-                    if sd.is_dir() and ((sd / "SKILL.md").exists() or (sd / "SKILL.md.disabled").exists()):
-                        count += 1
-                        synced.append(sd.name)
-            found.append({
-                "key": a["key"], "label": a["label"], "installed": True,
-                "skills_dir": str(skills_dir), "skill_count": count, "synced": synced,
-            })
-    return found
-
-def discover_unknown_agents(detected_agents):
-    """Scan home directory for dot-directories with skills subdirectory not in registry."""
-    detected_dirs = set()
-    for a in AGENT_REGISTRY:
-        detected_dirs.add(str(HOME / a["detect"]))
-    detected_skills_dirs = set(a["skills_dir"] for a in detected_agents)
-    
-    discovered = []
-    try:
-        for item in HOME.iterdir():
-            if not item.is_dir() or not item.name.startswith('.'):
-                continue
-            # Skip already registered agents
-            if str(item) in detected_dirs:
-                continue
-            # Check for skills subdirectory
-            skills_dir = item / "skills"
-            if not skills_dir.exists() or not skills_dir.is_dir():
-                continue
-            # Count skills
-            count = 0
-            synced = []
-            for sd in skills_dir.iterdir():
-                if sd.name.startswith('.'):
-                    continue
-                if sd.is_dir() and ((sd / "SKILL.md").exists() or (sd / "SKILL.md.disabled").exists()):
-                    count += 1
-                    synced.append(sd.name)
-            if count > 0 or skills_dir.exists():
-                key = item.name.lstrip('.')
-                label = key.replace('-', ' ').replace('_', ' ').title()
-                discovered.append({
-                    "key": key, "label": label, "installed": True,
-                    "skills_dir": str(skills_dir), "skill_count": count, "synced": synced,
-                    "auto_discovered": True,
-                })
-    except Exception:
-        pass
-    return discovered
-
-def get_sync_status():
-    cfg = parse_yaml(CONFIG_FILE) if CONFIG_FILE.exists() else {}
-    agents_cfg = cfg.get("agents", {})
-    results = []
-    for name, acfg in agents_cfg.items():
-        if not isinstance(acfg, dict):
-            continue
-        agent_path = acfg.get("path", "")
-        tool = acfg.get("tool", "")
-        presets = acfg.get("active_presets", [])
-        skills_list = acfg.get("skills", [])
-        p = Path(agent_path.replace("~", str(HOME)))
-        synced, missing = [], []
-        if p.exists():
-            for sd in sorted(SKILLS_DIR.iterdir()):
-                if not sd.is_dir(): continue
-                target = p / sd.name
-                if target.exists() or target.is_symlink():
-                    synced.append(sd.name)
-                else:
-                    missing.append(sd.name)
-        results.append({
-            "name": name, "tool": tool, "path": agent_path,
-            "active_presets": presets, "skills": skills_list,
-            "synced": synced, "missing": missing,
-            "synced_count": len(synced), "total_count": len(synced) + len(missing),
-        })
-    return results
-
-
-def find_agent_config_by_key(agent_key, agents_cfg):
-    """Find agent config name by agent key (tool field or config name match)."""
-    if agent_key in agents_cfg:
-        return agent_key
-    for name, acfg in agents_cfg.items():
-        if isinstance(acfg, dict) and acfg.get("tool", "") == agent_key:
-            return name
-    return None
-
-
-def scan_workspaces_native(scan_path, max_depth=3):
-    """Scan for agent workspace directories (.claude, .qoder, etc.) under scan_path."""
-    agent_dirs = {
-        ".claude": {"tool": "claude_code", "label": "Claude Code", "skills_sub": "skills"},
-        ".qoder": {"tool": "qoder", "label": "Qoder", "skills_sub": "skills"},
-        ".cursor": {"tool": "cursor", "label": "Cursor", "skills_sub": "skills"},
-        ".codex": {"tool": "codex", "label": "Codex", "skills_sub": "skills"},
-        ".copilot": {"tool": "copilot", "label": "GitHub Copilot", "skills_sub": "skills"},
-        ".gemini": {"tool": "gemini_cli", "label": "Gemini CLI", "skills_sub": "skills"},
-        ".trae": {"tool": "trae", "label": "TRAE IDE", "skills_sub": "skills"},
-        ".trae-cn": {"tool": "trae_cn", "label": "TRAE CN", "skills_sub": "skills"},
-        ".grok": {"tool": "grok", "label": "Grok", "skills_sub": "skills"},
-        ".continue": {"tool": "continue", "label": "Continue", "skills_sub": "skills"},
-        ".cline": {"tool": "cline", "label": "Cline", "skills_sub": "skills"},
-        ".hermes": {"tool": "hermes", "label": "Hermes", "skills_sub": "skills"},
-    }
-    results = []
-    root = Path(scan_path)
-    if not root.exists():
-        return {"projects": [], "workspaces": []}
-    # Walk directory tree up to max_depth
-    for dirpath, dirnames, filenames in os.walk(str(root)):
-        depth = len(Path(dirpath).relative_to(root).parts)
-        if depth >= max_depth:
-            dirnames.clear()
-            continue
-        dp = Path(dirpath)
-        for agent_dir_name, agent_info in agent_dirs.items():
-            agent_path = dp / agent_dir_name
-            if agent_path.exists() and agent_path.is_dir():
-                skills_path = agent_path / agent_info["skills_sub"]
-                skills_list = []
-                if skills_path.exists():
-                    for sd in sorted(skills_path.iterdir()):
-                        if sd.is_dir() and ((sd / "SKILL.md").exists() or (sd / "SKILL.md.disabled").exists()):
-                            fm = parse_frontmatter((sd / "SKILL.md").read_text(encoding="utf-8", errors="replace") if (sd / "SKILL.md").exists() else (sd / "SKILL.md.disabled").read_text(encoding="utf-8", errors="replace"))
-                            skills_list.append({
-                                "name": sd.name,
-                                "display_name": fm.get("name", sd.name),
-                                "description": fm.get("description", ""),
-                                "enabled": (sd / "SKILL.md").exists(),
-                            })
-                results.append({
-                    "project_path": str(dp),
-                    "project_name": dp.name,
-                    "agent_dir": agent_dir_name,
-                    "tool": agent_info["tool"],
-                    "label": agent_info["label"],
-                    "skills_path": str(skills_path) if skills_path.exists() else "",
-                    "skills": skills_list,
-                    "skill_count": len(skills_list),
-                })
-    return {"projects": [], "workspaces": results}
-
-
-# ── PowerShell helpers ────────────────────────────────
-def run_ps(script, args=None, timeout=15):
-    cmd = [PS, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", str(SCRIPT_DIR / script)]
-    if args:
-        cmd.extend(args)
-    try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, encoding="utf-8", errors="replace")
-        return {"ok": r.returncode == 0, "stdout": r.stdout, "stderr": r.stderr, "code": r.returncode}
-    except subprocess.TimeoutExpired:
-        return {"ok": False, "stdout": "", "stderr": "timeout", "code": -1}
-    except Exception as e:
-        return {"ok": False, "stdout": "", "stderr": str(e), "code": -1}
-
-def scan_projects(scan_path, max_depth=3):
-    r = run_ps("scan-agents.ps1", ["-ScanPath", scan_path, "-MaxDepth", str(max_depth), "-Json"])
-    if r["ok"]:
-        try:
-            text = r["stdout"]
-            json_start = text.find("{")
-            if json_start >= 0:
-                text = text[json_start:]
-            return json.loads(text)
-        except:
-            return {"projects": [], "global_agents": []}
-    return {"projects": [], "global_agents": [], "error": r["stderr"]}
-
-
-# ── Workspace helpers ─────────────────────────────────
-def find_agent_by_key(key):
-    for a in AGENT_REGISTRY:
-        if a["key"] == key:
-            return a
-    return None
-
-def scan_agent_skills_dir(skills_dir_path):
-    """Scan a directory for skills, return list of skill records."""
-    results = []
-    p = Path(skills_dir_path)
-    if not p.exists():
-        return results
-    for d in sorted(p.iterdir()):
-        if not d.is_dir() or d.name.startswith('.'):
-            continue
-        skill_md = d / "SKILL.md"
-        disabled = d / "SKILL.md.disabled"
-        if skill_md.exists():
-            text = skill_md.read_text(encoding="utf-8", errors="replace")
-            fm = parse_frontmatter(text)
-            results.append({
-                "name": fm.get("name", d.name), "dir": d.name,
-                "description": fm.get("description", ""), "enabled": True,
-                "path": str(skill_md), "folder": str(d),
-            })
-        elif disabled.exists():
-            text = disabled.read_text(encoding="utf-8", errors="replace")
-            fm = parse_frontmatter(text)
-            results.append({
-                "name": fm.get("name", d.name), "dir": d.name,
-                "description": fm.get("description", ""), "enabled": False,
-                "path": str(disabled), "folder": str(d),
-            })
-    return results
-
-
-# ── Git helpers ───────────────────────────────────────
-def run_git(args):
-    try:
-        r = subprocess.run(["git"] + args, capture_output=True, text=True,
-                           cwd=str(SCRIPT_DIR), encoding="utf-8", errors="replace")
-        return {"ok": r.returncode == 0, "stdout": r.stdout, "stderr": r.stderr}
-    except Exception as e:
-        return {"ok": False, "stdout": "", "stderr": str(e)}
-
-
-# ── Open folder helper ────────────────────────────────
-def open_folder(path_str):
-    """Open a folder in Windows Explorer."""
-    p = Path(path_str)
-    if not p.exists():
-        return False
-    try:
-        if sys.platform == "win32":
-            os.startfile(str(p))
-        elif sys.platform == "darwin":
-            subprocess.run(["open", str(p)])
-        else:
-            subprocess.run(["xdg-open", str(p)])
-        return True
-    except Exception:
-        return False
 
 
 # ── HTTP Handler ──────────────────────────────────────
@@ -526,7 +117,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         # Settings: get/set sync mode
         if path == "/api/settings" and method == "GET":
-            cfg = parse_yaml(CONFIG_FILE)
+            cfg = config_mgr.load()
             self._json({"default_mode": cfg.get("default_mode", "junction")})
             return
 
@@ -536,36 +127,36 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if mode not in ("symlink", "junction", "copy"):
                 self._json({"error": "invalid mode"}, 400)
                 return
-            write_yaml_value(CONFIG_FILE, "default_mode", mode)
+            config_mgr.update_value("default_mode", mode)
             self._json({"ok": True, "mode": mode})
             return
 
         # Skills list
         if path == "/api/skills" and method == "GET":
-            self._json({"skills": scan_skills(), "skills_dir": str(SKILLS_DIR)})
+            self._json({"skills": skill_mgr.scan_all(), "skills_dir": str(SKILLS_DIR)})
             return
 
         # Agents list
         if path == "/api/agents" and method == "GET":
-            self._json({"agents": detect_agents(), "sync_status": get_sync_status()})
+            self._json({"agents": agent_mgr.detect_installed(), "sync_status": agent_mgr.get_sync_status()})
             return
 
         # Scan for new agents (auto-discover unknown agents)
         if path == "/api/agents/scan" and method == "POST":
-            agents = detect_agents()
+            agents = agent_mgr.detect_installed()
             # Auto-discover unknown agents by scanning home directory
-            discovered = discover_unknown_agents(agents)
+            discovered = agent_mgr.discover_unknown(agents)
             if discovered:
                 agents.extend(discovered)
-            self._json({"agents": agents, "sync_status": get_sync_status(), "new_count": len(discovered)})
+            self._json({"agents": agents, "sync_status": agent_mgr.get_sync_status(), "new_count": len(discovered)})
             return
 
         # Presets list
         if path == "/api/presets" and method == "GET":
-            cfg = parse_yaml(CONFIG_FILE)
+            cfg = config_mgr.load()
             presets_cfg = cfg.get("presets", {})
             presets = []
-            all_skill_names = [s["dir"] for s in scan_skills()]
+            all_skill_names = [s["dir"] for s in skill_mgr.scan_all()]
             for name, pcfg in presets_cfg.items():
                 if not isinstance(pcfg, dict):
                     continue
@@ -578,7 +169,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         # Tags list
         if path == "/api/tags" and method == "GET":
-            cfg = parse_yaml(CONFIG_FILE)
+            cfg = config_mgr.load()
             tags_map = cfg.get("tags", {})
             all_tags = set()
             if isinstance(tags_map, dict):
@@ -592,12 +183,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         # Status
         if path == "/api/status" and method == "GET":
-            self._json({"skills": scan_skills(), "agents": detect_agents(), "sync_status": get_sync_status()})
+            self._json({"skills": skill_mgr.scan_all(), "agents": agent_mgr.detect_installed(), "sync_status": agent_mgr.get_sync_status()})
             return
 
         # Trash
         if path == "/api/trash" and method == "GET":
-            self._json({"items": load_trash()})
+            self._json({"items": trash_mgr.load()})
             return
 
         # ── POST routes ──
@@ -610,21 +201,21 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 args.extend(["-Agent", body["agent"]])
             if body.get("mode"):
                 args.extend(["-Mode", body["mode"]])
-            r = run_ps("sync.ps1", args if args else None)
+            r = run_ps("sync.ps1", SCRIPT_DIR, args if args else None)
             self._json({"ok": r["ok"], "output": r["stdout"], "error": r["stderr"]})
             return
 
         # Scan
         if path == "/api/scan" and method == "POST":
             body = self._read_body()
-            result = scan_projects(body.get("path", "."), body.get("max_depth", 3))
+            result = workspace_mgr.scan_projects(body.get("path", "."), body.get("max_depth", 3))
             self._json(result)
             return
 
         # Scan & Import
         if path == "/api/scan/import" and method == "POST":
             body = self._read_body()
-            r = run_ps("scan-agents.ps1", ["-ScanPath", body.get("path", "."), "-MaxDepth", str(body.get("max_depth", 3)), "-Import"])
+            r = run_ps("scan-agents.ps1", SCRIPT_DIR, ["-ScanPath", body.get("path", "."), "-MaxDepth", str(body.get("max_depth", 3)), "-Import"])
             self._json({"ok": r["ok"], "output": r["stdout"], "error": r["stderr"]})
             return
 
@@ -659,6 +250,47 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._json({"ok": ok})
             return
 
+        # ── /api/skills/create (central repo unified creation) ──
+        if path == "/api/skills/create" and method == "POST":
+            body = self._read_body()
+            name = (body.get("name") or "").strip()
+            desc = (body.get("description") or "").strip()
+            if not name:
+                self._json({"ok": False, "error": "name required"}, 400)
+                return
+            # Validate directory name (no path separators, no spaces)
+            if not re.match(r'^[A-Za-z0-9_\-]+$', name):
+                self._json({"ok": False, "error": "name must be alphanumeric/hyphen/underscore only"}, 400)
+                return
+            target = SKILLS_DIR / name
+            if target.exists():
+                self._json({"ok": False, "error": "skill already exists", "path": str(target)}, 409)
+                return
+            target.mkdir(parents=True, exist_ok=True)
+            if not desc:
+                desc = "TODO: Add description"
+            skill_md = (
+                "---\n"
+                f"name: {name}\n"
+                f'description: {desc}\n'
+                "---\n\n"
+                f"# {name}\n\n"
+                "TODO: Add skill instructions here.\n\n"
+                "## When to Use\n\n"
+                "- 触发场景\n\n"
+                "## Steps\n\n"
+                "1. ...\n"
+            )
+            (target / "SKILL.md").write_text(skill_md, encoding="utf-8")
+            # Optional: auto-sync after create
+            if body.get("auto_sync"):
+                sync_r = run_ps("sync.ps1", SCRIPT_DIR)
+                self._json({"ok": True, "name": name, "path": str(target),
+                            "synced": sync_r["ok"], "sync_output": sync_r["stdout"][-500:] if sync_r["stdout"] else ""})
+            else:
+                self._json({"ok": True, "name": name, "path": str(target)})
+            return
+
         # ── /api/skills/install/* and batch/* (must be before <name>/... routes) ──
         if path == "/api/skills/install/local" and method == "POST":
             body = self._read_body()
@@ -673,6 +305,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self._json({"ok": False, "error": "already exists"}, 400)
                 return
             if src.is_dir():
+                # Validate SKILL.md presence
+                if not (src / "SKILL.md").exists() and not (src / "SKILL.md.disabled").exists():
+                    self._json({"ok": False, "error": "source directory must contain SKILL.md"}, 400)
+                    return
                 shutil.copytree(str(src), str(target))
             else:
                 target.mkdir(parents=True, exist_ok=True)
@@ -686,7 +322,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if not git_url:
                 self._json({"ok": False, "error": "url required"}, 400)
                 return
-            import tempfile
             with tempfile.TemporaryDirectory() as tmp:
                 r = subprocess.run(["git", "clone", "--depth=1", git_url, tmp],
                                    capture_output=True, text=True, encoding="utf-8", errors="replace")
@@ -723,12 +358,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                         enabled.rename(skill_dir / "SKILL.md.disabled")
                     results.append({"name": sn, "ok": True})
                 elif batch_action == "batch-delete":
-                    trash = load_trash()
-                    trash.append({"name": sn, "deleted_at": datetime.now().isoformat(), "dir": str(skill_dir)})
-                    save_trash(trash)
-                    trash_dir = SCRIPT_DIR / ".trash" / sn
-                    trash_dir.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.move(str(skill_dir), str(trash_dir))
+                    trash_mgr.add(sn, skill_dir)
                     results.append({"name": sn, "ok": True})
                 elif batch_action == "batch-export":
                     results.append({"name": sn, "ok": True, "path": str(skill_dir)})
@@ -747,7 +377,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     fp = skill_dir / fname
                     if fp.exists():
                         text = fp.read_text(encoding="utf-8", errors="replace")
-                        fm = parse_frontmatter(text)
+                        fm = SkillManager.parse_frontmatter(text)
                         self._json({
                             "skill": {"name": fm.get("name", skill_name), "description": fm.get("description", ""),
                                       "enabled": fname == "SKILL.md", "size": fp.stat().st_size, "path": str(fp),
@@ -783,12 +413,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 if not skill_dir.exists():
                     self._json({"error": "not found"}, 404)
                     return
-                trash = load_trash()
-                trash.append({"name": skill_name, "deleted_at": datetime.now().isoformat(), "dir": str(skill_dir)})
-                save_trash(trash)
-                trash_dir = SCRIPT_DIR / ".trash" / skill_name
-                trash_dir.parent.mkdir(parents=True, exist_ok=True)
-                shutil.move(str(skill_dir), str(trash_dir))
+                trash_mgr.add(skill_name, skill_dir)
                 self._json({"ok": True})
                 return
 
@@ -815,7 +440,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if action == "toggle-agent" and method == "POST":
                 body = self._read_body()
                 agent_key = body.get("agent_key", "")
-                agent = find_agent_by_key(agent_key)
+                agent = agent_mgr.find_by_key(agent_key)
                 if not agent:
                     self._json({"ok": False, "error": "agent not found"}, 404)
                     return
@@ -845,7 +470,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 body = self._read_body()
                 tag_action = body.get("action", "")
                 tag = body.get("tag", "")
-                cfg = parse_yaml(CONFIG_FILE)
+                cfg = config_mgr.load()
                 tags_map = cfg.get("tags", {})
                 if not isinstance(tags_map, dict):
                     tags_map = {}
@@ -877,15 +502,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
         # ── /api/trash/<name>/restore ──
         if len(parts) >= 5 and parts[1] == "api" and parts[2] == "trash" and parts[4] == "restore":
             skill_name = parts[3]
-            trash_dir = SCRIPT_DIR / ".trash" / skill_name
             target_dir = SKILLS_DIR / skill_name
-            if not trash_dir.exists():
+            if not trash_mgr.restore(skill_name, target_dir):
                 self._json({"error": "not in trash"}, 404)
                 return
-            shutil.move(str(trash_dir), str(target_dir))
-            trash = load_trash()
-            trash = [t for t in trash if t["name"] != skill_name]
-            save_trash(trash)
             self._json({"ok": True})
             return
 
@@ -897,27 +517,27 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if action == "activate" and method == "POST":
                 body = self._read_body()
                 agent = body.get("agent", "")
-                cfg = parse_yaml(CONFIG_FILE)
+                cfg = config_mgr.load()
                 agents_cfg = cfg.get("agents", {})
-                config_name = find_agent_config_by_key(agent, agents_cfg)
+                config_name = agent_mgr.find_config_by_key(agent, agents_cfg)
                 if not config_name:
                     # Auto-create agent config
-                    detected = detect_agents()
+                    detected = agent_mgr.detect_installed()
                     agent_info = next((a for a in detected if a["key"] == agent), None)
                     if agent_info:
                         config_name = f"{agent}_auto"
-                        add_agent_config(CONFIG_FILE, config_name, agent, agent_info["skills_dir"].replace("\\", "/"))
+                        config_mgr.add_agent_config(config_name, agent, agent_info["skills_dir"].replace("\\", "/"))
                     else:
                         self._json({"error": "agent not found"}, 404)
                         return
                 # Update active_presets for this specific agent
-                cfg = parse_yaml(CONFIG_FILE)  # Re-read after potential add
+                cfg = config_mgr.load()  # Re-read after potential add
                 agents_cfg = cfg.get("agents", {})
                 current = agents_cfg.get(config_name, {}).get("active_presets", [])
                 if preset_name not in current:
                     current.append(preset_name)
-                write_yaml_value(CONFIG_FILE, "active_presets", current, agent_name=config_name)
-                sync_result = run_ps("sync.ps1", ["-Agent", config_name])
+                config_mgr.update_value("active_presets", current, agent_name=config_name)
+                sync_result = run_ps("sync.ps1", SCRIPT_DIR, ["-Agent", config_name])
                 print(f"[Preset activate] {preset_name} for {config_name}: sync_ok={sync_result.get('ok')}")
                 self._json({"ok": True, "agent_config": config_name})
                 return
@@ -925,15 +545,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if action == "deactivate" and method == "POST":
                 body = self._read_body()
                 agent = body.get("agent", "")
-                cfg = parse_yaml(CONFIG_FILE)
+                cfg = config_mgr.load()
                 agents_cfg = cfg.get("agents", {})
-                config_name = find_agent_config_by_key(agent, agents_cfg)
+                config_name = agent_mgr.find_config_by_key(agent, agents_cfg)
                 if config_name:
                     current = agents_cfg[config_name].get("active_presets", [])
                     if preset_name in current:
                         current.remove(preset_name)
-                    write_yaml_value(CONFIG_FILE, "active_presets", current, agent_name=config_name)
-                    sync_result = run_ps("sync.ps1", ["-Agent", config_name])
+                    config_mgr.update_value("active_presets", current, agent_name=config_name)
+                    sync_result = run_ps("sync.ps1", SCRIPT_DIR, ["-Agent", config_name])
                     print(f"[Preset deactivate] {preset_name} for {config_name}: sync_ok={sync_result.get('ok')}")
                     self._json({"ok": True})
 
@@ -987,14 +607,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
         # ── /api/workspace/global/<agent_key> ──
         if len(parts) == 5 and parts[1] == "api" and parts[2] == "workspace" and parts[3] == "global":
             agent_key = parts[4]
-            agent = find_agent_by_key(agent_key)
+            agent = agent_mgr.find_by_key(agent_key)
             if not agent:
                 self._json({"error": "agent not found"}, 404)
                 return
             skills_dir = HOME / agent["skills"]
-            skills = scan_agent_skills_dir(skills_dir)
+            skills = skill_mgr.scan_agent_skills_dir(skills_dir)
             # Mark which are from central repo
-            central_names = {s["dir"] for s in scan_skills()}
+            central_names = {s["dir"] for s in skill_mgr.scan_all()}
             for s in skills:
                 s["in_central"] = s["dir"] in central_names
             self._json({"agent": agent, "skills": skills})
@@ -1009,7 +629,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 single = body.get("skill", "")
                 if single:
                     skill_names = [single]
-            agent = find_agent_by_key(agent_key)
+            agent = agent_mgr.find_by_key(agent_key)
             if not agent:
                 self._json({"error": "agent not found", "results": []}, 404)
                 return
@@ -1042,7 +662,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 single = body.get("skill", "")
                 if single:
                     skill_names = [single]
-            agent = find_agent_by_key(agent_key)
+            agent = agent_mgr.find_by_key(agent_key)
             if not agent:
                 self._json({"error": "agent not found", "results": []}, 404)
                 return
@@ -1079,27 +699,147 @@ class Handler(http.server.BaseHTTPRequestHandler):
             results = []
             for sn in skill_names:
                 src = None
+                src_type = None  # "dir" or "file"
                 for agent_dir in [".claude", ".qoder", ".cursor", ".codex", ".copilot", ".gemini", ".trae", ".trae-cn", ".grok", ".continue", ".cline"]:
-                    candidate = Path(project_path) / agent_dir / "skills" / sn
-                    if candidate.exists():
-                        src = candidate
+                    # Try directory form first: <path>/.claude/skills/<name>/
+                    candidate_dir = Path(project_path) / agent_dir / "skills" / sn
+                    if candidate_dir.exists() and candidate_dir.is_dir():
+                        if (candidate_dir / "SKILL.md").exists() or (candidate_dir / "SKILL.md.disabled").exists():
+                            src = candidate_dir
+                            src_type = "dir"
+                            break
+                    # Try single-file form: <path>/.claude/skills/<name>.md
+                    candidate_file = Path(project_path) / agent_dir / "skills" / f"{sn}.md"
+                    if candidate_file.exists() and candidate_file.is_file():
+                        src = candidate_file
+                        src_type = "file"
                         break
                 if not src:
                     results.append({"name": sn, "ok": False, "error": "not found in project"})
                     continue
                 target = SKILLS_DIR / sn
-                if target.exists():
+                if target.exists() or (src_type == "file" and (SKILLS_DIR / f"{sn}.md").exists()):
                     results.append({"name": sn, "ok": False, "error": "already in central repo"})
                     continue
-                shutil.copytree(str(src), str(target))
-                results.append({"name": sn, "ok": True})
+                try:
+                    if src_type == "dir":
+                        # Import as directory skill: <central>/skills/<name>/SKILL.md
+                        shutil.copytree(str(src), str(target))
+                    else:
+                        # Single-file skill: copy as <central>/skills/<name>/SKILL.md (normalize to dir form)
+                        target.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(str(src), str(target / "SKILL.md"))
+                    results.append({"name": sn, "ok": True, "type": src_type})
+                except Exception as e:
+                    results.append({"name": sn, "ok": False, "error": str(e)})
             self._json({"ok": True, "results": results})
+            return
+
+        # ── /api/skills/reverse-sync (recover orphan skills from agent dirs + project dirs) ──
+        if path == "/api/skills/reverse-sync" and method == "POST":
+            body = self._read_body() if self.command == "POST" else {}
+            dry_run = bool(body.get("dry_run", False))
+            cfg = config_mgr.load()
+            agents_cfg = cfg.get("agents", {})
+            central_names = {s["dir"] for s in skill_mgr.scan_all()}
+            imported, skipped, errors = [], [], []
+
+            def _is_reparse(path):
+                try:
+                    attrs = os.lstat(str(path))
+                    return bool(attrs.st_file_attributes & 0x400) if hasattr(attrs, 'st_file_attributes') else False
+                except Exception:
+                    return False
+
+            def _try_import(src_path, src_type, agent_label, project_label=""):
+                """Import a single skill source into central repo.
+
+                For dir type, src_path may point to either the skill directory
+                or the SKILL.md file inside it — normalize to the directory.
+                """
+                if src_type == "dir":
+                    # If src_path is a file (e.g. SKILL.md), use its parent dir
+                    if src_path.is_file():
+                        src_path = src_path.parent
+                    name = src_path.name
+                else:  # file
+                    name = src_path.stem
+                label = agent_label + (f" @ {project_label}" if project_label else "")
+                if name in central_names or (src_type == "file" and (SKILLS_DIR / name).exists()):
+                    skipped.append({"name": name, "source": label, "reason": "already in central"})
+                    return
+                if src_type == "dir" and _is_reparse(src_path):
+                    skipped.append({"name": name, "source": label, "reason": "managed junction/symlink"})
+                    return
+                target = SKILLS_DIR / name
+                if target.exists():
+                    skipped.append({"name": name, "source": label, "reason": "name conflict"})
+                    return
+                if dry_run:
+                    imported.append({"name": name, "source": label, "type": src_type, "dry_run": True})
+                    return
+                try:
+                    if src_type == "dir":
+                        shutil.copytree(str(src_path), str(target))
+                    else:
+                        # Normalize single-file skill to <central>/skills/<name>/SKILL.md
+                        target.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(str(src_path), str(target / "SKILL.md"))
+                    imported.append({"name": name, "source": label, "type": src_type})
+                    central_names.add(name)
+                except Exception as e:
+                    errors.append({"name": name, "source": label, "error": str(e)})
+
+            # 1) Scan global agent dirs (from config.yaml)
+            for name, acfg in agents_cfg.items():
+                if not isinstance(acfg, dict):
+                    continue
+                agent_path = acfg.get("path", "")
+                if not agent_path:
+                    continue
+                p = Path(agent_path.replace("~", str(HOME)))
+                if not p.exists():
+                    continue
+                for entry in sorted(p.iterdir()):
+                    if entry.name.startswith('.'):
+                        continue
+                    if entry.is_dir():
+                        if (entry / "SKILL.md").exists() or (entry / "SKILL.md.disabled").exists():
+                            _try_import(entry, "dir", name)
+                    elif entry.is_file() and entry.suffix.lower() == ".md":
+                        text = entry.read_text(encoding="utf-8", errors="replace")
+                        if text.startswith("---"):
+                            fm = SkillManager.parse_frontmatter(text)
+                            if "name" in fm or "description" in fm:
+                                _try_import(entry, "file", name)
+
+            # 2) Scan project-level dirs (from request body or default D:\06_Project)
+            project_scan_path = body.get("project_path", "D:\\06_Project")
+            project_max_depth = int(body.get("project_depth", 3))
+            scan_result = workspace_mgr.scan_native(project_scan_path, project_max_depth)
+            for w in scan_result.get("workspaces", []):
+                project_name = w.get("project_name", "")
+                for s in w.get("skills", []):
+                    src_path = Path(s.get("path", ""))
+                    if not src_path.exists():
+                        continue
+                    _try_import(src_path, s.get("type", "dir"), w.get("label", ""), project_name)
+
+            self._json({
+                "ok": True,
+                "dry_run": dry_run,
+                "imported": imported,
+                "skipped": skipped,
+                "errors": errors,
+                "imported_count": len(imported),
+                "skipped_count": len(skipped),
+            })
             return
 
         # ── /api/workspace/scan (native Python scanner) ──
         if path == "/api/workspace/scan" and method == "POST":
             body = self._read_body()
-            result = scan_workspaces_native(body.get("path", "."), body.get("max_depth", 3))
+            result = workspace_mgr.scan_native(body.get("path", "."), body.get("max_depth", 3))
             self._json(result)
             return
 
@@ -1108,8 +848,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             action = parts[3] if len(parts) > 3 else "status"
 
             if action == "status" and method == "GET":
-                r = run_git(["status", "--porcelain"])
-                r2 = run_git(["remote", "-v"])
+                r = git_mgr.run(["status", "--porcelain"])
+                r2 = git_mgr.run(["remote", "-v"])
                 remote_url = ""
                 for line in r2["stdout"].splitlines():
                     if line.startswith("origin") and "(fetch)" in line:
@@ -1118,16 +858,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 # Fetch last commit info
                 last_commit = ""
                 last_commit_date = ""
-                lr = run_git(["log", "-1", "--format=%s|%ai"])
+                lr = git_mgr.run(["log", "-1", "--format=%s|%ai"])
                 if lr["ok"] and lr["stdout"].strip():
-                    parts = lr["stdout"].strip().split("|", 1)
-                    if len(parts) == 2:
-                        last_commit, last_commit_date = parts[0], parts[1][:16]
+                    p = lr["stdout"].strip().split("|", 1)
+                    if len(p) == 2:
+                        last_commit, last_commit_date = p[0], p[1][:16]
                 # Ahead/behind remote
                 ahead = 0
                 behind = 0
                 if remote_url:
-                    abr = run_git(["rev-list", "--left-right", "--count", "HEAD...origin/HEAD"])
+                    abr = git_mgr.run(["rev-list", "--left-right", "--count", "HEAD...origin/HEAD"])
                     if abr["ok"] and abr["stdout"].strip():
                         try:
                             l, r_side = abr["stdout"].split()
@@ -1149,21 +889,21 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if action == "now" and method == "POST":
                 body = self._read_body() if self.command == "POST" else {}
                 msg = body.get("message") or f"Backup {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-                add_r = run_git(["add", "-A"])
-                commit_r = run_git(["commit", "-m", msg])
+                git_mgr.run(["add", "-A"])
+                commit_r = git_mgr.run(["commit", "-m", msg])
                 # commit returns non-zero when there's nothing to commit; treat as success
                 nothing_to_commit = (not commit_r["ok"]) and ("nothing to commit" in commit_r["stdout"] or "nothing to commit" in commit_r["stderr"] or "no changes" in commit_r["stdout"] or "no changes" in commit_r["stderr"])
                 push_ok = True
                 push_output = ""
                 push_err = ""
                 # Push only if a remote exists
-                remote_r = run_git(["remote", "-v"])
+                remote_r = git_mgr.run(["remote", "-v"])
                 has_remote = bool(remote_r["stdout"].strip())
                 if has_remote:
                     # Try with rebase to avoid merge commits; fall back to plain push
-                    push_r = run_git(["push", "origin", "HEAD"])
+                    push_r = git_mgr.run(["push", "origin", "HEAD"])
                     if not push_r["ok"]:
-                        push_r2 = run_git(["push"])
+                        push_r2 = git_mgr.run(["push"])
                         if not push_r2["ok"]:
                             push_ok = False
                             push_err = push_r2["stderr"] or push_r["stderr"] or "push failed"
@@ -1187,7 +927,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return
 
             if action == "pull" and method == "POST":
-                r = run_git(["pull", "--rebase"])
+                r = git_mgr.run(["pull", "--rebase"])
                 self._json({"ok": r["ok"], "output": r["stdout"], "error": r["stderr"]})
                 return
 
@@ -1195,22 +935,22 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 body = self._read_body()
                 remote_url = body.get("remote_url", "")
                 if remote_url:
-                    run_git(["remote", "remove", "origin"])
-                    r = run_git(["remote", "add", "origin", remote_url])
+                    git_mgr.run(["remote", "remove", "origin"])
+                    r = git_mgr.run(["remote", "add", "origin", remote_url])
                     self._json({"ok": r["ok"]})
                 else:
                     self._json({"ok": False, "error": "remote_url required"}, 400)
                 return
 
             if action == "history" and method == "GET":
-                r = run_git(["log", "--format=%H|%ai|%s", "-20"])
+                r = git_mgr.run(["log", "--format=%H|%ai|%s", "-20"])
                 commits = []
                 for line in r["stdout"].splitlines():
                     if not line.strip():
                         continue
-                    parts = line.split("|", 2)
-                    if len(parts) == 3:
-                        commits.append({"hash": parts[0], "date": parts[1][:16], "message": parts[2]})
+                    p = line.split("|", 2)
+                    if len(p) == 3:
+                        commits.append({"hash": p[0], "date": p[1][:16], "message": p[2]})
                     else:
                         commits.append({"hash": "", "date": "", "message": line})
                 self._json({"ok": r["ok"], "commits": commits})
@@ -1231,7 +971,7 @@ class ThreadingHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
 
 
 def main():
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else 8770
+    port = int(sys.argv[1]) if len(sys.argv) > 1 else 8780
     server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     print(f"Skills Sync Manager Web UI")
     print(f"  http://127.0.0.1:{port}")

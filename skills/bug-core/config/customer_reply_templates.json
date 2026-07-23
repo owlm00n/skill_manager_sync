@@ -1,0 +1,16 @@
+{
+  "templates": [
+    {
+      "id": "ums512-pd-chargeic",
+      "name": "UMS512 PD/Charge IC",
+      "description": "UMS512 平台无 PD 支持，需确认 Charge IC 兼容性及 patch 合入",
+      "keywords": ["ums512", "pd", "charge ic", "vendor info", "pps", "ppsod"],
+      "scenarios": ["pd认证咨询", "vendor_info_file咨询", "pd测试咨询"],
+      "template": {
+        "format": ["Dear CUS", "body", "Thanks"],
+        "body_template": "您好，\n\n关于 {bug_summary}，经确认：\n\n- {platform} 平台**没有送测**，**不支持 PD 功能**（包括 PD Source/Sink、PPS 等）。\n- 需要先确认贵司的 **Charge IC** 是否支持 PD 协议，如需支持需确认具体协议版本（PD2.0/3.0 等）。\n- 同时需合入相关的 **PD patch** 才能通过 PD 认证测试。\n\n建议：\n1. 确认 Charge IC 型号及 PD 兼容性\n2. 如需支持 PD，请确认协议版本及功能需求\n3. 提供合入 patch 后的验证结果\n\n如有任何疑问请随时联系，谢谢！",
+        "placeholders": ["{platform}", "{bug_summary}"]
+      }
+    }
+  ]
+}

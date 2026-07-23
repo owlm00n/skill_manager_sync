@@ -470,6 +470,157 @@ def search_bugs(keyword: str = "", severity: str = "", limit: int = 20) -> list:
 
 
 # ============================================================
+# 客户回复模板系统 (v1.0)
+# ============================================================
+
+def _load_reply_templates() -> list:
+    """加载客户回复模板配置"""
+    templates_path = os.path.join(SCRIPT_DIR, "config", "customer_reply_templates.json")
+    try:
+        with open(templates_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data.get("templates", [])
+    except (FileNotFoundError, json.JSONDecodeError):
+        return []
+
+
+def match_template(templates: list, bug: dict = None, keyword: str = None,
+                   scenario: str = None) -> Optional[dict]:
+    """根据关键词、scenario 或 bug 信息匹配最佳模板"""
+    if not templates:
+        return None
+
+    # 优先级：keyword 精确匹配 > scenario 匹配 > bug 信息匹配
+    for tpl in templates:
+        # 1. keyword 匹配
+        if keyword:
+            kw_lower = keyword.lower()
+            for tpl_kw in tpl.get("keywords", []):
+                if tpl_kw in kw_lower or kw_lower in tpl_kw:
+                    return tpl
+
+        # 2. scenario 匹配
+        if scenario:
+            sc_lower = scenario.lower()
+            if sc_lower in [s.lower() for s in tpl.get("scenarios", [])]:
+                return tpl
+
+        # 3. bug 信息匹配（platform/product/component）
+        if bug:
+            bug_text = f"{bug.get('platform', '')} {bug.get('summary', '')} {bug.get('product', '')} {bug.get('component', '')}".lower()
+            for tpl_kw in tpl.get("keywords", []):
+                if tpl_kw in bug_text:
+                    return tpl
+
+    return None
+
+
+def fill_template(body_template: str, placeholders: list, replacements: dict) -> str:
+    """替换模板中的占位符"""
+    result = body_template
+    for ph in placeholders:
+        ph_key = ph.lstrip("{").rstrip("}")
+        if ph_key in replacements:
+            result = result.replace(ph, str(replacements[ph_key]))
+    return result
+
+
+def generate_customer_reply(bug_id: str = "", platform: str = "UMS512",
+                            bug_summary: str = "", scenario: str = "",
+                            keyword: str = None, extra: dict = None) -> dict:
+    """
+    根据场景生成客户回复。
+
+    Args:
+        bug_id: Bug ID
+        platform: 平台名称（用于填充模板，默认 UMS512）
+        bug_summary: Bug 摘要（用于填充模板）
+        scenario: 场景描述（如 "pd认证咨询"）
+        keyword: 模板关键词（优先级最高）
+        extra: 额外字段，用于自定义回复内容
+
+    Returns:
+        {
+            "success": True/False,
+            "bug_id": ...,
+            "reply": "Dear CUS\\n\\n...\\n\\nThanks",
+            "template_id": "ums512-pd-chargeic",
+            "format": ["Dear CUS", "body", "Thanks"]
+        }
+    """
+    templates = _load_reply_templates()
+    if not templates:
+        return {"success": False, "error": "No reply templates loaded"}
+
+    # 构建 bug 上下文字典
+    bug_ctx = {
+        "bug_id": bug_id,
+        "platform": platform,
+        "summary": bug_summary,
+    }
+
+    # 匹配模板
+    tpl = match_template(templates, bug=bug_ctx, keyword=keyword, scenario=scenario)
+    if not tpl:
+        # 无匹配模板时返回通用模板
+        tpl = _build_generic_reply(platform, bug_summary, bug_id, extra or {})
+
+    # 提取模板字段
+    tpl_data = tpl.get("template", {})
+    body_tmpl = tpl_data.get("body_template", "")
+    placeholders = tpl_data.get("placeholders", [])
+
+    # 构建替换字典
+    replacements = {
+        "{platform}": platform,
+        "{bug_summary}": bug_summary if bug_summary else f"Bug {bug_id}",
+    }
+    if extra:
+        replacements.update(extra)
+
+    body = fill_template(body_tmpl, placeholders, replacements)
+    fmt = tpl_data.get("format", ["Dear CUS", "body", "Thanks"])
+
+    # 组装完整回复
+    reply = f"{fmt[0]}\n\n{body}\n\n{fmt[-1]}"
+
+    return {
+        "success": True,
+        "bug_id": bug_id,
+        "reply": reply,
+        "template_id": tpl.get("id", "generic"),
+        "template_name": tpl.get("name", "通用模板"),
+        "format": fmt,
+    }
+
+
+def _build_generic_reply(platform: str, bug_summary: str, bug_id: str,
+                         extra: dict) -> dict:
+    """构建通用回复模板（当无匹配模板时使用）"""
+    lines = ["您好，"]
+    lines.append(f"关于 {f'Bug {bug_id}' if not bug_summary else bug_summary}，")
+    lines.append(f"经确认：{platform} 平台未送测相关功能。")
+
+    if extra:
+        for k, v in extra.items():
+            lines.append(f"- {k}: {v}")
+
+    lines.append("")
+    lines.append("请确认相关事项后回复，谢谢！")
+
+    body = "\n".join(lines)
+    return {
+        "id": "generic",
+        "name": "通用模板",
+        "template": {
+            "format": ["Dear CUS", "body", "Thanks"],
+            "body_template": body,
+            "placeholders": [],
+        }
+    }
+
+
+# ============================================================
 # 工具函数
 # ============================================================
 

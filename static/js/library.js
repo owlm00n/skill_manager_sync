@@ -41,6 +41,10 @@ function renderLibrary() {
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
             Scan & Import
           </button>
+          <button onclick="reverseSyncModal()" class="px-3 py-2 rounded-xl text-sm font-semibold bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 transition-colors flex items-center gap-1.5" title="Scan agent and project dirs for skills not in central repo">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            Reverse Sync
+          </button>
           <button onclick="LIB_FILTER.viewTrash=!LIB_FILTER.viewTrash;renderLibrary()" class="px-3 py-2 rounded-xl text-sm font-semibold ${LIB_FILTER.viewTrash ? 'bg-red-100 dark:bg-red-900/30 text-red-600' : 'bg-slate-100 dark:bg-slate-700 text-slate-500'} transition-colors flex items-center gap-1.5">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
             ${LIB_FILTER.viewTrash ? 'Back' : 'Trash'}
@@ -430,4 +434,86 @@ async function doLibScanImport() {
   closeModal();
   await refresh();
   showToast(`Imported ${importCount} unique skill(s)`);
+}
+
+/* ── Reverse Sync Modal ────────────────────── */
+let RS_PROJECT_PATH = localStorage.getItem('rs_project_path') || 'D:\\06_Project';
+let RS_PROJECT_DEPTH = parseInt(localStorage.getItem('rs_project_depth') || '2');
+
+async function reverseSyncModal() {
+  openModal(`<h3 class="text-lg font-bold text-slate-800 dark:text-white mb-2">Reverse Sync</h3>
+    <p class="text-xs text-slate-500 mb-4">Scan agent global dirs and project dirs for skills NOT in central repo, then import them.</p>
+    <div class="space-y-3 mb-4">
+      <div>
+        <label class="block text-xs font-semibold text-slate-500 mb-1">Project Scan Path</label>
+        <input id="rsProjectPath" value="${esc(RS_PROJECT_PATH)}" class="input-modern w-full px-3 py-2 rounded-lg text-sm font-mono">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-500 mb-1">Project Scan Depth</label>
+        <select id="rsProjectDepth" class="input-modern w-full px-3 py-2 rounded-lg text-sm">
+          <option value="2" ${RS_PROJECT_DEPTH == 2 ? 'selected' : ''}>2</option>
+          <option value="3" ${RS_PROJECT_DEPTH == 3 ? 'selected' : ''}>3</option>
+          <option value="4" ${RS_PROJECT_DEPTH == 4 ? 'selected' : ''}>4</option>
+        </select>
+      </div>
+    </div>
+    <div id="rsResult" class="hidden mb-4 max-h-[40vh] overflow-auto text-xs"></div>
+    <div class="flex justify-end gap-2">
+      <button onclick="closeModal()" class="px-4 py-2 text-sm font-semibold rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">Close</button>
+      <button onclick="doReverseSync(true)" class="px-4 py-2 text-sm font-semibold rounded-xl bg-amber-100 dark:bg-amber-900/30 text-amber-600">Dry Run</button>
+      <button onclick="doReverseSync(false)" class="btn-gradient px-4 py-2 text-sm font-bold rounded-xl">Import</button>
+    </div>`);
+  // Auto dry-run on open
+  doReverseSync(true, true);
+}
+
+async function doReverseSync(dryRun, silent) {
+  RS_PROJECT_PATH = document.getElementById('rsProjectPath')?.value?.trim() || RS_PROJECT_PATH;
+  RS_PROJECT_DEPTH = parseInt(document.getElementById('rsProjectDepth')?.value) || RS_PROJECT_DEPTH;
+  localStorage.setItem('rs_project_path', RS_PROJECT_PATH);
+  localStorage.setItem('rs_project_depth', String(RS_PROJECT_DEPTH));
+  if (!silent) showToast(dryRun ? 'Running dry run...' : 'Importing orphan skills...');
+
+  const r = await api('/api/skills/reverse-sync', {
+    method: 'POST',
+    body: JSON.stringify({ dry_run: dryRun, project_path: RS_PROJECT_PATH, project_depth: RS_PROJECT_DEPTH })
+  });
+
+  const resultEl = document.getElementById('rsResult');
+  if (!resultEl) { // modal closed
+    if (!silent) showToast(r.ok ? `Done: ${r.imported_count} imported` : 'Failed', r.ok ? 'success' : 'error');
+    return;
+  }
+
+  const imported = r.imported || [];
+  const skipped = r.skipped || [];
+  const errors = r.errors || [];
+  let html = `<div class="space-y-2">`;
+  html += `<div class="flex gap-3 text-xs font-semibold">
+    <span class="text-green-600">Imported: ${imported.length}</span>
+    <span class="text-slate-500">Skipped: ${skipped.length}</span>
+    ${errors.length ? `<span class="text-red-600">Errors: ${errors.length}</span>` : ''}
+    ${dryRun ? '<span class="text-amber-600">(DRY RUN)</span>' : ''}
+  </div>`;
+  if (imported.length) {
+    html += `<div><div class="text-xs font-semibold text-green-700 mb-1">Will import / Imported:</div><div class="space-y-0.5">`;
+    imported.forEach(s => html += `<div class="text-xs px-2 py-1 rounded bg-green-50 dark:bg-green-900/20"><span class="font-mono">${esc(s.name)}</span> <span class="text-slate-400">[${esc(s.type)}]</span> <span class="text-slate-500">← ${esc(s.source)}</span></div>`);
+    html += '</div></div>';
+  }
+  if (errors.length) {
+    html += `<div><div class="text-xs font-semibold text-red-700 mb-1">Errors:</div><div class="space-y-0.5">`;
+    errors.forEach(s => html += `<div class="text-xs px-2 py-1 rounded bg-red-50 dark:bg-red-900/20"><span class="font-mono">${esc(s.name)}</span> <span class="text-red-500">${esc(s.error)}</span></div>`);
+    html += '</div></div>';
+  }
+  if (!imported.length && !errors.length) {
+    html += '<p class="text-xs text-slate-400 py-2 text-center">No orphan skills found. All skills are already in central repo.</p>';
+  }
+  html += '</div>';
+  resultEl.innerHTML = html;
+  resultEl.classList.remove('hidden');
+
+  if (!dryRun && r.ok) {
+    await refresh();
+    if (!silent) showToast(`Imported ${imported.length} skill(s)`);
+  }
 }
