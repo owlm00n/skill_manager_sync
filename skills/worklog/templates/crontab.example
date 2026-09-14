@@ -1,0 +1,5 @@
+# Worklog Auto Fill
+# Format: minute hour day month weekday command
+# Run at 8:00 AM on Tue, Wed, Thu, Fri, Sat (fill previous day)
+# Weekdays: 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
+0 8 * * 2-6 cd /d D:\06_Project\worklog && python -m scripts.playwright.scheduled_run fill >> D:\06_Project\worklog\logs\cron_fill.log 2>&1

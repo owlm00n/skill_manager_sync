@@ -1,0 +1,96 @@
+{
+  "case_id": "TEST.PD.PROT.SRC3.01",
+  "bug_id": "3523357",
+  "unicase_id": "unicase005573",
+  "platform": "UMS512",
+  "customer": "zte_sh",
+  "project": "P610F01",
+  "analysis_date": "2026-08-31",
+  "skill_version": "pd_auth_analyse",
+  "phase": "01_input_collection",
+  "status": "in_progress",
+  "input_files": {
+    "kernel_logs": [
+      {
+        "path": "E:/08_Bug/CQ/Bug 3523357(unicase005573).../Attachements/TEST-PD-PROT-SRC3-01/TEST-PD-PROT-SRC3-01/005-0820_195808_poweron/0-kernel.log",
+        "description": "ORIGINAL FAIL test kernel log",
+        "size_bytes": null,
+        "has_parsed": true
+      },
+      {
+        "path": "E:/08_Bug/CQ/Bug 3523357(unicase005573).../Attachements/TEST.PD.PROT.SRC3.01-8-24/TEST.PD.PROT.SRC3.01-8-24/002-0820_045111_poweron/0-kernel.log",
+        "description": "8-24 FAIL test kernel log (repeat test)",
+        "size_bytes": null,
+        "has_parsed": true
+      },
+      {
+        "path": "E:/08_Bug/CQ/Bug 3523357(unicase005573).../Attachements/修改代码之后fail/20260825_170153/001-0822_040356_poweron/0-kernel.log",
+        "description": "AFTER CODE CHANGE FAIL kernel log (SPRD_PD_T_SEND_SOURCE_CAP=180ms)",
+        "size_bytes": null,
+        "has_parsed": true
+      }
+    ],
+    "lecroy_reports": [],
+    "customer_code": [
+      {
+        "path": "E:/08_Bug/CQ/Bug 3523357(unicase005573).../Attachements/code.7z",
+        "description": "Customer code archive (kernel 6.18)",
+        "extracted_to": "E:/08_Bug/CQ/Bug 3523357(unicase005573).../Attachements/code_extracted/",
+        "files": [
+          "sprd_tcpm.c (207,946 bytes)",
+          "sc27xx_pd.c (94,592 bytes)",
+          "sc27xx_typec.c (48,514 bytes)",
+          "musb_sprd.c (88,304 bytes)",
+          "sqc_bq2560x.c (109,476 bytes)",
+          "zte_charger.dtsi (29,274 bytes)"
+        ]
+      }
+    ],
+    "bugzilla_comments": {
+      "count": 18,
+      "key_comments": {
+        "#0": "肖荣国 (ZTE) - Bug submission with lecroy test logs",
+        "#6": "Yongqing.Wang - Proposed SPRD_PD_T_SEND_SOURCE_CAP 150→180 (kernel 5.15)",
+        "#12": "Ke.Wang1 - Hardware analysis: CC line 5 software sends, 20 packets (5×4 hardware retry)",
+        "#15": "Yongqing.Wang - Proposed same change for kernel 6.18 (tested, still FAIL)",
+        "#18": "ZTE customer - Uploaded code.7z (6 files, kernel 6.18)"
+      }
+    }
+  },
+  "knowledge_base": {
+    "cts_spec": "D:/06_Project/skills_sync/skills/pd_auth_analyse/knowledge/cts/USB_PD3_CTS_Q4_2024_OR.pdf",
+    "cts_test_flow": "D:/06_Project/skills_sync/skills/pd_auth_analyse/knowledge/cts/TEST.PD.PROT.SRC3.01.md",
+    "cts_test_flow_status": "generated",
+    "cts_page": 148,
+    "pd_timers": "D:/06_Project/skills_sync/skills/pd_auth_analyse/knowledge/specs/pd_protocol_timers.md",
+    "pd_messages": "D:/06_Project/skills_sync/skills/pd_auth_analyse/knowledge/specs/pd_message_sequences.md",
+    "pd_state_machines": "D:/06_Project/skills_sync/skills/pd_auth_analyse/knowledge/specs/pd_state_machines.md",
+    "bug_patterns": "D:/06_Project/skills_sync/skills/pd_auth_analyse/knowledge/bugs/top_issue_patterns.md",
+    "bug_knowledge_base": "D:/06_Project/skills_sync/skills/pd_auth_analyse/knowledge/bugs/auth_knowledge_base.json"
+  },
+  "analysis_report": {
+    "path": "E:/08_Bug/CQ/Bug 3523357(unicase005573).../unicase005573_UMS512_PD CE认证失败项 TEST.PD.PROT.SRC3.01.md",
+    "status": "existing",
+    "description": "Pre-existing complete analysis report with root cause (hardware auto-retry), fix proposal, and customer code diff"
+  },
+  "missing_materials": [
+    {
+      "priority": "high",
+      "item": "Lecroy .usb trace files",
+      "description": "Binary trace files from the Lecroy compliance tester — would allow precise protocol-level timing analysis of CC line messages",
+      "status": "not_found"
+    },
+    {
+      "priority": "medium",
+      "item": "Lecroy HTML fail report",
+      "description": "HTML/TXT export of the Lecroy test results showing FAIL verdict with exact timing values",
+      "status": "not_found"
+    },
+    {
+      "priority": "low",
+      "item": "Customer VIF file",
+      "description": "VIF for UNISOC P610F01 — would confirm PD Port Type, Spec Revision, and capability declarations",
+      "status": "not_found"
+    }
+  ]
+}

@@ -1,0 +1,151 @@
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "SF Mono", "Consolas", "Monaco", monospace;
+    font-size: 13px; line-height: 1.5; color: #e0e0e0;
+    background: #1a1a2e; padding: 2rem;
+  }
+  h1 { font-size: 1.5rem; color: #00d4ff; border-bottom: 2px solid #00d4ff; padding-bottom: 0.5rem; margin-bottom: 0.25rem; }
+  .review-date { color: #8b949e; font-size: 0.85rem; margin: 0 0 1rem; }
+  h2 { font-size: 1.2rem; color: #7df; margin: 1.5rem 0 0.75rem; border-left: 3px solid #7df; padding-left: 0.75rem; }
+  h3 { font-size: 1rem; color: #9f8; margin: 1rem 0 0.5rem; }
+  h4 { font-size: 0.9rem; color: #fc8; margin: 0.75rem 0 0.25rem; }
+
+  .executive-summary { background: #16213e; border: 1px solid #0a3d62; border-radius: 4px; padding: 1rem; margin-bottom: 1.5rem; }
+  .executive-summary table { width: 100%; border-collapse: collapse; }
+  .executive-summary td, .executive-summary th { padding: 4px 12px; border: 1px solid #0a3d62; }
+  .executive-summary th { background: #0a3d62; text-align: left; }
+  .risk-high { color: #ff4444; font-weight: bold; }
+  .risk-medium { color: #ff8800; font-weight: bold; }
+  .risk-low { color: #ffcc00; font-weight: bold; }
+  .risk-info { color: #6b7280; font-weight: bold; }
+
+  .finding { background: #16213e; border: 1px solid #333; border-radius: 4px; margin: 1rem 0; padding: 1rem; }
+  .finding.risk-high { border-left: 4px solid #ff4444; }
+  .finding.risk-medium { border-left: 4px solid #ff8800; }
+  .finding.risk-low { border-left: 4px solid #ffcc00; }
+  .finding.risk-info { border-left: 4px solid #6b7280; }
+
+  .finding-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+  .finding-id { background: #0a3d62; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 0.85rem; }
+  .finding-file { color: #aaa; font-size: 0.85rem; }
+  .finding-project { color: #7df; font-size: 0.8rem; background: #16213e; padding: 2px 6px; border-radius: 3px; }
+  .change-ref { color: #fc8; font-size: 0.8rem; background: #2a1a00; padding: 2px 6px; border-radius: 3px; }
+  .finding-meta { font-size: 0.8rem; color: #aaa; margin-bottom: 0.5rem; }
+  .risk-badge { padding: 2px 8px; border-radius: 3px; color: #fff; font-weight: bold; font-size: 0.8rem; }
+  .risk-badge.high { background: #ff4444; }
+  .risk-badge.medium { background: #ff8800; }
+  .risk-badge.low { background: #ffcc00; color: #000; }
+  .risk-badge.info { background: #6b7280; }
+
+  pre { background: #0d1117; border: 1px solid #30363d; border-radius: 4px; padding: 0.75rem; overflow-x: auto; font-size: 12px; line-height: 1.4; }
+  .code-comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin: 0.5rem 0; }
+  .code-original { border-right: 1px solid #30363d; }
+  .code-original .code-header { background: #4a1c1c; color: #ff6b6b; }
+  .code-fixed .code-header { background: #1c4a1c; color: #6bff6b; }
+  .code-header { padding: 4px 8px; font-size: 11px; color: #fff; font-weight: bold; }
+  .code-body { padding: 0.75rem; background: #0d1117; color: #c9d1d9; }
+  .line-num { color: #484f58; user-select: none; margin-right: 0.75rem; }
+  .code-original .del { text-decoration: line-through; color: #ff6b6b88; }
+  .code-fixed .add { color: #6bff6b88; }
+
+  .description { margin: 0.5rem 0; line-height: 1.6; color: #ccc; }
+  .description strong { color: #fff; }
+  .description code { background: #0d1117; padding: 1px 4px; border-radius: 2px; color: #ff79c6; }
+
+  .diagram { background: #0d1117; border: 1px solid #30363d; border-radius: 4px; padding: 1.5rem; margin: 1rem 0; overflow-x: auto; font-size: 12px; line-height: 1.8; white-space: pre; color: #c9d1d9; }
+
+  .summary-table { border-collapse: collapse; margin: 1rem 0; }
+  .summary-table th, .summary-table td { border: 1px solid #30363d; padding: 6px 12px; text-align: left; }
+  .summary-table th { background: #16213e; color: #7df; }
+  .summary-table tr:hover { background: #1a2744; }
+  .summary-table .table-total { font-weight: bold; background: #0d1b3e; }
+  .change-link { color: #f0ad4e; text-decoration: none; }
+  .change-link:hover { text-decoration: underline; }
+  .change-description { background: #0d1b3e; border: 1px solid #30363d; border-radius: 4px; padding: 0.75rem 1rem; margin-bottom: 1rem; }
+  .change-description strong { color: #fff; }
+
+  /* Review summary block before Change Summary table */
+  .review-summary { background: #0d1b3e; border: 1px solid #0a3d62; border-radius: 4px; padding: 1rem 1.25rem; margin-bottom: 1rem; }
+  .review-summary h3 { color: #00d4ff; margin: 0 0 0.5rem; font-size: 1rem; border: none; }
+  .review-summary p { margin: 0 0 0.75rem; line-height: 1.6; color: #ccc; }
+  .review-summary-section { margin: 0.5rem 0; color: #ccc; line-height: 1.6; }
+  .review-summary-section strong { color: #fff; }
+  .review-summary-section ul { margin: 0.25rem 0 0 1.5rem; }
+  .review-summary-section li { margin: 0.2rem 0; }
+
+  .layer-section { margin: 1.5rem 0; }
+  .layer-tag { display: inline-block; background: #0a3d62; color: #7df; padding: 2px 8px; border-radius: 3px; font-size: 0.8rem; margin-bottom: 0.5rem; }
+
+  ul { margin: 0.5rem 0 0.5rem 1.5rem; }
+  li { margin: 0.25rem 0; }
+
+  /* Syntax highlighting tokens */
+  .token-comment { color: #8b949e; font-style: italic; }
+  .token-string { color: #a5d6ff; }
+  .token-keyword { color: #ff7b72; }
+  .token-number { color: #79c0ff; }
+  .token-function { color: #d2a8ff; }
+  .token-preprocessor { color: #ffa657; }
+
+  /* Diff viewer (legacy) */
+  .file-section { margin-bottom: 1.5rem; }
+  .file-header {
+    background: #16213e; border: 1px solid #0a3d62; border-radius: 4px;
+    padding: 0.5rem 1rem; cursor: pointer; display: flex; justify-content: space-between;
+    align-items: center;
+  }
+  .file-header:hover { background: #1c2a4a; }
+  .file-header::-webkit-details-marker { display: none; }
+  .file-path { font-weight: 600; color: #e0e0e0; }
+  .file-meta { font-size: 0.8rem; color: #aaa; }
+  .diff-container {
+    display: flex; border: 1px solid #30363d; border-radius: 4px;
+    overflow-x: auto; background: #0d1117;
+  }
+  .diff-table { width: 50%; border-collapse: collapse; }
+  .diff-table.left { border-right: 1px solid #30363d; }
+  .diff-table th {
+    background: #1c2128; padding: 0.3rem 0.8rem; font-size: 0.8rem;
+    color: #8b949e; text-align: left; font-weight: 600;
+  }
+  .diff-table td {
+    padding: 0 0.5rem; font-size: 0.85rem; white-space: pre;
+  }
+  .line-num { color: #484f58; text-align: right; padding-right: 0.8rem; user-select: none; min-width: 3em; }
+  .code.add { background: rgba(63, 185, 80, 0.15); }
+  .code.del { background: rgba(255, 68, 68, 0.15); }
+  .code.empty { background: #16213e; }
+
+  .filter-bar { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+  .filter-btn {
+    background: #16213e; border: 1px solid #0a3d62; color: #aaa;
+    padding: 0.3rem 0.8rem; border-radius: 3px; cursor: pointer; font-size: 0.8rem;
+  }
+  .filter-btn.active { background: #0a3d62; color: #fff; }
+
+  /* Smooth scrolling for anchor jumps */
+  html { scroll-behavior: smooth; }
+
+  /* Jump links between Executive Summary and Finding Details */
+  .finding-jump { color: #00d4ff; text-decoration: none; font-weight: bold; cursor: pointer; }
+  .finding-jump:hover { text-decoration: underline; color: #7df; }
+  a.finding-id { color: #fff; text-decoration: none; background: #0a3d62; padding: 2px 8px; border-radius: 3px; font-size: 0.85rem; cursor: pointer; display: inline-block; }
+  a.finding-id:hover { background: #0d4f80; text-decoration: none; }
+
+  /* Highlight effect when a row or card is the jump target */
+  tr:target { background: #1a3a5c; transition: background 0.5s ease; }
+  .finding:target { box-shadow: 0 0 0 2px #00d4ff; transition: box-shadow 0.5s ease; }
+
+  /* Cross-project findings */
+  .cross-project-badge { display: inline-block; background: #a855f7; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 0.75rem; font-weight: bold; margin-left: 0.5rem; }
+  .finding.cross-project { border-top: 2px dashed #a855f7; }
+  tr.cross-project { background: rgba(168, 85, 247, 0.08); }
+  .cross-project-related { border-left: 3px solid #a855f7; padding-left: 0.75rem; }
+  .cross-project-related ul { margin: 0.25rem 0 0 1.5rem; }
+  .cross-project-related li { margin: 0.2rem 0; }
+
+  @media print {
+    body { background: white; color: black; padding: 1rem; }
+    .diff-table td { color: black; }
+    .filter-bar { display: none; }
+  }

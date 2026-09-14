@@ -77,7 +77,7 @@ function renderLibrary() {
           <thead class="sticky top-0 bg-slate-100/80 dark:bg-slate-800/80 backdrop-blur-sm z-10">
             <tr>
               <th class="px-3 py-3 text-left w-8"><input type="checkbox" class="skill-checkbox" onchange="toggleSelectAll(this.checked)"></th>
-              <th class="px-3 py-3 text-left font-semibold text-slate-500 text-xs uppercase tracking-wider">Status</th>
+              <th class="px-3 py-3 text-left font-semibold text-slate-500 text-xs uppercase tracking-wider">Enabled</th>
               <th class="px-3 py-3 text-left font-semibold text-slate-500 text-xs uppercase tracking-wider">Name</th>
               <th class="px-3 py-3 text-left font-semibold text-slate-500 text-xs uppercase tracking-wider">Description</th>
               <th class="px-3 py-3 text-left font-semibold text-slate-500 text-xs uppercase tracking-wider">Tags</th>
@@ -108,7 +108,7 @@ function renderSkillRows(skills) {
     const tags = (s.tags || []).map(t => `<span class="tag-chip">${esc(t)}</span>`).join('');
     return `<tr class="cursor-pointer transition-colors ${sel ? 'bg-primary-50 dark:bg-primary-900/20' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'} ${!s.enabled ? 'opacity-40' : ''}" onclick="selectSkill('${esc(s.dir)}')">
       <td class="px-3 py-3"><input type="checkbox" class="skill-checkbox" ${checked ? 'checked' : ''} onclick="event.stopPropagation();toggleSelect('${esc(s.dir)}',this.checked)"></td>
-      <td class="px-3 py-3"><span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs ${s.enabled ? 'bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400' : 'bg-red-100 dark:bg-red-900/40 text-red-500'}">${s.enabled ? '✓' : '✗'}</span></td>
+      <td class="px-3 py-3"><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${s.enabled ? 'bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400' : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400'}">${s.enabled ? 'On' : 'Off'}</span></td>
       <td class="px-3 py-3 font-semibold text-slate-800 dark:text-white">${esc(s.name)}</td>
       <td class="px-3 py-3 text-slate-500 text-xs max-w-[200px] truncate">${esc((s.description || '').substring(0, 60))}</td>
       <td class="px-3 py-3"><div class="flex gap-1 flex-wrap">${tags}</div></td>

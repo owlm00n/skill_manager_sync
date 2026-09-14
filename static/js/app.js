@@ -41,7 +41,7 @@ function toggleTheme() {
 updateThemeIcons();
 
 /* ── Toast ───────────────────────────────────── */
-function showToast(msg, type = 'success') {
+function showToast(msg, type = 'success', duration = 3000) {
   const t = document.getElementById('toast');
   t.className = 'fixed bottom-6 right-6 px-5 py-3 rounded-xl shadow-2xl transition-all duration-300 z-50 flex items-center gap-2 backdrop-blur-md font-semibold text-sm border';
   if (type === 'success') {
@@ -51,7 +51,7 @@ function showToast(msg, type = 'success') {
   }
   const icon = type === 'success' ? 'M5 13l4 4L19 7' : 'M6 18L18 6M6 6l12 12';
   t.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${icon}"/></svg>${esc(msg)}`;
-  setTimeout(() => { t.classList.add('translate-y-20', 'opacity-0', 'hidden'); }, 3000);
+  setTimeout(() => { t.classList.add('translate-y-20', 'opacity-0', 'hidden'); }, duration);
 }
 
 /* ── Modal ───────────────────────────────────── */

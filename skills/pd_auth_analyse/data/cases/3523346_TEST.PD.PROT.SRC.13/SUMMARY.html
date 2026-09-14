@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bug 3523346 — TEST.PD.PROT.SRC.13 分析报告</title>
+<style>
+:root {
+  --bg: #f8f9fa;
+  --card-bg: #ffffff;
+  --text: #212529;
+  --text-secondary: #6c757d;
+  --border: #dee2e6;
+  --red: #dc3545;
+  --green: #28a745;
+  --orange: #fd7e14;
+  --blue: #0d6efd;
+  --yellow-bg: #fff3cd;
+  --red-bg: #f8d7da;
+  --green-bg: #d1e7dd;
+  --blue-bg: #cfe2ff;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg); color: var(--text); line-height: 1.6;
+  padding: 20px;
+}
+.container { max-width: 1100px; margin: 0 auto; }
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 24px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+h1 { font-size: 1.6em; margin-bottom: 4px; }
+h2 { font-size: 1.25em; margin: 20px 0 12px; padding-bottom: 8px; border-bottom: 2px solid var(--blue); }
+h3 { font-size: 1.05em; margin: 16px 0 8px; color: #495057; }
+.subtitle { color: var(--text-secondary); font-size: 0.9em; margin-bottom: 16px; }
+table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92em; }
+th, td { padding: 8px 12px; text-align: left; border: 1px solid var(--border); }
+th { background: #f1f3f5; font-weight: 600; }
+tr:nth-child(even) { background: #fafbfc; }
+.badge {
+  display: inline-block; padding: 2px 10px; border-radius: 12px;
+  font-size: 0.82em; font-weight: 600;
+}
+.badge-fail { background: var(--red-bg); color: #842029; }
+.badge-pass { background: var(--green-bg); color: #0f5132; }
+.badge-warn { background: var(--yellow-bg); color: #664d03; }
+.badge-info { background: var(--blue-bg); color: #084298; }
+.badge-blocked { background: #e2e3e5; color: #41464b; }
+.conf-high { color: var(--red); font-weight: 600; }
+.conf-med { color: var(--orange); font-weight: 600; }
+.conf-low { color: var(--text-secondary); }
+pre {
+  background: #f5f5f5; border: 1px solid var(--border);
+  border-radius: 4px; padding: 12px; font-size: 0.85em;
+  overflow-x: auto; white-space: pre-wrap; word-break: break-all;
+}
+code { font-family: 'Consolas', 'Courier New', monospace; background: #f0f0f0; padding: 1px 4px; border-radius: 3px; }
+pre code { background: none; padding: 0; }
+ul, ol { margin: 8px 0 8px 24px; }
+li { margin: 4px 0; }
+.chain { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0; }
+.chain-node {
+  background: var(--blue-bg); border: 1px solid #b6d4fe;
+  border-radius: 6px; padding: 6px 12px; font-size: 0.88em;
+}
+.chain-arrow { color: var(--blue); font-weight: bold; }
+.footnote { font-size: 0.82em; color: var(--text-secondary); margin-top: 24px; padding-top: 12px; border-top: 1px solid var(--border); }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- ═══════════════ HEADER ═══════════════ -->
+<div class="card">
+  <h1>🔬 Bug 3523346 — TEST.PD.PROT.SRC.13 分析报告</h1>
+  <p class="subtitle">
+    分析日期: 2026-09-10 &nbsp;|&nbsp; 工具: pd_auth_analyse v3.0 &nbsp;|&nbsp; 共 5/6 Phase 完成
+  </p>
+
+  <!-- 概要表 -->
+  <table>
+    <tr><th style="width:140px">Bug ID</th><td>3523346 (unicase005572)</td></tr>
+    <tr><th>Case ID</th><td>TEST.PD.PROT.SRC.13 — PR_Swap SRC→SNK, Error Recovery within 15ms</td></tr>
+    <tr><th>平台</th><td>UMS512 (SC27xx PMIC + Type-C/PD Controller)</td></tr>
+    <tr><th>客户 / 项目</th><td>ZTE / P610F01</td></tr>
+    <tr><th>测试仪器</th><td>Lecroy Voyager M310e v7.92 Build 1198</td></tr>
+    <tr><th>失败步骤</th><td>Rev2Src SRC.13#3 — tCtsErrorRecovery ~16ms &gt; 15ms spec; Rev3ChkdSrc BU.1#1 — 0x000003A9 VBus not present</td></tr>
+    <tr><th>修复状态</th><td>Rev2Src: <span class="badge badge-pass">✅ FIXED Aug 24</span> &nbsp; Rev3ChkdSrc: <span class="badge badge-fail">❌ PERSISTENT</span></td></tr>
+    <tr><th>根因置信度</th><td><span class="conf-high">🟡 80%</span> — SC27XX PD Controller 固件层 (BMC PHY 初始化时序)</td></tr>
+    <tr><th>Phase 6 状态</th><td><span class="badge badge-blocked">⛔ BLOCKED — 无 UMS512 内核源码</span></td></tr>
+  </table>
+</div>
+
+<!-- ═══════════════ ROOT CAUSE ═══════════════ -->
+<div class="card">
+  <h2>🎯 根因结论</h2>
+
+  <div style="background:var(--yellow-bg); border:1px solid #ffc107; border-radius:6px; padding:16px; margin-bottom:16px;">
+    <strong>SC27XX PD Controller PHY 层在 PR_Swap Rd transition 后，BMC 发送电路恢复延迟导致 PS_RDY 消息发送时 CRCReceiveTimer 重试耗尽（int sts=0x40），驱动 cleanup 路径 + HW 内部重试 + 固件 PHY 初始化等待的总时间在 Aug 21 固件版本上超过 tCtsErrorRecovery 15ms 限值约 1ms，导致认证失败。</strong>
+  </div>
+
+  <p><strong>关键证据链：</strong></p>
+  <ol>
+    <li><code>int sts=0x40</code> (TX error) 在 <strong>所有三份 log 中均出现</strong>（包括 PASS 的 Aug 24/27），证明 TX 错误不是 Bug 本身，而是 SC27XX 硬件的已知行为特征。</li>
+    <li>驱动 cleanup 路径 <strong>ERROR_RECOVERY → PORT_RESET 在三份 log 中完全一致（~2.6-2.8ms）</strong>，证明修复不在 kernel 驱动层。</li>
+    <li>HW 内部 CRCReceiveTimer 重试约 ~3ms + 驱动 cleanup ~2.6ms = ~5.6ms 固定开销。剩余 ~10ms 来自 SC27XX 固件的 PHY 初始化等待，这是 Aug 21→Aug 24 修复的关键变量。</li>
+    <li>同平台 Bug 3523357 (SRC3.01) 已确认 SC27XX 存在硬件自动行为（enable_tx_auto_retry）干扰 PD 协议时序，进一步佐证固件层修复路径。</li>
+  </ol>
+</div>
+
+<!-- ═══════════════ EVIDENCE CHAIN ═══════════════ -->
+<div class="card">
+  <h2>📋 证据链（按 Phase）</h2>
+
+  <!-- Phase 1 -->
+  <h3>Phase 1: 信息收集</h3>
+  <table>
+    <tr><th>材料</th><th>数量</th><th>来源</th></tr>
+    <tr><td>Kernel Log</td><td>3 份 (Aug 21 / 24 / 27)</td><td>Bugzilla 附件</td></tr>
+    <tr><td>Lecroy .usb Trace</td><td>6 个文件</td><td>Bugzilla 附件</td></tr>
+    <tr><td>HTML Report</td><td>3 份</td><td>Lecroy 导出</td></tr>
+    <tr><td>CTS 测试规范</td><td>1 份 (已生成)</td><td>USB PD3 CTS Q4 2024 OR.pdf</td></tr>
+  </table>
+  <p style="font-size:0.85em;color:var(--text-secondary)">来源: <code>00_input/</code> 目录, <code>knowledge/cts/TEST.PD.PROT.SRC.13.md</code></p>
+
+  <!-- Phase 2 -->
+  <h3>Phase 2: 测试用例分析 & 失败点定位</h3>
+  <table>
+    <tr><th style="width:80px">子测试</th><th style="width:70px">Aug 21</th><th style="width:70px">Aug 24</th><th style="width:70px">Aug 27</th><th>错误码</th></tr>
+    <tr>
+      <td>Rev2Src SRC.13#3</td>
+      <td><span class="badge badge-fail">FAIL</span></td>
+      <td><span class="badge badge-pass">PASS</span></td>
+      <td><span class="badge badge-pass">PASS</span></td>
+      <td><code>0x00000381</code> — Error Recovery not detected within 15ms</td>
+    </tr>
+    <tr>
+      <td>Rev3ChkdSrc BU.1#1</td>
+      <td><span class="badge badge-fail">FAIL</span></td>
+      <td><span class="badge badge-fail">FAIL</span></td>
+      <td><span class="badge badge-fail">FAIL</span></td>
+      <td><code>0x000003A9</code> — UUT did not present VBus</td>
+    </tr>
+  </table>
+  <p style="font-size:0.85em;color:var(--text-secondary)">来源: <code>02_failure_location.md</code></p>
+
+  <!-- Phase 3 -->
+  <h3>Phase 3: Trace 深度分析</h3>
+  <p><strong>协议层发现：</strong></p>
+  <ul>
+    <li>PS_RDY 消息在 CRCReceiveTimer 2次重试后确认发送失败</li>
+    <li>nRetryCount=2, CRCReceiveTimer=0.9-1.1ms (PD 3.0 规范)</li>
+    <li>仪器端测量 tCtsErrorRecovery ≈ 16ms，超限 ~1ms（边际失败）</li>
+    <li>Rev3ChkdSrc: PD 3.0 Sink attach — tester 检测到 VBus 未建立 (0x000003A9)</li>
+  </ul>
+  <p style="font-size:0.85em;color:var(--text-secondary)">来源: <code>03_trace_analysis.md</code></p>
+
+  <!-- Phase 4 — key evidence -->
+  <h3>Phase 4: Log 深度分析（核心发现）</h3>
+  <table>
+    <tr><th>指标</th><th>Aug 21 (FAIL)</th><th>Aug 24 (FIXED)</th><th>Aug 27 (FIXED)</th></tr>
+    <tr><td>PS_RDY TX error (int sts=0x40)</td><td>✅ 有</td><td>✅ 有</td><td>✅ 有</td></tr>
+    <tr><td>TX error → ERROR_RECOVERY</td><td>1.456ms</td><td>1.344ms</td><td>1.221ms</td></tr>
+    <tr><td>ERROR_RECOVERY → PORT_RESET</td><td>1.328ms</td><td>1.282ms</td><td>1.381ms</td></tr>
+    <tr><td><strong>TX error → PORT_RESET 总计</strong></td><td><strong>2.784ms</strong></td><td><strong>2.626ms</strong></td><td><strong>2.602ms</strong></td></tr>
+    <tr><td>err_recover 使能时长</td><td>51.790ms</td><td>54.520ms</td><td>50.496ms</td></tr>
+  </table>
+  <div style="background:var(--red-bg);border:1px solid #f5c2c7;border-radius:4px;padding:8px 12px;margin:12px 0;font-size:0.88em;">
+    <strong>⚠️ 上一轮分析修正：</strong> 原摘要声称 Aug 21 ERROR_RECOVERY→PORT_RESET 为 18ms 是 <strong>基于 kernel 捕获时间戳的错误结论</strong>。
+    实际使用 <code>sprd_pd_log</code> 内部时间戳测量，三者完全一致（~2.6-2.8ms）。Aug 21 kernel 捕获延迟高达 44ms，Aug 24/27 仅 22-24ms，这是 printk log buffer 刷新延迟，与 PD 协议行为无关。
+  </div>
+  <p style="font-size:0.85em;color:var(--text-secondary)">来源: <code>04_log_analysis.md</code> §2</p>
+
+  <!-- Phase 5 -->
+  <h3>Phase 5: 历史 Bug 参照</h3>
+  <table>
+    <tr><th>参照源</th><th>相似度</th><th>关键发现</th></tr>
+    <tr>
+      <td>Bug 3523357 — SRC3.01 (UMS512)</td>
+      <td><span class="badge badge-warn">🟡 75%</span></td>
+      <td>同一 SC27XX 硬件自动行为根因。修复: 禁用 <code>enable_tx_auto_retry</code>。<strong>部分适用</strong> — 可减少 HW 重试时间，但不解决 tester 不回 GoodCRC 的问题。</td>
+    </tr>
+    <tr>
+      <td>Bug 3523391 — SNK.12 (UMS512)</td>
+      <td><span class="badge badge-info">🟡 60%</span></td>
+      <td>同平台 PR_Swap 场景，相同 <code>sc27xx_typec_pr_swap_no_chk_detach</code> 调用链。根因不同（CC 检测时序 vs PHY TX 能力）。</td>
+    </tr>
+    <tr>
+      <td>Bug 2743733 — SRC3.01 (UMS9230)</td>
+      <td><span class="badge badge-info">🟡 间接</span></td>
+      <td>同系列 SC27XX 控制器，跨平台参照。</td>
+    </tr>
+  </table>
+  <p><strong>主失败模式:</strong> 模式 3 — TCPCI/PD Controller IC 通信异常（PHY 层子类: int sts=0x40 TX error）</p>
+  <p style="font-size:0.85em;color:var(--text-secondary)">来源: <code>05_history_reference.md</code></p>
+  <div style="background:var(--yellow-bg);border:1px solid #ffc107;border-radius:4px;padding:8px 12px;margin:12px 0;font-size:0.88em;">
+    <strong>⚠️ 数据限制:</strong> Bugzilla REST API 不可达（办公网限制），全局搜索未执行。知识库文件 (<code>top_issue_patterns.md</code>, <code>auth_knowledge_base.json</code>) 不存在。分析基于同平台 2 个已完成 Case。
+  </div>
+</div>
+
+<!-- ═══════════════ FIX RECOMMENDATIONS ═══════════════ -->
+<div class="card">
+  <h2>🔧 修复建议</h2>
+
+  <div class="two-col">
+    <div>
+      <h3>Rev2Src SRC.13#3 （主问题）</h3>
+      <table>
+        <tr><th style="width:50px">优先级</th><th>方案</th></tr>
+        <tr>
+          <td><span class="badge badge-fail">P0</span></td>
+          <td><strong>更新 SC27XX PD Controller 固件</strong> 到 Aug 24/27 已验证的版本。修复已在固件中存在，不需要 kernel 代码修改。</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-fail">P0</span></td>
+          <td><strong>获取 SC27XX 固件 changelog</strong>，确认 Aug 21→Aug 24 的具体变更（BMC PHY 初始化时序优化 / CC debounce 减少 / CRCReceiveTimer 配置变更）。</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-warn">P1</span></td>
+          <td><strong>评估禁用 <code>enable_tx_auto_retry</code></strong>（参考 Bug 3523357 修复）：可减少 HW 内部重试时间，缩短 tCtsErrorRecovery 总量，但不会消除 TX 错误本身。</td>
+        </tr>
+      </table>
+    </div>
+    <div>
+      <h3>Rev3ChkdSrc BU.1#1 （子问题）</h3>
+      <table>
+        <tr><th style="width:50px">优先级</th><th>方案</th></tr>
+        <tr>
+          <td><span class="badge badge-warn">P1</span></td>
+          <td><strong>检查 PD 3.0 VIF 配置</strong>：当前 VIF 可能仅配置 PD 2.0 Source-only 模式，不支持 PD 3.0 Sink。</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-warn">P1</span></td>
+          <td><strong>检查 bq2560x OTG enable 逻辑</strong>：PD 3.0 Sink 模式下 VBus 源切换可能失败。在 Aug 27 log 中搜索 <code>bq2560x.*OTG</code> 确认。</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-info">P2</span></td>
+          <td><strong>确认 charger IC 配置</strong>：sgm41542s/sgm41516S 在 PD 3.0 模式下的寄存器设置。</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <h3>tCtsErrorRecovery 时间预算</h3>
+  <div class="chain">
+    <div class="chain-node">HW CRC重试<br>~3ms</div>
+    <span class="chain-arrow">→</span>
+    <div class="chain-node">驱动 cleanup<br>~2.6ms</div>
+    <span class="chain-arrow">→</span>
+    <div class="chain-node">固件 PHY 初始化<br>~10ms (Aug 21)<br>~9ms (Aug 24/27)</div>
+    <span class="chain-arrow">→</span>
+    <div class="chain-node" style="background:var(--red-bg);border-color:#f5c2c7;">
+      总计 ~16ms<br>限值 15ms
+    </div>
+  </div>
+  <p style="font-size:0.85em;color:var(--text-secondary);margin-top:8px;">
+    优化任一环节（HW 固件 > driver > HW 重试）都可以缩短总时间。固件优化最有效（节省 ~1ms 即可 PASS）。
+  </p>
+</div>
+
+<!-- ═══════════════ RETEST ═══════════════ -->
+<div class="card">
+  <h2>✅ 复测验证</h2>
+  <ol>
+    <li><strong>固件更新验证</strong>：确认 SC27XX PD Controller 固件与 Aug 24/27 PASS 版本一致</li>
+    <li><strong>Rev2Src SRC.13 复测</strong>：PR_Swap Source→Sink 后 tCtsErrorRecovery ≤ 15ms</li>
+    <li><strong>Rev3ChkdSrc BU.1 复测</strong>：PD 3.0 Sink 模式下 VBus 正常建立，无 0x000003A9 错误</li>
+    <li><strong>多次循环测试</strong>：同一 session 中的额外 PR_Swap 子测试也需通过（防止 Aug 27 Session 1 首次失败的重现）</li>
+    <li><strong>kernel log 交叉验证</strong>：确认 int sts=0x40 存在但不再导致 tCtsErrorRecovery 超限</li>
+  </ol>
+</div>
+
+<!-- ═══════════════ PHASE INDEX ═══════════════ -->
+<div class="card">
+  <h2>📁 分析过程索引</h2>
+  <table>
+    <tr><th>Phase</th><th>产物</th><th>状态</th></tr>
+    <tr><td>Phase 1: 信息收集</td><td><code>00_input/input_meta.json</code>, <code>01_test_case_info.md</code></td><td><span class="badge badge-pass">✅</span></td></tr>
+    <tr><td>Phase 2: 测试失败定位</td><td><code>02_failure_location.md</code></td><td><span class="badge badge-pass">✅</span></td></tr>
+    <tr><td>Phase 3: Trace 深度分析</td><td><code>03_trace_analysis.md</code></td><td><span class="badge badge-pass">✅</span></td></tr>
+    <tr><td>Phase 4: Log 深度分析</td><td><code>04_log_analysis.md</code></td><td><span class="badge badge-pass">✅</span></td></tr>
+    <tr><td>Phase 5: 历史 Bug 参照</td><td><code>05_history_reference.md</code></td><td><span class="badge badge-pass">✅</span></td></tr>
+    <tr><td>Phase 6: 代码级根因</td><td>—</td><td><span class="badge badge-blocked">⛔ BLOCKED — 无 UMS512 内核源码</span></td></tr>
+  </table>
+  <p style="font-size:0.85em;color:var(--text-secondary);margin-top:8px;">
+    所有产物路径: <code>data/cases/3523346_TEST.PD.PROT.SRC.13/</code>
+  </p>
+</div>
+
+<!-- ═══════════════ OPEN QUESTIONS ═══════════════ -->
+<div class="card">
+  <h2>❓ 未解问题</h2>
+  <table>
+    <tr><th style="width:30px">#</th><th>问题</th><th style="width:70px">优先级</th></tr>
+    <tr><td>1</td><td>SC27XX 固件 Aug 21→Aug 24 的具体变更内容是什么？</td><td><span class="badge badge-fail">🔴 高</span></td></tr>
+    <tr><td>2</td><td>其他平台 (UMS9230/UMS9620) 是否有 SRC.13 测试通过的参考固件版本？</td><td><span class="badge badge-fail">🔴 高</span></td></tr>
+    <tr><td>3</td><td>Rev3ChkdSrc BU.1 VBus 失败是否需要独立的修复方案？</td><td><span class="badge badge-warn">🟡 中</span></td></tr>
+    <tr><td>4</td><td>SC27XX <code>enable_tx_auto_retry</code> 禁用是否能缩短 tCtsErrorRecovery 时间？</td><td><span class="badge badge-warn">🟡 中</span></td></tr>
+    <tr><td>5</td><td>Aug 27 Rev3ChkdSrc 中 bq2560x OTG enable 是否被调用？</td><td><span class="badge badge-warn">🟡 中</span></td></tr>
+    <tr><td>6</td><td>PD 3.0 VIF 配置是否限制了 Rev3ChkdSrc 测试？</td><td><span class="badge badge-warn">🟡 中</span></td></tr>
+  </table>
+</div>
+
+<div class="footnote">
+  <p><strong>分析工具:</strong> pd_auth_analyse v3.0 (6-Phase PD Certification Analysis)</p>
+  <p><strong>数据来源:</strong> Bugzilla Bug 3523346 附件 (3 kernel logs + 6 Lecroy traces + 3 HTML reports)</p>
+  <p><strong>参照 Case:</strong> Bug 3523357 (SRC3.01, UMS512) | Bug 3523391 (SNK.12, UMS512) | Bug 2743733 (SRC3.01, UMS9230)</p>
+  <p><strong>生成时间:</strong> 2026-09-10</p>
+</div>
+
+</div>
+</body>
+</html>

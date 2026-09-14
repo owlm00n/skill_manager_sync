@@ -210,6 +210,10 @@ def fetch_bug_rest(bug_id: str, instance: str = None) -> dict:
         "ftp_urls": ftp_urls,
         "unc_paths": unc_paths,
         "path_url": path_url,
+        # 分支/版本信息（SPCSS Bugzilla自定义字段）
+        "base_on_ver": bug.get("cf_base_on_ver", ""),
+        "fix_on_ver": bug.get("cf_fix_on_ver", ""),
+        "branch_to_merge": bug.get("cf_branchtobemerged", ""),
     }
 
     # 提取 assignee / reporter
@@ -248,8 +252,41 @@ def _resolve_status(instance_name: str, inst_config: dict, new_status: str) -> s
     return new_status
 
 
-def post_comment(bug_id: str, comment_text: str, instance: str = None) -> dict:
-    """向 Bug 添加评论（REST API POST）"""
+def post_comment(bug_id: str, comment_text: str, instance: str = None,
+                 send_mode: str = None) -> dict:
+    """向 Bug 添加评论（REST API POST）。
+
+    Args:
+        bug_id: Bug ID
+        comment_text: 评论内容
+        instance: Bugzilla 实例名
+        send_mode: 发送模式。
+            - 'preview' (默认): 只写本地预览文件，不发送。需用户确认后手动设置 send_mode='live'
+            - 'live': 实际发送到 Bugzilla
+    """
+    # 默认 send_mode 从环境变量读取，环境变量未设置则默认 'preview'
+    if send_mode is None:
+        send_mode = os.environ.get("BUGZILLA_SEND_MODE", "preview")
+
+    if send_mode == "preview":
+        # 写入本地预览文件，不发送
+        safe_id = bug_id.replace("/", "_").replace("\\", "_") if bug_id else "preview"
+        filename = f"reply_{safe_id}_preview.txt"
+        filepath = os.path.join(_REPLY_PREVIEW_DIR, filename)
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(f"# Reply Preview (NOT SENT)\n")
+            f.write(f"Bug: {bug_id}\n")
+            f.write(f"Mode: preview (send_mode='live' to actually send)\n")
+            f.write(f"---\n\n")
+            f.write(comment_text + "\n")
+        return {
+            "success": True,
+            "mode": "preview",
+            "bug_id": bug_id,
+            "filepath": filepath,
+            "message": "预览已生成，请审核。确认后设置 send_mode='live' 或设置环境变量 BUGZILLA_SEND_MODE=live 发送。",
+        }
+
     if OFFLINE_MODE or instance == "local":
         return {"error": "离线模式下不支持写操作"}
 
@@ -274,6 +311,7 @@ def post_comment(bug_id: str, comment_text: str, instance: str = None) -> dict:
             data = resp.json()
             return {
                 "success": True,
+                "mode": "live",
                 "comment_id": data.get("id"),
                 "bug_id": bug_id,
                 "instance": inst_name,
@@ -334,30 +372,98 @@ def update_bug_status(bug_id: str, new_status: str, comment_text: str = None,
 
 
 def bug_commit(bug_id: str, comment_text: str, new_status: str = "needinfo",
-               instance: str = None) -> dict:
-    """一键组合：先发评论，再改状态。返回合并结果。"""
-    # Step 1: post comment
-    comment_result = post_comment(bug_id, comment_text, instance)
-    if "error" in comment_result:
-        return {"error": f"Comment failed: {comment_result['error']}", "step": "comment"}
+               instance: str = None, use_combined: bool = True,
+               send_mode: str = None) -> dict:
+    """一键组合：发评论并改状态。
 
-    # Step 2: update status
-    status_result = update_bug_status(bug_id, new_status, instance=instance)
-    if "error" in status_result:
+    Args:
+        bug_id: Bug ID
+        comment_text: 评论内容
+        new_status: 目标状态（默认 needinfo）
+        instance: Bugzilla 实例名
+        use_combined: 是否使用组合模式（默认 True）。
+            - True: 将评论合并到状态变更的 comment 中，只产生一条评论（推荐）
+            - False: 先发评论，再改状态（产生两条评论，兼容旧行为）
+        send_mode: 发送模式。
+            - 'preview' (默认): 只写本地预览文件，不发送。需用户确认后手动设置 send_mode='live'
+            - 'live': 实际发送到 Bugzilla
+    """
+    # 默认 send_mode 从环境变量读取，环境变量未设置则默认 'preview'
+    if send_mode is None:
+        send_mode = os.environ.get("BUGZILLA_SEND_MODE", "preview")
+
+    if send_mode == "preview":
+        # 写入本地预览文件，不发送
+        safe_id = bug_id.replace("/", "_").replace("\\", "_") if bug_id else "preview"
+        filename = f"reply_{safe_id}_preview.txt"
+        filepath = os.path.join(_REPLY_PREVIEW_DIR, filename)
+        status_line = f"New Status: {new_status}"
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(f"# Reply Preview (NOT SENT)\n")
+            f.write(f"Bug: {bug_id}\n")
+            f.write(f"{status_line}\n")
+            f.write(f"Mode: preview (send_mode='live' to actually send)\n")
+            f.write(f"Combined: {use_combined}\n")
+            f.write(f"---\n\n")
+            f.write(comment_text + "\n")
         return {
-            "error": f"Status update failed: {status_result['error']}",
-            "step": "status",
-            "comment_id": comment_result.get("comment_id"),
+            "success": True,
+            "mode": "preview",
+            "bug_id": bug_id,
+            "new_status": new_status,
+            "filepath": filepath,
+            "message": "预览已生成，请审核。确认后设置 send_mode='live' 或设置环境变量 BUGZILLA_SEND_MODE=live 发送。",
         }
 
-    return {
-        "success": True,
-        "bug_id": bug_id,
-        "comment_id": comment_result.get("comment_id"),
-        "new_status": status_result.get("new_status"),
-        "url": status_result.get("url"),
-        "instance": status_result.get("instance"),
-    }
+    if use_combined:
+        # 组合模式：一条 PUT 请求同时改状态 + 附带评论
+        status_result = update_bug_status(bug_id, new_status, comment_text=comment_text,
+                                          instance=instance)
+        if "error" in status_result:
+            return {"error": f"Combined update failed: {status_result['error']}", "step": "combined"}
+
+        # 获取评论 ID：从 bug_info 获取最新评论
+        try:
+            from bug_core import fetch_bug_rest
+            bug_info = fetch_bug_rest(bug_id, instance=instance)
+            latest_comment_id = None
+            # 从所有 comments 中提取最新 comment id
+            # REST API 评论在 bug_data["bugs"][0]["comments"]
+        except Exception:
+            latest_comment_id = None
+
+        return {
+            "success": True,
+            "bug_id": bug_id,
+            "new_status": status_result.get("new_status"),
+            "url": status_result.get("url"),
+            "instance": status_result.get("instance"),
+            "combined": True,
+            "note": "评论已合并到状态变更中，仅产生一条评论",
+        }
+    else:
+        # 旧行为：先 post comment，再 update status
+        comment_result = post_comment(bug_id, comment_text, instance)
+        if "error" in comment_result:
+            return {"error": f"Comment failed: {comment_result['error']}", "step": "comment"}
+
+        status_result = update_bug_status(bug_id, new_status, instance=instance)
+        if "error" in status_result:
+            return {
+                "error": f"Status update failed: {status_result['error']}",
+                "step": "status",
+                "comment_id": comment_result.get("comment_id"),
+            }
+
+        return {
+            "success": True,
+            "bug_id": bug_id,
+            "comment_id": comment_result.get("comment_id"),
+            "new_status": status_result.get("new_status"),
+            "url": status_result.get("url"),
+            "instance": status_result.get("instance"),
+            "combined": False,
+        }
 
 
 # ============================================================
@@ -470,8 +576,20 @@ def search_bugs(keyword: str = "", severity: str = "", limit: int = 20) -> list:
 
 
 # ============================================================
-# 客户回复模板系统 (v1.0)
+# 客户回复系统 (v2.0)
+# SPCSS 场景：Dear CUS + 用户内容 + Thanks
+# 流程：生成预览文件 → 用户 review/修改 → 用户确认发送 → 提交
 # ============================================================
+
+_REPLY_PREVIEW_DIR = os.path.join(SCRIPT_DIR, "config")
+
+# 当前回复上下文（bug_id 等，用于匹配模板）
+_reply_context = {}
+
+
+def _get_reply_context() -> dict:
+    return _reply_context
+
 
 def _load_reply_templates() -> list:
     """加载客户回复模板配置"""
@@ -484,140 +602,122 @@ def _load_reply_templates() -> list:
         return []
 
 
-def match_template(templates: list, bug: dict = None, keyword: str = None,
-                   scenario: str = None) -> Optional[dict]:
-    """根据关键词、scenario 或 bug 信息匹配最佳模板"""
-    if not templates:
+def match_spccs_template(bug_id: str = None) -> Optional[dict]:
+    """检查 SPCSS bug，匹配模板"""
+    bid = bug_id or _reply_context.get("bug_id", "")
+    if not bid:
         return None
-
-    # 优先级：keyword 精确匹配 > scenario 匹配 > bug 信息匹配
-    for tpl in templates:
-        # 1. keyword 匹配
-        if keyword:
-            kw_lower = keyword.lower()
-            for tpl_kw in tpl.get("keywords", []):
-                if tpl_kw in kw_lower or kw_lower in tpl_kw:
-                    return tpl
-
-        # 2. scenario 匹配
-        if scenario:
-            sc_lower = scenario.lower()
-            if sc_lower in [s.lower() for s in tpl.get("scenarios", [])]:
-                return tpl
-
-        # 3. bug 信息匹配（platform/product/component）
-        if bug:
-            bug_text = f"{bug.get('platform', '')} {bug.get('summary', '')} {bug.get('product', '')} {bug.get('component', '')}".lower()
-            for tpl_kw in tpl.get("keywords", []):
-                if tpl_kw in bug_text:
-                    return tpl
-
+    for tpl in _load_reply_templates():
+        trigger = tpl.get("product_trigger", "")
+        if trigger and trigger.lower() in bid.lower():
+            return tpl
     return None
 
 
-def fill_template(body_template: str, placeholders: list, replacements: dict) -> str:
-    """替换模板中的占位符"""
-    result = body_template
-    for ph in placeholders:
-        ph_key = ph.lstrip("{").rstrip("}")
-        if ph_key in replacements:
-            result = result.replace(ph, str(replacements[ph_key]))
-    return result
-
-
-def generate_customer_reply(bug_id: str = "", platform: str = "UMS512",
-                            bug_summary: str = "", scenario: str = "",
-                            keyword: str = None, extra: dict = None) -> dict:
+def prepare_customer_reply(bug_id: str, content: str, platform: str = "") -> dict:
     """
-    根据场景生成客户回复。
+    准备客户回复预览。
+
+    流程：组装 Dear CUS + 用户内容 + Thanks → 写入本地文件 → 返回预览。
+    用户 review/修改文件后，再调用 send_customer_reply() 提交。
 
     Args:
         bug_id: Bug ID
-        platform: 平台名称（用于填充模板，默认 UMS512）
-        bug_summary: Bug 摘要（用于填充模板）
-        scenario: 场景描述（如 "pd认证咨询"）
-        keyword: 模板关键词（优先级最高）
-        extra: 额外字段，用于自定义回复内容
+        content: 用户要回复的实际内容
+        platform: 平台名称（可选）
 
     Returns:
         {
             "success": True/False,
-            "bug_id": ...,
+            "filepath": "/path/to/reply_SPCSS01690575_preview.txt",
             "reply": "Dear CUS\\n\\n...\\n\\nThanks",
-            "template_id": "ums512-pd-chargeic",
-            "format": ["Dear CUS", "body", "Thanks"]
         }
     """
-    templates = _load_reply_templates()
-    if not templates:
-        return {"success": False, "error": "No reply templates loaded"}
+    if not bug_id:
+        return {"success": False, "error": "Missing bug_id"}
+    if not content:
+        return {"success": False, "error": "Missing content"}
 
-    # 构建 bug 上下文字典
-    bug_ctx = {
-        "bug_id": bug_id,
-        "platform": platform,
-        "summary": bug_summary,
-    }
+    # 保存上下文（用于模板匹配）
+    _reply_context["bug_id"] = bug_id
 
-    # 匹配模板
-    tpl = match_template(templates, bug=bug_ctx, keyword=keyword, scenario=scenario)
-    if not tpl:
-        # 无匹配模板时返回通用模板
-        tpl = _build_generic_reply(platform, bug_summary, bug_id, extra or {})
+    # 组装格式
+    reply = f"Dear CUS\n\n{content.strip()}\n\nThanks"
 
-    # 提取模板字段
-    tpl_data = tpl.get("template", {})
-    body_tmpl = tpl_data.get("body_template", "")
-    placeholders = tpl_data.get("placeholders", [])
-
-    # 构建替换字典
-    replacements = {
-        "{platform}": platform,
-        "{bug_summary}": bug_summary if bug_summary else f"Bug {bug_id}",
-    }
-    if extra:
-        replacements.update(extra)
-
-    body = fill_template(body_tmpl, placeholders, replacements)
-    fmt = tpl_data.get("format", ["Dear CUS", "body", "Thanks"])
-
-    # 组装完整回复
-    reply = f"{fmt[0]}\n\n{body}\n\n{fmt[-1]}"
+    # 写入本地预览文件
+    safe_id = bug_id.replace("/", "_").replace("\\", "_") if bug_id else "preview"
+    filename = f"reply_{safe_id}_preview.txt"
+    filepath = os.path.join(_REPLY_PREVIEW_DIR, filename)
+    tpl = match_spccs_template(bug_id)
+    with open(filepath, "w", encoding="utf-8") as f:
+        f.write(f"# Reply Preview\n")
+        f.write(f"Bug: {bug_id}\n")
+        if tpl:
+            f.write(f"Template: {tpl.get('name', '')}\n")
+        f.write(f"---\n\n")
+        f.write(reply + "\n")
 
     return {
         "success": True,
         "bug_id": bug_id,
         "reply": reply,
-        "template_id": tpl.get("id", "generic"),
-        "template_name": tpl.get("name", "通用模板"),
-        "format": fmt,
+        "filepath": filepath,
     }
 
 
-def _build_generic_reply(platform: str, bug_summary: str, bug_id: str,
-                         extra: dict) -> dict:
-    """构建通用回复模板（当无匹配模板时使用）"""
-    lines = ["您好，"]
-    lines.append(f"关于 {f'Bug {bug_id}' if not bug_summary else bug_summary}，")
-    lines.append(f"经确认：{platform} 平台未送测相关功能。")
+def send_customer_reply(bug_id: str, filepath: str = None,
+                        new_status: str = "needinfo",
+                        instance: str = "unisoc",
+                        use_combined: bool = True) -> dict:
+    """
+    发送已确认的客户回复。
 
-    if extra:
-        for k, v in extra.items():
-            lines.append(f"- {k}: {v}")
+    从预览文件读取已 review 过的内容，调用 bug_commit 提交。
 
-    lines.append("")
-    lines.append("请确认相关事项后回复，谢谢！")
+    Args:
+        bug_id: Bug ID
+        filepath: 预览文件路径
+        new_status: 目标状态
+        instance: Bugzilla 实例
+        use_combined: 是否组合模式
 
-    body = "\n".join(lines)
-    return {
-        "id": "generic",
-        "name": "通用模板",
-        "template": {
-            "format": ["Dear CUS", "body", "Thanks"],
-            "body_template": body,
-            "placeholders": [],
-        }
-    }
+    Returns:
+        bug_commit 的返回结果
+    """
+    from bug_core import bug_commit
+
+    # 读取已确认的内容
+    if filepath is None:
+        # 找最近的预览文件
+        preview_files = sorted(
+            [f for f in os.listdir(_REPLY_PREVIEW_DIR)
+             if f.startswith("reply_") and f.endswith("_preview.md")],
+            reverse=True
+        )
+        if preview_files:
+            filepath = os.path.join(_REPLY_PREVIEW_DIR, preview_files[0])
+        else:
+            return {"success": False, "error": "No preview file found. Call prepare_customer_reply first."}
+
+    if not os.path.exists(filepath):
+        return {"success": False, "error": f"File not found: {filepath}"}
+
+    with open(filepath, "r", encoding="utf-8") as f:
+        lines = f.readlines()
+        body_lines = []
+        in_body = False
+        for line in lines:
+            stripped = line.strip()
+            if stripped == "---":
+                if in_body:
+                    break
+                in_body = True
+                continue
+            if in_body:
+                body_lines.append(line)
+        comment_text = "".join(body_lines).strip()
+
+    return bug_commit(bug_id, comment_text, new_status, instance, use_combined)
 
 
 # ============================================================
@@ -662,6 +762,17 @@ def format_bug_summary(bug: dict) -> str:
         lines.append(f"Priority: {priority} | Severity: {severity}")
 
     lines.append(f"Product: {bug.get('product', 'N/A')} / {bug.get('component', 'N/A')}")
+
+    # 分支/版本信息（SPCSS Bugzilla自定义字段）
+    base_on_ver = bug.get("base_on_ver", "")
+    if base_on_ver:
+        lines.append(f"Base On Version: {base_on_ver}")
+    fix_on_ver = bug.get("fix_on_ver", "")
+    if fix_on_ver:
+        lines.append(f"Fix On Version: {fix_on_ver}")
+    branch_to_merge = bug.get("branch_to_merge", "")
+    if branch_to_merge:
+        lines.append(f"Branch To Merge: {branch_to_merge}")
 
     assignee = bug.get("assignee", "")
     if assignee:
@@ -750,6 +861,10 @@ if __name__ == "__main__":
     parser.add_argument("--status", default="needinfo", help="目标状态（默认: needinfo）")
     parser.add_argument("--comment", default="", help="评论内容")
     parser.add_argument("--patch", default="", help="附加的patch文件路径")
+    parser.add_argument("--comment-only", action="store_true",
+                        help="仅发评论，不改状态（避免 --commit 默认改 needinfo）")
+    parser.add_argument("--reply", action="store_true",
+                        help="从 reply_{bug_id}_preview.md 文件读取回复内容并提交（组合模式）")
     args = parser.parse_args()
 
     if args.list:
@@ -769,6 +884,95 @@ if __name__ == "__main__":
         sys.exit(1)
 
     bug_id = args.bug_id
+
+    # --comment-only 模式：仅发评论，不改状态
+    if args.comment_only:
+        comment_text = args.comment
+        if args.patch:
+            try:
+                with open(args.patch, "r", encoding="utf-8", errors="replace") as f:
+                    patch_content = f.read()
+                comment_text = comment_text + "\n\n" + patch_content if comment_text else patch_content
+            except FileNotFoundError:
+                print(f"[ERROR] Patch file not found: {args.patch}")
+                sys.exit(1)
+        if not comment_text:
+            print("[ERROR] --comment-only requires --comment or --patch")
+            sys.exit(1)
+
+        print(f"[Comment-Only] Bug {bug_id} (instance: {args.instance or 'default'})...\n")
+        result = post_comment(bug_id, comment_text, instance=args.instance)
+        inst_config = get_instance_config(args.instance)[1]
+        if result.get("success"):
+            result["url"] = f"{inst_config['base_url']}/show_bug.cgi?id={bug_id}"
+        if args.json:
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+        elif result.get("success"):
+            print(f"  ✅ Comment posted (ID: {result['comment_id']})")
+            print(f"  🔗 {result['url']}")
+        else:
+            print(f"  ❌ {result.get('error', 'Unknown error')}")
+        sys.exit(0 if result.get("success") else 1)
+
+    # --reply 模式：从 reply_{bug_id}_preview.md 文件读取回复内容并提交
+    # 解决 bash 命令行中无法正确传递中文文本的问题
+    if args.reply:
+        safe_id = bug_id.replace("/", "_").replace("\\", "_")
+        reply_filename = f"reply_{safe_id}_preview.txt"
+        reply_filepath = os.path.join(_REPLY_PREVIEW_DIR, reply_filename)
+
+        # 如果精确匹配的文件不存在，尝试找最新的预览文件作为 fallback
+        if not os.path.exists(reply_filepath):
+            preview_files = sorted(
+                [f for f in os.listdir(_REPLY_PREVIEW_DIR)
+                 if f.startswith("reply_") and f.endswith("_preview.md")],
+                reverse=True
+            )
+            if preview_files:
+                reply_filepath = os.path.join(_REPLY_PREVIEW_DIR, preview_files[0])
+                print(f"[Reply] 未找到 {reply_filename}，使用最新文件: {preview_files[0]}")
+            else:
+                print(f"[ERROR] 未找到回复文件: {reply_filename}")
+                print(f"  请先调用 prepare_customer_reply() 或手动创建文件")
+                sys.exit(1)
+
+        if not os.path.exists(reply_filepath):
+            print(f"[ERROR] 文件不存在: {reply_filepath}")
+            sys.exit(1)
+
+        # 读取文件内容，提取 body（跳过 frontmatter）
+        with open(reply_filepath, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+            body_lines = []
+            in_body = False
+            for line in lines:
+                stripped = line.strip()
+                if stripped == "---":
+                    if in_body:
+                        break
+                    in_body = True
+                    continue
+                if in_body:
+                    body_lines.append(line)
+            comment_text = "".join(body_lines).strip()
+
+        if not comment_text:
+            print(f"[ERROR] 回复文件为空: {reply_filepath}")
+            sys.exit(1)
+
+        print(f"[Reply] Bug {bug_id} -> status={args.status} (instance: {args.instance or 'unisoc'})...")
+        print(f"  读取文件: {reply_filepath}")
+        print(f"  内容预览: {comment_text[:80]}...")
+        result = bug_commit(bug_id, comment_text, args.status, instance=args.instance)
+        if args.json:
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+        elif result.get("success"):
+            print(f"  ✅ Comment posted (ID: {result['comment_id']})")
+            print(f"  ✅ Status changed -> {result['new_status']}")
+            print(f"  🔗 {result['url']}")
+        else:
+            print(f"  ❌ {result.get('error', 'Unknown error')}")
+        sys.exit(0 if result.get("success") else 1)
 
     # --commit 模式：发评论 + 改状态
     if args.commit:

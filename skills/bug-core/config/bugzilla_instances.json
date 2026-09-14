@@ -1,48 +1,6 @@
 {
   "default_instance": "unisoc",
   "instances": {
-    "kernel": {
-      "name": "Linux Kernel Bugzilla",
-      "base_url": "https://bugzilla.kernel.org",
-      "rest_url": "https://bugzilla.kernel.org/rest",
-      "api_key": "",
-      "status_map": {
-        "needinfo": "NEEDINFO",
-        "assigned": "ASSIGNED",
-        "resolved": "RESOLVED",
-        "closed": "CLOSED",
-        "reopened": "REOPENED"
-      },
-      "notes": "公开Bugzilla，无需API key即可只读访问"
-    },
-    "mozilla": {
-      "name": "Mozilla Bugzilla",
-      "base_url": "https://bugzilla.mozilla.org",
-      "rest_url": "https://bugzilla.mozilla.org/rest",
-      "api_key": "",
-      "status_map": {
-        "needinfo": "NEEDINFO",
-        "assigned": "ASSIGNED",
-        "resolved": "RESOLVED",
-        "closed": "CLOSED",
-        "reopened": "REOPENED"
-      },
-      "notes": "公开Bugzilla，数据最丰富"
-    },
-    "gnome": {
-      "name": "GNOME Bugzilla",
-      "base_url": "https://bugzilla.gnome.org",
-      "rest_url": "https://bugzilla.gnome.org/rest",
-      "api_key": "",
-      "status_map": {
-        "needinfo": "NEEDINFO",
-        "assigned": "ASSIGNED",
-        "resolved": "RESOLVED",
-        "closed": "CLOSED",
-        "reopened": "REOPENED"
-      },
-      "notes": "公开Bugzilla"
-    },
     "unisoc": {
       "name": "Unisoc Bugzilla（内网）",
       "base_url": "https://bugzilla.unisoc.com/bugzilla",
@@ -54,7 +12,16 @@
         "assigned": "Assigned",
         "resolved": "Resolved",
         "closed": "Closed",
-        "reopened": "Reopened"
+        "reopened": "Reopened",
+        "rootcause": "Root-Caused",
+        "rootcaused": "Root-Caused",
+        "codecommitted": "Code-Committed",
+        "fixed": "Fixed",
+        "tobeverified": "TobeVerified",
+        "reopen": "ReOpen",
+        "wontfix": "WONTFIX",
+        "duplicated": "Duplicated",
+        "invalided": "Invalided"
       },
       "ftp_host": "unitrans.unisoc.com",
       "ftp_port": "2443",

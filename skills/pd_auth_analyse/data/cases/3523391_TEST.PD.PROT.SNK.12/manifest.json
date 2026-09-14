@@ -1,0 +1,49 @@
+{
+  "case_id": "3523391_TEST.PD.PROT.SNK.12",
+  "bug_id": "3523391",
+  "test_case": "TEST.PD.PROT.SNK.12",
+  "platform": "UMS512",
+  "started": "2026-09-09T10:30:00",
+  "completed": "2026-09-09T11:00:00",
+  "phases": {
+    "phase_1": {
+      "status": "completed",
+      "file": "01_test_case_info/01_test_case_info.md",
+      "summary": "Input materials cataloged, Bug context documented, CC correction noted"
+    },
+    "phase_2": {
+      "status": "completed",
+      "file": "02_failure_location/02_failure_location.md",
+      "summary": "Failure at step 4→5: PE_PRS_SNK_SRC_Transition_to_off → PE_PRS_SNK_SRC_Assert_Rp, tPSSourceOffTimer timeout"
+    },
+    "phase_3": {
+      "status": "completed",
+      "file": "03_trace_analysis/03_trace_analysis.md",
+      "summary": "Protocol-level: tPSSourceOffTimer 835ms timeout, PS_RDY not sent, GoodCRC no response"
+    },
+    "phase_4": {
+      "status": "completed",
+      "file": "04_log_analysis/04_log_analysis.md",
+      "summary": "Root cause: sc27xx_typec_pr_swap_no_chk_detach(on=1) called 30ms BEFORE PR_Swap message, disabling CC detection"
+    },
+    "phase_5": {
+      "status": "completed",
+      "file": "05_history_reference/05_history_reference.md",
+      "summary": "Knowledge base empty — no historical data, matched 'PD state machine defect' pattern"
+    },
+    "phase_6": {
+      "status": "skipped",
+      "file": "06_code_root_cause/06_code_root_cause.md",
+      "summary": "Skipped — no kernel source path available"
+    },
+    "summary": {
+      "status": "completed",
+      "file": "summary/SUMMARY.html",
+      "summary": "Final report generated with corrected CC assumption"
+    }
+  },
+  "knowledge_base_output": [
+    "knowledge/cts/TEST.PD.PROT.SNK.12.md"
+  ],
+  "key_correction": "CC LOGIC is SC27xx PMIC integrated (NOT third-party), invalidating previous Hypothesis 1"
+}

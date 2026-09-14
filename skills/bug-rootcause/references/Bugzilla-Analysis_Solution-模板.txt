@@ -1,0 +1,17 @@
+[1.Root Cause        ]:
+
+[2.Resolution        ]:
+
+[3.Testing Suggestion]:
+
+[4.Impact for customer]:
+
+[5.Self Test Items ]:(Optional)
+
+[6.Reproduce Steps]:(Optional)
+
+[7.NV Modification   ]:(Optional)
+[Mandatory for customer(Y/N)]:
+[Recalibration (Y/N)        ]:
+[NV structural changed(Y/N) ]:
+[New NV backup items(Y/N)   ]:

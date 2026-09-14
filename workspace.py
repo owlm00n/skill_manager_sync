@@ -5,6 +5,19 @@ from skills import SkillManager
 from utils import run_ps
 
 
+def _is_reparse_point(path):
+    """Detect if a path is a Windows junction/symlink (reparse point)."""
+    try:
+        if path.is_symlink():
+            return True
+        attrs = os.lstat(str(path))
+        if hasattr(attrs, 'st_file_attributes'):
+            return bool(attrs.st_file_attributes & 0x400)  # FILE_ATTRIBUTE_REPARSE_POINT
+        return False
+    except Exception:
+        return False
+
+
 class WorkspaceScanner:
     def __init__(self, script_dir: Path):
         self.script_dir = script_dir
@@ -47,6 +60,8 @@ class WorkspaceScanner:
                             if entry.is_dir():
                                 skill_md = entry / "SKILL.md"
                                 disabled = entry / "SKILL.md.disabled"
+                                # Detect if this skill dir is a junction/symlink (linked to central)
+                                is_link = _is_reparse_point(entry)
                                 if skill_md.exists():
                                     text = skill_md.read_text(encoding="utf-8", errors="replace")
                                     fm = SkillManager.parse_frontmatter(text)
@@ -57,6 +72,7 @@ class WorkspaceScanner:
                                         "enabled": True,
                                         "type": "dir",
                                         "path": str(skill_md),
+                                        "is_link": is_link,
                                     })
                                 elif disabled.exists():
                                     text = disabled.read_text(encoding="utf-8", errors="replace")
@@ -68,6 +84,7 @@ class WorkspaceScanner:
                                         "enabled": False,
                                         "type": "dir",
                                         "path": str(disabled),
+                                        "is_link": is_link,
                                     })
                             # Case 2: single-file skill — <name>.md (with frontmatter)
                             elif entry.is_file() and entry.suffix.lower() == ".md":

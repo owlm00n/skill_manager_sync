@@ -86,9 +86,9 @@ function renderGlobalWS() {
             <thead class="sticky top-0 bg-slate-100/80 dark:bg-slate-800/80 backdrop-blur-sm">
               <tr>
                 <th class="px-3 py-2 text-left w-8"><input type="checkbox" class="skill-checkbox" onchange="gwsToggleAll(this.checked)"></th>
-                <th class="px-3 py-2 text-left font-semibold text-slate-500 text-xs uppercase">Status</th>
+                <th class="px-3 py-2 text-left font-semibold text-slate-500 text-xs uppercase">Enabled</th>
                 <th class="px-3 py-2 text-left font-semibold text-slate-500 text-xs uppercase">Name</th>
-                <th class="px-3 py-2 text-left font-semibold text-slate-500 text-xs uppercase">Source</th>
+                <th class="px-3 py-2 text-left font-semibold text-slate-500 text-xs uppercase">Library</th>
                 <th class="px-3 py-2 text-left font-semibold text-slate-500 text-xs uppercase">Description</th>
               </tr>
             </thead>
@@ -172,11 +172,21 @@ async function loadGWSAgentSkills(agentKey) {
 		tbody.innerHTML = GWS_SKILLS.map(s => {
 			const checked = GWS_SELECTED.has(s.dir);
 			const isCentral = s.source === 'central' || s.in_central;
+			const isLink = !!s.is_link;
+			// Library badge: Linked (junction/symlink to central) > In Library (copy) > Local (not synced)
+			let libraryBadge;
+			if (isLink) {
+				libraryBadge = `<span class="source-badge source-central inline-flex items-center gap-1" title="Linked to central Library (junction/symlink)"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>Linked</span>`;
+			} else if (isCentral) {
+				libraryBadge = `<span class="source-badge source-central" title="Exists in central Library (local copy)">In Library</span>`;
+			} else {
+				libraryBadge = `<span class="source-badge source-external" title="Only in this agent, not synced to central Library">Local</span>`;
+			}
 			return `<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer" onclick="previewGWSSkill('${esc(s.dir)}')">
         <td class="px-3 py-2.5"><input type="checkbox" class="skill-checkbox" ${checked ? 'checked' : ''} onclick="event.stopPropagation();gwsToggleSelect('${esc(s.dir)}',this.checked)"></td>
-        <td class="px-3 py-2.5"><span class="inline-flex items-center justify-center w-5 h-5 rounded-full text-xs ${s.enabled ? 'bg-green-100 dark:bg-green-900/40 text-green-600' : 'bg-red-100 dark:bg-red-900/40 text-red-500'}">${s.enabled ? '✓' : '✗'}</span></td>
+        <td class="px-3 py-2.5"><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${s.enabled ? 'bg-green-100 dark:bg-green-900/40 text-green-600' : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400'}">${s.enabled ? 'On' : 'Off'}</span></td>
         <td class="px-3 py-2.5 font-semibold text-slate-800 dark:text-white">${esc(s.name)}</td>
-        <td class="px-3 py-2.5"><span class="source-badge ${isCentral ? 'source-central' : 'source-external'}">${isCentral ? 'Central' : 'External'}</span></td>
+        <td class="px-3 py-2.5">${libraryBadge}</td>
         <td class="px-3 py-2.5 text-slate-500 text-xs truncate max-w-[200px]">${esc((s.description || '').substring(0, 60))}</td>
       </tr>`;
 		}).join('');
@@ -291,6 +301,7 @@ let PWS_PATH = PWS_SETTINGS.path || 'D:\\06_Project';
 let PWS_DEPTH = PWS_SETTINGS.depth || 3;
 let PWS_RESULTS = null;
 let PWS_SELECTED_WS = null; // Selected workspace for detailed view
+let PWS_SELECTED = new Set(); // Selected skills for batch operations (key: agentDir::skillName)
 // Persist workspaces in localStorage
 let PWS_WORKSPACES = JSON.parse(localStorage.getItem('pws_workspaces') || '[]');
 function savePWSWorkspaces() { localStorage.setItem('pws_workspaces', JSON.stringify(PWS_WORKSPACES)); }
@@ -355,6 +366,8 @@ function renderProjectWS() {
 }
 
 function renderPBSDetails(ws) {
+	console.log('[PWS Details] renderPBSDetails called, ws:', ws);
+	console.log('[PWS Details] ws._scan_result:', ws._scan_result);
 	return `<div class="p-4 border-b border-slate-200/60 dark:border-slate-700/50">
     <div class="flex items-center gap-3">
       <div class="w-10 h-10 rounded-xl bg-primary-100 dark:bg-primary-900/40 flex items-center justify-center">
@@ -379,33 +392,88 @@ function renderPBSDetails(ws) {
 }
 
 function renderPWSScanResult(result) {
+	console.log('[PWS Render] renderPWSScanResult called, result:', result);
 	const workspaces = result.workspaces || [];
+	console.log('[PWS Render] workspaces count:', workspaces.length);
 	if (workspaces.length === 0) return '<p class="text-sm text-slate-400 text-center py-8">No agents found in this workspace</p>';
+
+	const ws = PWS_WORKSPACES[PWS_SELECTED_WS];
+	const projectPath = ws ? ws.path : '';
 
 	return workspaces.map(w => {
 		const skills = w.skills || [];
-		const inCentral = skills.filter(s => SKILLS.find(c => c.dir === s.name));
-		const unique = skills.filter(s => !SKILLS.find(c => c.dir === s.name));
-		return `<div class="mb-4">
-      <div class="flex items-center gap-2 mb-2">
-        <span class="px-2 py-0.5 text-xs rounded-full bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-400 font-semibold">${esc(w.label)}</span>
-        <span class="text-xs text-slate-400">${esc(w.agent_dir)}</span>
-        <span class="ml-auto text-xs text-slate-400">${skills.length} skills</span>
+		const agentDir = w.agent_dir;
+		const selectedCount = skills.filter(s => PWS_SELECTED.has(`${agentDir}::${s.name}`)).length;
+		return `<div class="mb-4 border border-slate-200/60 dark:border-slate-700/50 rounded-xl overflow-hidden">
+      <!-- Agent Header -->
+      <div class="px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200/60 dark:border-slate-700/50">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="px-2 py-0.5 text-xs rounded-full bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-400 font-semibold">${esc(w.label)}</span>
+          <span class="text-xs text-slate-400 font-mono">${esc(agentDir)}</span>
+          <span class="ml-auto text-xs text-slate-400">${skills.length} skills</span>
+        </div>
+        <p class="text-xs text-slate-400 font-mono truncate mb-2" title="${esc(w.skills_path)}">${esc(w.skills_path)}</p>
+        <!-- Action Bar -->
+        <div class="flex flex-wrap gap-1.5">
+          <button onclick="pwsAddFromLibraryModal('${esc(agentDir)}')" class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200">+ Add from Library</button>
+          ${selectedCount > 0 ? `
+          <button onclick="pwsBatchImport('${esc(agentDir)}')" class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-green-100 dark:bg-green-900/30 text-green-600 hover:bg-green-200" title="Import selected skills into the central Library">+ Add to Library (${selectedCount})</button>
+          <button onclick="pwsAddToPresetModal('${esc(agentDir)}')" class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-purple-100 dark:bg-purple-900/30 text-purple-600 hover:bg-purple-200">Add to Preset (${selectedCount})</button>
+          <button onclick="pwsToggleSkills('${esc(agentDir)}', true)" class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 hover:bg-emerald-200">Enable</button>
+          <button onclick="pwsToggleSkills('${esc(agentDir)}', false)" class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-600 hover:bg-amber-200">Disable</button>
+          <button onclick="pwsRemoveSkills('${esc(agentDir)}')" class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-red-100 dark:bg-red-900/30 text-red-600 hover:bg-red-200">Remove (${selectedCount})</button>
+          <button onclick="PWS_SELECTED.clear();renderProjectWS()" class="px-2 py-1 text-xs text-slate-400 hover:text-slate-600">Clear</button>
+          ` : ''}
+        </div>
       </div>
-      <p class="text-xs text-slate-400 font-mono mb-2 truncate" title="${esc(w.skills_path)}">${esc(w.skills_path)}</p>
-      ${skills.length > 0 ? `<div class="grid grid-cols-2 gap-1.5">
-        ${skills.map(s => {
+      <!-- Skills Table -->
+      ${skills.length > 0 ? `<table class="w-full text-sm">
+        <thead class="bg-slate-100/80 dark:bg-slate-800/80">
+          <tr>
+            <th class="px-3 py-2 text-left w-8"><input type="checkbox" class="skill-checkbox" onchange="pwsToggleAll('${esc(agentDir)}', this.checked)" ${selectedCount === skills.length && skills.length > 0 ? 'checked' : ''}></th>
+            <th class="px-3 py-2 text-left font-semibold text-slate-500 text-xs uppercase w-16">Enabled</th>
+            <th class="px-3 py-2 text-left font-semibold text-slate-500 text-xs uppercase">Name</th>
+            <th class="px-3 py-2 text-left font-semibold text-slate-500 text-xs uppercase w-28">Library</th>
+            <th class="px-3 py-2 text-left font-semibold text-slate-500 text-xs uppercase">Description</th>
+            <th class="px-3 py-2 text-right font-semibold text-slate-500 text-xs uppercase w-32">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${skills.map(s => {
+			const key = `${agentDir}::${s.name}`;
+			const checked = PWS_SELECTED.has(key);
 			const isCentral = SKILLS.find(c => c.dir === s.name);
-			return `<div class="flex items-center gap-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-900/30">
-            <span class="w-2 h-2 rounded-full ${isCentral ? 'bg-green-500' : 'bg-amber-500'}"></span>
-            <span class="text-sm truncate">${esc(s.display_name || s.name)}</span>
-            <span class="ml-auto text-xs ${isCentral ? 'text-green-500' : 'text-amber-500'}">${isCentral ? 'Library' : 'Unique'}</span>
-          </div>`;
+			const isLink = !!s.is_link;
+			const skillPath = s.path || '';
+			const skillFolder = skillPath.replace(/\\SKILL\.md.*$/i, '').replace(/\.md$/i, '');
+			// Library badge: Linked (junction/symlink to central) > In Library (copy) > Local (not synced)
+			let libraryBadge;
+			if (isLink) {
+				libraryBadge = `<span class="source-badge source-central inline-flex items-center gap-1" title="Linked to central Library (junction/symlink)"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>Linked</span>`;
+			} else if (isCentral) {
+				libraryBadge = `<span class="source-badge source-central" title="Exists in central Library (local copy)">In Library</span>`;
+			} else {
+				libraryBadge = `<span class="source-badge source-external" title="Only in this project, not synced to central Library">Local</span>`;
+			}
+			return `<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800">
+            <td class="px-3 py-2"><input type="checkbox" class="skill-checkbox" ${checked ? 'checked' : ''} onchange="pwsToggleSelect('${esc(key)}', this.checked)"></td>
+            <td class="px-3 py-2"><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${s.enabled ? 'bg-green-100 dark:bg-green-900/40 text-green-600' : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400'}">${s.enabled ? 'On' : 'Off'}</span></td>
+            <td class="px-3 py-2 font-semibold text-slate-800 dark:text-white">${esc(s.display_name || s.name)}</td>
+            <td class="px-3 py-2">${libraryBadge}</td>
+            <td class="px-3 py-2 text-slate-500 text-xs truncate max-w-[180px]">${esc((s.description || '').substring(0, 50))}</td>
+            <td class="px-3 py-2 text-right">
+              <div class="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 hover:opacity-100" style="opacity:1">
+                ${!isCentral ? `<button onclick="pwsImportSkill('${escPath(projectPath)}', '${esc(agentDir)}', '${esc(s.name)}')" class="p-1 rounded hover:bg-green-100 dark:hover:bg-green-900/30 text-green-600" title="Add to central Library"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg></button>` : `<button disabled class="p-1 rounded text-slate-300 dark:text-slate-600 cursor-not-allowed" title="Already in central Library"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg></button>`}
+                <button onclick="pwsAddToPresetModal('${esc(agentDir)}', '${esc(s.name)}')" class="p-1 rounded hover:bg-purple-100 dark:hover:bg-purple-900/30 text-purple-600" title="Add to Preset"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg></button>
+                <button onclick="pwsToggleSkills('${esc(agentDir)}', ${!s.enabled}, '${esc(s.name)}')" class="p-1 rounded hover:bg-amber-100 dark:hover:bg-amber-900/30 text-amber-600" title="${s.enabled ? 'Disable' : 'Enable'}"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg></button>
+                <button onclick="pwsRemoveSkills('${esc(agentDir)}', '${esc(s.name)}')" class="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500" title="Remove"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+                <button onclick="openFolder('${escPath(skillFolder)}')" class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400" title="Open folder"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg></button>
+              </div>
+            </td>
+          </tr>`;
 		}).join('')}
-      </div>
-      ${unique.length > 0 ? `<div class="mt-2 flex gap-2">
-        <button onclick="importAllUniqueSkills('${escPath(w.project_path)}')" class="px-3 py-1 text-xs font-semibold rounded-lg bg-green-100 dark:bg-green-900/30 text-green-600 hover:bg-green-200">Import ${unique.length} unique to Library</button>
-      </div>` : ''}` : '<p class="text-xs text-slate-400">No skills found</p>'}
+        </tbody>
+      </table>` : '<p class="text-xs text-slate-400 p-4">No skills found</p>'}
     </div>`;
 	}).join('');
 }
@@ -416,16 +484,28 @@ async function selectPWSWorkspace(index) {
 }
 
 async function scanPWSWorkspace(index) {
+	console.log('[PWS Scan] scanPWSWorkspace called, index:', index);
 	const ws = PWS_WORKSPACES[index];
-	if (!ws) return;
+	if (!ws) {
+		console.log('[PWS Scan] ws not found');
+		return;
+	}
+	console.log('[PWS Scan] ws:', ws);
 	showToast('Scanning workspace...');
-	const depth = ws.depth || 1;
+	const depth = ws.depth || 2;
+	console.log('[PWS Scan] depth:', depth, 'path:', ws.path);
 	const result = await api('/api/workspace/scan', { method: 'POST', body: JSON.stringify({ path: ws.path, max_depth: depth }) });
+	console.log('[PWS Scan] API result:', result);
+	if (result.error) {
+		showToast('Scan failed: ' + result.error, 'error');
+		return;
+	}
 	ws._scan_result = result;
 	ws.skill_count = (result.workspaces || []).reduce((sum, w) => sum + (w.skills || []).length, 0);
+	console.log('[PWS Scan] skill_count:', ws.skill_count);
 	savePWSWorkspaces();
 	renderProjectWS();
-	showToast('Scan complete');
+	showToast(`Scan complete: ${ws.skill_count} skills found`);
 }
 
 function pwsSettingsModal() {
@@ -533,4 +613,226 @@ async function importProjectSkill(projectPath, skillName) {
 		method: 'POST', body: JSON.stringify({ path: projectPath, skill_names: [skillName] })
 	});
 	if (r.ok) { showToast('Imported'); await refresh(); renderProjectWS(); } else showToast(r.error || 'Failed', 'error');
+}
+
+/* ── PWS Selection & Batch Operations ───────── */
+function pwsToggleSelect(key, checked) {
+	if (checked) PWS_SELECTED.add(key); else PWS_SELECTED.delete(key);
+	renderProjectWS();
+}
+
+function pwsToggleAll(agentDir, checked) {
+	const ws = PWS_WORKSPACES[PWS_SELECTED_WS];
+	if (!ws || !ws._scan_result) return;
+	const w = ws._scan_result.workspaces.find(x => x.agent_dir === agentDir);
+	if (!w) return;
+	(w.skills || []).forEach(s => {
+		const key = `${agentDir}::${s.name}`;
+		if (checked) PWS_SELECTED.add(key); else PWS_SELECTED.delete(key);
+	});
+	renderProjectWS();
+}
+
+function getPwsSelectedSkills(agentDir) {
+	return [...PWS_SELECTED]
+		.filter(k => k.startsWith(agentDir + '::'))
+		.map(k => k.split('::')[1]);
+}
+
+async function pwsRescan() {
+	PWS_SELECTED.clear();
+	if (PWS_SELECTED_WS !== null) await scanPWSWorkspace(PWS_SELECTED_WS);
+}
+
+/* ── PWS Single/Batch Import ─────────────────── */
+async function pwsImportSkill(projectPath, agentDir, skillName) {
+	showToast('Importing...');
+	const r = await api('/api/workspace/project/import', {
+		method: 'POST', body: JSON.stringify({ path: projectPath, skill_names: [skillName] })
+	});
+	if (r.ok) {
+		const res = (r.results || [])[0];
+		if (res && res.ok) {
+			showToast(`Imported '${skillName}' to Library`);
+			await refresh();
+			await pwsRescan();
+		} else {
+			showToast(res?.error || 'Import failed', 'error');
+		}
+	} else {
+		showToast(r.error || 'Import failed', 'error');
+	}
+}
+
+async function pwsBatchImport(agentDir) {
+	const names = getPwsSelectedSkills(agentDir);
+	if (names.length === 0) return;
+	const ws = PWS_WORKSPACES[PWS_SELECTED_WS];
+	if (!ws) return;
+	showToast(`Importing ${names.length} skill(s)...`);
+	const r = await api('/api/workspace/project/import', {
+		method: 'POST', body: JSON.stringify({ path: ws.path, skill_names: names })
+	});
+	if (r.ok) {
+		const okCount = (r.results || []).filter(x => x.ok).length;
+		showToast(`Imported ${okCount} skill(s) to Library`);
+		await refresh();
+		await pwsRescan();
+	} else {
+		showToast(r.error || 'Import failed', 'error');
+	}
+}
+
+/* ── PWS Remove ──────────────────────────────── */
+async function pwsRemoveSkills(agentDir, singleSkill) {
+	const names = singleSkill ? [singleSkill] : getPwsSelectedSkills(agentDir);
+	if (names.length === 0) return;
+	const ws = PWS_WORKSPACES[PWS_SELECTED_WS];
+	if (!ws) return;
+	if (!confirm(`Remove ${names.length} skill(s) from project?\n\n${names.join(', ')}`)) return;
+	showToast('Removing...');
+	const r = await api('/api/workspace/project/remove', {
+		method: 'POST', body: JSON.stringify({ path: ws.path, agent_dir: agentDir, skill_names: names })
+	});
+	if (r.ok) {
+		const okCount = (r.results || []).filter(x => x.ok).length;
+		showToast(`Removed ${okCount} skill(s)`);
+		await pwsRescan();
+	} else {
+		showToast(r.error || 'Remove failed', 'error');
+	}
+}
+
+/* ── PWS Toggle Enable/Disable ───────────────── */
+async function pwsToggleSkills(agentDir, enabled, singleSkill) {
+	const names = singleSkill ? [singleSkill] : getPwsSelectedSkills(agentDir);
+	if (names.length === 0) return;
+	const ws = PWS_WORKSPACES[PWS_SELECTED_WS];
+	if (!ws) return;
+	showToast(enabled ? 'Enabling...' : 'Disabling...');
+	const r = await api('/api/workspace/project/toggle', {
+		method: 'POST', body: JSON.stringify({ path: ws.path, agent_dir: agentDir, skill_names: names, enabled: enabled })
+	});
+	if (r.ok) {
+		const okCount = (r.results || []).filter(x => x.ok).length;
+		showToast(`${enabled ? 'Enabled' : 'Disabled'} ${okCount} skill(s)`);
+		await pwsRescan();
+	} else {
+		showToast(r.error || 'Toggle failed', 'error');
+	}
+}
+
+/* ── PWS Add from Library ────────────────────── */
+function pwsAddFromLibraryModal(agentDir) {
+	const ws = PWS_WORKSPACES[PWS_SELECTED_WS];
+	if (!ws || !ws._scan_result) return;
+	const w = ws._scan_result.workspaces.find(x => x.agent_dir === agentDir);
+	const existingNames = (w?.skills || []).map(s => s.name);
+	const available = SKILLS.filter(s => !existingNames.includes(s.dir));
+	openModal(`<h3 class="text-lg font-bold text-slate-800 dark:text-white mb-4">Add Skills from Library</h3>
+    <p class="text-xs text-slate-400 mb-3">Target: ${esc(agentDir)}/skills in ${esc(ws.path.split('\\').pop())}</p>
+    <input id="pwsLibSearch" placeholder="Search..." oninput="filterPwsLibSkills()" class="input-modern w-full px-4 py-2.5 rounded-xl text-sm mb-3">
+    <div id="pwsLibList" class="max-h-[40vh] overflow-auto space-y-1 mb-4">
+      ${available.map(s => `<label class="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer">
+        <input type="checkbox" class="skill-checkbox pws-lib-cb" value="${esc(s.dir)}">
+        <span class="font-semibold text-sm text-slate-800 dark:text-white">${esc(s.name)}</span>
+        <span class="text-xs text-slate-400 truncate">${esc((s.description || '').substring(0, 50))}</span>
+      </label>`).join('')}
+      ${available.length === 0 ? '<p class="text-sm text-slate-400 py-4 text-center">All library skills already in this project</p>' : ''}
+    </div>
+    <div class="flex justify-end gap-2">
+      <button onclick="closeModal()" class="px-4 py-2 text-sm font-semibold rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">Cancel</button>
+      <button onclick="pwsDoAddFromLibrary('${esc(agentDir)}')" class="btn-gradient px-4 py-2 text-sm font-bold rounded-xl">Add Selected</button>
+    </div>`);
+}
+
+function filterPwsLibSkills() {
+	const q = document.getElementById('pwsLibSearch').value.toLowerCase();
+	document.querySelectorAll('.pws-lib-cb').forEach(cb => {
+		cb.closest('label').style.display = cb.value.toLowerCase().includes(q) ? '' : 'none';
+	});
+}
+
+async function pwsDoAddFromLibrary(agentDir) {
+	const names = [...document.querySelectorAll('.pws-lib-cb:checked')].map(cb => cb.value);
+	if (names.length === 0) { closeModal(); return; }
+	const ws = PWS_WORKSPACES[PWS_SELECTED_WS];
+	if (!ws) return;
+	closeModal();
+	showToast(`Adding ${names.length} skill(s)...`);
+	const r = await api('/api/workspace/project/add', {
+		method: 'POST', body: JSON.stringify({ path: ws.path, agent_dir: agentDir, skill_names: names })
+	});
+	if (r.ok) {
+		const okCount = (r.results || []).filter(x => x.ok).length;
+		const linked = (r.results || []).filter(x => x.linked).length;
+		let msg = `Added ${okCount} skill(s) to project`;
+		if (linked > 0) msg += ` (${linked} as ${r.mode} links)`;
+		showToast(msg);
+		await pwsRescan();
+	} else {
+		showToast(r.error || 'Add failed', 'error');
+	}
+}
+
+/* ── PWS Add to Preset ───────────────────────── */
+function pwsAddToPresetModal(agentDir, singleSkill) {
+	const ws = PWS_WORKSPACES[PWS_SELECTED_WS];
+	if (!ws) return;
+	const selectedSkills = singleSkill ? [singleSkill] : getPwsSelectedSkills(agentDir);
+	if (selectedSkills.length === 0 && !singleSkill) {
+		showToast('No skills selected', 'error');
+		return;
+	}
+	// Store context for the action
+	window._pwsPresetContext = { agentDir, skills: selectedSkills };
+	openModal(`<h3 class="text-lg font-bold text-slate-800 dark:text-white mb-4">Add to Preset</h3>
+    <label class="block text-sm font-semibold text-slate-600 dark:text-slate-400 mb-1">Select Preset</label>
+    <select id="pwsPresetSelect" class="input-modern w-full px-3 py-2.5 rounded-xl text-sm mb-4">
+      ${PRESETS.map(p => `<option value="${esc(p.name)}">${esc(p.name)}${p.description ? ' - ' + esc(p.description.substring(0, 30)) : ''}</option>`).join('')}
+    </select>
+    <label class="block text-sm font-semibold text-slate-600 dark:text-slate-400 mb-1">Skills to Add</label>
+    <div class="max-h-[30vh] overflow-auto space-y-1 mb-4 bg-slate-50 dark:bg-slate-900/30 rounded-xl p-3">
+      ${selectedSkills.map(s => `<div class="flex items-center gap-2 text-sm">
+        <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+        <span class="text-slate-700 dark:text-slate-300">${esc(s)}</span>
+      </div>`).join('')}
+    </div>
+    <p class="text-xs text-slate-400 mb-4">Skills will be imported to the central Library and added to the preset. In symlink/junction mode, project files will be replaced with links.</p>
+    <div class="flex justify-end gap-2">
+      <button onclick="closeModal()" class="px-4 py-2 text-sm font-semibold rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">Cancel</button>
+      <button onclick="pwsDoAddToPreset()" class="btn-gradient px-4 py-2 text-sm font-bold rounded-xl">Add to Preset</button>
+    </div>`);
+}
+
+async function pwsDoAddToPreset() {
+	const ctx = window._pwsPresetContext;
+	if (!ctx) return;
+	const presetName = document.getElementById('pwsPresetSelect').value;
+	const ws = PWS_WORKSPACES[PWS_SELECTED_WS];
+	if (!ws || !presetName) return;
+	closeModal();
+	showToast(`Adding ${ctx.skills.length} skill(s) to preset '${presetName}'...`);
+	const r = await api('/api/workspace/project/add-to-preset', {
+		method: 'POST',
+		body: JSON.stringify({ path: ws.path, agent_dir: ctx.agentDir, skill_names: ctx.skills, preset: presetName })
+	});
+	if (r.ok) {
+		const results = r.results || [];
+		const okCount = results.filter(x => x.ok).length;
+		const linkedCount = results.filter(x => x.replaced_with_link).length;
+		let msg = `${okCount} skill(s) added to preset '${presetName}'`;
+		if (linkedCount > 0) {
+			msg += `. Project files replaced with ${r.mode} links to central Library.`;
+		}
+		showToast(msg, 'success', 5000);
+		if (r.synced_agents && r.synced_agents.length > 0) {
+			console.log('[PWS Preset] Synced agents:', r.synced_agents);
+		}
+		await refresh();
+		await pwsRescan();
+	} else {
+		showToast(r.error || 'Add to preset failed', 'error');
+	}
+	window._pwsPresetContext = null;
 }

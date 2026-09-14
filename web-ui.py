@@ -53,6 +53,26 @@ MIME_TYPES = {
 }
 
 
+def create_link(src, target, mode="junction"):
+    """Create a junction (Windows, no admin) or symlink. Returns True on success."""
+    src, target = str(src), str(target)
+    if mode == "junction":
+        # Windows junction via mklink /J (no admin required)
+        try:
+            r = subprocess.run(["cmd", "/c", "mklink", "/J", target, src],
+                               capture_output=True, text=True, timeout=10)
+            return r.returncode == 0
+        except Exception:
+            return False
+    else:
+        # Symlink (may require admin on Windows)
+        try:
+            os.symlink(src, target)
+            return True
+        except (OSError, NotImplementedError):
+            return False
+
+
 # ── HTTP Handler ──────────────────────────────────────
 class Handler(http.server.BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
@@ -633,6 +653,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if not agent:
                 self._json({"error": "agent not found", "results": []}, 404)
                 return
+            cfg = config_mgr.load()
+            sync_mode = cfg.get("default_mode", "junction")
             skills_dir = HOME / agent["skills"]
             skills_dir.mkdir(parents=True, exist_ok=True)
             results = []
@@ -642,15 +664,23 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 if not src.exists():
                     results.append({"name": sn, "ok": False, "error": "skill not found"})
                     continue
-                if target.exists():
+                if target.exists() or target.is_symlink():
                     results.append({"name": sn, "ok": False, "error": "already exists"})
                     continue
                 try:
-                    os.symlink(str(src), str(target))
-                except (OSError, NotImplementedError):
-                    shutil.copytree(str(src), str(target))
-                results.append({"name": sn, "ok": True})
-            self._json({"ok": True, "results": results})
+                    if sync_mode in ("symlink", "junction"):
+                        if create_link(src, target, sync_mode):
+                            results.append({"name": sn, "ok": True, "mode": sync_mode, "linked": True})
+                        else:
+                            # Fallback to copy if link fails
+                            shutil.copytree(str(src), str(target))
+                            results.append({"name": sn, "ok": True, "mode": "copy", "linked": False, "note": f"{sync_mode} failed, copied instead"})
+                    else:
+                        shutil.copytree(str(src), str(target))
+                        results.append({"name": sn, "ok": True, "mode": "copy", "linked": False})
+                except Exception as e:
+                    results.append({"name": sn, "ok": False, "error": str(e)})
+            self._json({"ok": True, "results": results, "mode": sync_mode})
             return
 
         # ── /api/workspace/global/<agent_key>/remove ──
@@ -733,6 +763,202 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 except Exception as e:
                     results.append({"name": sn, "ok": False, "error": str(e)})
             self._json({"ok": True, "results": results})
+            return
+
+        # ── /api/workspace/project/remove ──
+        if len(parts) >= 5 and parts[1] == "api" and parts[2] == "workspace" and parts[3] == "project" and parts[4] == "remove":
+            body = self._read_body()
+            project_path = body.get("path", "")
+            agent_dir = body.get("agent_dir", "")
+            skill_names = body.get("skill_names", [])
+            if not project_path or not agent_dir or not skill_names:
+                self._json({"ok": False, "error": "path, agent_dir and skill_names required"}, 400)
+                return
+            results = []
+            for sn in skill_names:
+                target_dir = Path(project_path) / agent_dir / "skills" / sn
+                target_file = Path(project_path) / agent_dir / "skills" / f"{sn}.md"
+                try:
+                    if target_dir.exists() or target_dir.is_symlink():
+                        # Check if it's a junction (Windows reparse point)
+                        try:
+                            attrs = os.lstat(str(target_dir))
+                            is_junction = bool(attrs.st_file_attributes & 0x400) if hasattr(attrs, 'st_file_attributes') else False
+                            if is_junction:
+                                os.rmdir(str(target_dir))  # os.rmdir works on junctions
+                            else:
+                                shutil.rmtree(str(target_dir), ignore_errors=True)
+                        except Exception:
+                            shutil.rmtree(str(target_dir), ignore_errors=True)
+                        results.append({"name": sn, "ok": True, "type": "dir"})
+                    elif target_file.exists():
+                        target_file.unlink()
+                        results.append({"name": sn, "ok": True, "type": "file"})
+                    else:
+                        results.append({"name": sn, "ok": False, "error": "not found"})
+                except Exception as e:
+                    results.append({"name": sn, "ok": False, "error": str(e)})
+            self._json({"ok": True, "results": results})
+            return
+
+        # ── /api/workspace/project/toggle ──
+        if len(parts) >= 5 and parts[1] == "api" and parts[2] == "workspace" and parts[3] == "project" and parts[4] == "toggle":
+            body = self._read_body()
+            project_path = body.get("path", "")
+            agent_dir = body.get("agent_dir", "")
+            skill_names = body.get("skill_names", [])
+            enabled = body.get("enabled", True)
+            if not project_path or not agent_dir or not skill_names:
+                self._json({"ok": False, "error": "path, agent_dir and skill_names required"}, 400)
+                return
+            results = []
+            for sn in skill_names:
+                skill_dir = Path(project_path) / agent_dir / "skills" / sn
+                skill_md = skill_dir / "SKILL.md"
+                skill_md_disabled = skill_dir / "SKILL.md.disabled"
+                try:
+                    if enabled:
+                        # Enable: SKILL.md.disabled -> SKILL.md
+                        if skill_md_disabled.exists():
+                            skill_md_disabled.rename(skill_md)
+                            results.append({"name": sn, "ok": True, "enabled": True})
+                        elif skill_md.exists():
+                            results.append({"name": sn, "ok": True, "enabled": True, "note": "already enabled"})
+                        else:
+                            results.append({"name": sn, "ok": False, "error": "skill not found"})
+                    else:
+                        # Disable: SKILL.md -> SKILL.md.disabled
+                        if skill_md.exists():
+                            skill_md.rename(skill_md_disabled)
+                            results.append({"name": sn, "ok": True, "enabled": False})
+                        elif skill_md_disabled.exists():
+                            results.append({"name": sn, "ok": True, "enabled": False, "note": "already disabled"})
+                        else:
+                            results.append({"name": sn, "ok": False, "error": "skill not found"})
+                except Exception as e:
+                    results.append({"name": sn, "ok": False, "error": str(e)})
+            self._json({"ok": True, "results": results})
+            return
+
+        # ── /api/workspace/project/add ──
+        if len(parts) >= 5 and parts[1] == "api" and parts[2] == "workspace" and parts[3] == "project" and parts[4] == "add":
+            body = self._read_body()
+            project_path = body.get("path", "")
+            agent_dir = body.get("agent_dir", "")
+            skill_names = body.get("skill_names", [])
+            if not project_path or not agent_dir or not skill_names:
+                self._json({"ok": False, "error": "path, agent_dir and skill_names required"}, 400)
+                return
+            cfg = config_mgr.load()
+            sync_mode = cfg.get("default_mode", "junction")
+            skills_target_dir = Path(project_path) / agent_dir / "skills"
+            skills_target_dir.mkdir(parents=True, exist_ok=True)
+            results = []
+            for sn in skill_names:
+                src = SKILLS_DIR / sn
+                target = skills_target_dir / sn
+                if not src.exists():
+                    results.append({"name": sn, "ok": False, "error": "skill not found in library"})
+                    continue
+                if target.exists() or target.is_symlink():
+                    results.append({"name": sn, "ok": False, "error": "already exists in project"})
+                    continue
+                try:
+                    if sync_mode in ("symlink", "junction"):
+                        if create_link(src, target, sync_mode):
+                            results.append({"name": sn, "ok": True, "mode": sync_mode, "linked": True})
+                        else:
+                            # Fallback to copy if link fails
+                            shutil.copytree(str(src), str(target))
+                            results.append({"name": sn, "ok": True, "mode": "copy", "linked": False, "note": f"{sync_mode} failed, copied instead"})
+                    else:
+                        shutil.copytree(str(src), str(target))
+                        results.append({"name": sn, "ok": True, "mode": "copy", "linked": False})
+                except Exception as e:
+                    results.append({"name": sn, "ok": False, "error": str(e)})
+            self._json({"ok": True, "results": results, "mode": sync_mode})
+            return
+
+        # ── /api/workspace/project/add-to-preset ──
+        if len(parts) >= 5 and parts[1] == "api" and parts[2] == "workspace" and parts[3] == "project" and parts[4] == "add-to-preset":
+            body = self._read_body()
+            project_path = body.get("path", "")
+            agent_dir = body.get("agent_dir", "")
+            skill_names = body.get("skill_names", [])
+            preset_name = body.get("preset", "")
+            if not project_path or not agent_dir or not skill_names or not preset_name:
+                self._json({"ok": False, "error": "path, agent_dir, skill_names and preset required"}, 400)
+                return
+            cfg = config_mgr.load()
+            sync_mode = cfg.get("default_mode", "junction")
+            presets_cfg = cfg.get("presets", {})
+            if preset_name not in presets_cfg:
+                self._json({"ok": False, "error": f"preset '{preset_name}' not found"}, 404)
+                return
+            results = []
+            for sn in skill_names:
+                result = {"name": sn, "ok": True, "imported": False, "added_to_preset": False, "replaced_with_link": False}
+                src = Path(project_path) / agent_dir / "skills" / sn
+                central_target = SKILLS_DIR / sn
+                # Step 1: Import to central if not exists
+                if not central_target.exists():
+                    if src.exists() and src.is_dir():
+                        try:
+                            shutil.copytree(str(src), str(central_target))
+                            result["imported"] = True
+                        except Exception as e:
+                            result["ok"] = False
+                            result["error"] = f"import failed: {str(e)}"
+                            results.append(result)
+                            continue
+                    else:
+                        result["ok"] = False
+                        result["error"] = "skill not found in project"
+                        results.append(result)
+                        continue
+                # Step 2: Add to preset skills list
+                text = Path(CONFIG_FILE).read_text(encoding="utf-8")
+                pattern = rf'({re.escape(preset_name)}:[\s\S]*?skills:\s*\[)(.*?)(\])'
+                m = re.search(pattern, text)
+                if m:
+                    existing = m.group(2).strip()
+                    if f'"{sn}"' not in existing and f"'{sn}'" not in existing:
+                        new_skill = f', "{sn}"' if existing else f'"{sn}"'
+                        text = text[:m.start(2)] + existing + new_skill + text[m.end(2):]
+                        Path(CONFIG_FILE).write_text(text, encoding="utf-8")
+                        result["added_to_preset"] = True
+                    else:
+                        result["added_to_preset"] = True
+                        result["note"] = "already in preset"
+                # Step 3: Replace with link if in symlink/junction mode
+                if sync_mode in ("symlink", "junction") and src.exists() and src.is_dir():
+                    # Check if already a link
+                    try:
+                        attrs = os.lstat(str(src))
+                        is_reparse = bool(attrs.st_file_attributes & 0x400) if hasattr(attrs, 'st_file_attributes') else src.is_symlink()
+                    except Exception:
+                        is_reparse = src.is_symlink()
+                    if not is_reparse:
+                        try:
+                            shutil.rmtree(str(src))
+                            if create_link(central_target, src, sync_mode):
+                                result["replaced_with_link"] = True
+                            else:
+                                # Fallback: copy back from central
+                                shutil.copytree(str(central_target), str(src))
+                                result["link_error"] = f"{sync_mode} creation failed, restored copy"
+                        except Exception as e:
+                            result["link_error"] = str(e)
+                results.append(result)
+            # Step 4: Trigger sync for agents with this preset active
+            cfg = config_mgr.load()
+            agents_cfg = cfg.get("agents", {})
+            synced_agents = []
+            for agent_name, acfg in agents_cfg.items():
+                if isinstance(acfg, dict) and preset_name in (acfg.get("active_presets") or []):
+                    run_ps("sync.ps1", SCRIPT_DIR, ["-Agent", agent_name])
+                    synced_agents.append(agent_name)
+            self._json({"ok": True, "results": results, "mode": sync_mode, "synced_agents": synced_agents})
             return
 
         # ── /api/skills/reverse-sync (recover orphan skills from agent dirs + project dirs) ──

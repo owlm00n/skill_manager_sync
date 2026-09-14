@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PD 认证失败分析报告</title>
+<style>
+  /* ============================================================
+     PD Auth Analyse — SUMMARY.html Report Template
+     Version: 2.0.0
+     ============================================================ */
+
+  /* --- CSS Variables / Color Palette --- */
+  :root {
+    --color-primary:       #1a3a5c;   /* Dark blue: header, primary accents */
+    --color-primary-light: #2d5f8a;   /* Lighter blue: hover, secondary accents */
+    --color-bg:            #ffffff;   /* White background */
+    --color-bg-alt:        #f5f7fa;   /* Subtle gray for alternating rows */
+    --color-border:        #dce1e8;   /* Border color */
+    --color-text:          #2c3e50;   /* Main text */
+    --color-text-secondary:#6b7c8e;   /* Secondary text */
+    --color-text-muted:    #95a5b3;   /* Muted text */
+    --color-success:       #27ae60;   /* Green: PASS, high confidence */
+    --color-success-bg:    #eafaf1;
+    --color-warning:       #e67e22;   /* Orange: WARNING, medium confidence */
+    --color-warning-bg:    #fef5e7;
+    --color-error:         #c0392b;   /* Red: FAIL, error, low confidence */
+    --color-error-bg:      #fdedec;
+    --color-info:          #2980b9;   /* Blue: info, neutral */
+    --color-info-bg:       #eaf2f8;
+    --color-code-bg:       #f0f2f5;   /* Code block background */
+    --font-sans:           "Segoe UI", "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+    --font-mono:           "Cascadia Code", "Fira Code", "Consolas", "Courier New", monospace;
+    --shadow-sm:           0 1px 3px rgba(0,0,0,0.08);
+    --shadow-md:           0 2px 8px rgba(0,0,0,0.12);
+    --radius:              6px;
+    --max-width:           1100px;
+  }
+
+  /* --- Reset & Base --- */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--color-text);
+    background: var(--color-bg);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* --- Print Styles --- */
+  @media print {
+    body { font-size: 11px; line-height: 1.5; }
+    .page-break { page-break-before: always; }
+    .no-print { display: none !important; }
+    .callout { break-inside: avoid; }
+    table { break-inside: avoid; }
+    .section { break-inside: avoid; }
+    a { color: var(--color-text); text-decoration: none; }
+    .header { background: var(--color-primary) !important; -webkit-print-color-adjust: exact; }
+  }
+
+  /* --- Layout --- */
+  .container { max-width: var(--max-width); margin: 0 auto; padding: 0 24px; }
+
+  /* ============================================================
+     HEADER
+     ============================================================ */
+  .header {
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
+    color: #ffffff;
+    padding: 32px 0 28px;
+  }
+  .header .container { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; }
+  .header h1 { font-size: 22px; font-weight: 600; letter-spacing: 0.5px; }
+  .header .subtitle { font-size: 13px; opacity: 0.8; margin-top: 4px; }
+  .header-meta { display: flex; gap: 20px; flex-wrap: wrap; font-size: 13px; }
+  .header-meta .meta-item { display: flex; flex-direction: column; align-items: flex-end; }
+  .header-meta .meta-label { font-size: 11px; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.5px; }
+  .header-meta .meta-value { font-weight: 600; font-size: 14px; }
+
+  /* --- Status Badges --- */
+  .badge {
+    display: inline-block; padding: 3px 10px; border-radius: 12px;
+    font-size: 12px; font-weight: 600; letter-spacing: 0.3px;
+  }
+  .badge-fail    { background: var(--color-error); color: #fff; }
+  .badge-pass    { background: var(--color-success); color: #fff; }
+  .badge-warning { background: var(--color-warning); color: #fff; }
+  .badge-info    { background: var(--color-info); color: #fff; }
+  .badge-outline { background: transparent; border: 1.5px solid #fff; color: #fff; }
+
+  /* --- Confidence Badge --- */
+  .confidence { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+  .confidence-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .confidence-high   { color: var(--color-success); } .confidence-high .confidence-dot   { background: var(--color-success); }
+  .confidence-medium { color: var(--color-warning); } .confidence-medium .confidence-dot { background: var(--color-warning); }
+  .confidence-low    { color: var(--color-error); }   .confidence-low .confidence-dot    { background: var(--color-error); }
+
+  /* ============================================================
+     SUMMARY BAR
+     ============================================================ */
+  .summary-bar {
+    background: var(--color-bg-alt);
+    border-bottom: 1px solid var(--color-border);
+    padding: 20px 0;
+  }
+  .summary-bar .container { display: flex; gap: 28px; flex-wrap: wrap; }
+  .summary-stat { text-align: center; }
+  .summary-stat .stat-value { font-size: 24px; font-weight: 700; color: var(--color-primary); }
+  .summary-stat .stat-label { font-size: 12px; color: var(--color-text-secondary); margin-top: 2px; }
+
+  /* ============================================================
+     MAIN CONTENT
+     ============================================================ */
+  .main { padding: 32px 0; }
+
+  /* --- Section --- */
+  .section { margin-bottom: 36px; }
+  .section-title {
+    font-size: 18px; font-weight: 600; color: var(--color-primary);
+    padding-bottom: 8px; border-bottom: 2px solid var(--color-primary);
+    margin-bottom: 16px; display: flex; align-items: center; gap: 10px;
+  }
+  .section-title .section-num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--color-primary); color: #fff;
+    font-size: 13px; font-weight: 700;
+  }
+  .section-subtitle { font-size: 15px; font-weight: 600; color: var(--color-text); margin: 20px 0 10px; }
+
+  /* --- Info Table --- */
+  .info-table {
+    width: 100%; border-collapse: collapse; margin: 12px 0;
+    border: 1px solid var(--color-border); border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .info-table th, .info-table td {
+    padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--color-border);
+  }
+  .info-table th {
+    background: var(--color-primary); color: #fff; font-weight: 600; font-size: 13px;
+    white-space: nowrap; width: 160px;
+  }
+  .info-table td { background: #fff; font-size: 13px; }
+  .info-table tr:last-child th, .info-table tr:last-child td { border-bottom: none; }
+
+  /* --- Data Table (full-width, striped) --- */
+  .data-table {
+    width: 100%; border-collapse: collapse; margin: 12px 0;
+    border: 1px solid var(--color-border); border-radius: var(--radius);
+    overflow: hidden; font-size: 13px;
+  }
+  .data-table thead th {
+    background: var(--color-primary); color: #fff; padding: 10px 12px;
+    font-weight: 600; font-size: 12px; text-align: left;
+    white-space: nowrap;
+  }
+  .data-table tbody td { padding: 9px 12px; border-bottom: 1px solid var(--color-border); }
+  .data-table tbody tr:nth-child(even) td { background: var(--color-bg-alt); }
+  .data-table tbody tr:hover td { background: #e8ecf1; }
+  .data-table .col-status { text-align: center; font-weight: 700; }
+  .data-table .col-time { font-family: var(--font-mono); font-size: 12px; }
+
+  /* --- Callout Boxes --- */
+  .callout {
+    padding: 14px 18px; border-radius: var(--radius); margin: 14px 0;
+    border-left: 4px solid; font-size: 13px;
+  }
+  .callout-error   { background: var(--color-error-bg);   border-color: var(--color-error); }
+  .callout-warning { background: var(--color-warning-bg); border-color: var(--color-warning); }
+  .callout-success { background: var(--color-success-bg); border-color: var(--color-success); }
+  .callout-info    { background: var(--color-info-bg);    border-color: var(--color-info); }
+  .callout-title {
+    font-weight: 700; font-size: 13px; margin-bottom: 6px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .callout-error .callout-title   { color: var(--color-error); }
+  .callout-warning .callout-title { color: var(--color-warning); }
+  .callout-success .callout-title { color: var(--color-success); }
+  .callout-info .callout-title    { color: var(--color-info); }
+
+  /* --- Code / Log Block --- */
+  .code-block {
+    background: var(--color-code-bg); border: 1px solid var(--color-border);
+    border-radius: var(--radius); padding: 14px 16px; margin: 10px 0;
+    font-family: var(--font-mono); font-size: 12px; line-height: 1.6;
+    overflow-x: auto; white-space: pre; color: var(--color-text);
+    max-height: 400px; overflow-y: auto;
+  }
+  .code-block .highlight { color: var(--color-error); font-weight: 700; }
+  .code-block .dim { color: var(--color-text-muted); }
+
+  /* --- Timeline --- */
+  .timeline { position: relative; padding-left: 28px; margin: 16px 0; }
+  .timeline::before {
+    content: ""; position: absolute; left: 8px; top: 0; bottom: 0;
+    width: 2px; background: var(--color-border);
+  }
+  .timeline-item { position: relative; margin-bottom: 16px; }
+  .timeline-item::before {
+    content: ""; position: absolute; left: -24px; top: 6px;
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--color-primary-light); border: 2px solid #fff;
+    box-shadow: var(--shadow-sm);
+  }
+  .timeline-item.fail::before    { background: var(--color-error); }
+  .timeline-item.warning::before { background: var(--color-warning); }
+  .timeline-item.success::before { background: var(--color-success); }
+  .timeline-time {
+    font-family: var(--font-mono); font-size: 12px; color: var(--color-text-secondary);
+    margin-bottom: 2px;
+  }
+  .timeline-content { font-size: 13px; }
+  .timeline-content .tl-module { font-weight: 600; color: var(--color-primary); }
+  .timeline-content .tl-event { color: var(--color-text); }
+
+  /* --- Evidence Box --- */
+  .evidence-box {
+    background: var(--color-bg-alt); border: 1px solid var(--color-border);
+    border-radius: var(--radius); padding: 16px; margin: 14px 0;
+  }
+  .evidence-box .evidence-title {
+    font-weight: 600; color: var(--color-primary); margin-bottom: 8px;
+  }
+  .evidence-box blockquote {
+    margin: 8px 0; padding: 8px 14px; border-left: 3px solid var(--color-primary-light);
+    background: #fff; font-style: italic; color: var(--color-text-secondary);
+    font-size: 13px;
+  }
+
+  /* --- Fix Recommendation Card --- */
+  .fix-card {
+    border: 1px solid var(--color-border); border-radius: var(--radius);
+    margin: 14px 0; overflow: hidden;
+  }
+  .fix-card-header {
+    padding: 12px 16px; font-weight: 600; font-size: 14px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .fix-card-header.recommended { background: var(--color-success-bg); color: var(--color-success); }
+  .fix-card-header.alternative  { background: var(--color-info-bg);    color: var(--color-info); }
+  .fix-card-body { padding: 14px 16px; font-size: 13px; }
+  .fix-card-body .fix-label { font-weight: 600; color: var(--color-text-secondary); font-size: 12px; text-transform: uppercase; }
+
+  /* --- Phase Index --- */
+  .phase-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 12px; margin: 14px 0;
+  }
+  .phase-card {
+    border: 1px solid var(--color-border); border-radius: var(--radius);
+    padding: 14px; display: flex; align-items: flex-start; gap: 12px;
+    transition: box-shadow 0.15s;
+  }
+  .phase-card:hover { box-shadow: var(--shadow-md); }
+  .phase-card .phase-icon {
+    width: 36px; height: 36px; border-radius: var(--radius);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 700; flex-shrink: 0;
+  }
+  .phase-card .phase-icon.done    { background: var(--color-success-bg); color: var(--color-success); }
+  .phase-card .phase-icon.skipped { background: var(--color-bg-alt); color: var(--color-text-muted); }
+  .phase-card .phase-info { flex: 1; }
+  .phase-card .phase-name { font-weight: 600; font-size: 13px; }
+  .phase-card .phase-file { font-family: var(--font-mono); font-size: 11px; color: var(--color-text-muted); margin-top: 2px; }
+  .phase-card .phase-status { font-size: 11px; margin-top: 4px; }
+
+  /* --- Tags --- */
+  .tag {
+    display: inline-block; padding: 2px 8px; border-radius: 3px;
+    font-size: 11px; font-weight: 600; margin-right: 4px;
+  }
+  .tag-red    { background: var(--color-error-bg);   color: var(--color-error); }
+  .tag-orange { background: var(--color-warning-bg); color: var(--color-warning); }
+  .tag-green  { background: var(--color-success-bg); color: var(--color-success); }
+  .tag-blue   { background: var(--color-info-bg);    color: var(--color-info); }
+  .tag-gray   { background: var(--color-bg-alt);     color: var(--color-text-secondary); }
+
+  /* --- Comparison Table --- */
+  .comparison-table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px; }
+  .comparison-table th, .comparison-table td {
+    padding: 9px 12px; border: 1px solid var(--color-border); text-align: left;
+  }
+  .comparison-table thead th { background: var(--color-primary); color: #fff; font-weight: 600; }
+  .comparison-table .col-pass { color: var(--color-success); font-weight: 700; }
+  .comparison-table .col-fail { color: var(--color-error); font-weight: 700; }
+
+  /* --- Footer --- */
+  .footer {
+    border-top: 1px solid var(--color-border); padding: 20px 0;
+    font-size: 12px; color: var(--color-text-muted); text-align: center;
+  }
+  .footer .footer-row { margin: 4px 0; }
+  .footer strong { color: var(--color-text-secondary); }
+
+  /* --- Responsive --- */
+  @media (max-width: 768px) {
+    .header .container { flex-direction: column; }
+    .header-meta { gap: 12px; }
+    .header-meta .meta-item { align-items: flex-start; }
+    .summary-bar .container { gap: 16px; }
+    .phase-grid { grid-template-columns: 1fr; }
+    .info-table th { width: 120px; }
+    .data-table { font-size: 12px; display: block; overflow-x: auto; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     HEADER
+     ============================================================ -->
+<header class="header">
+  <div class="container">
+    <div>
+      <h1>PD 认证失败分析报告</h1>
+      <div class="subtitle">USB Power Delivery Certification Test Failure Analysis</div>
+    </div>
+    <div class="header-meta">
+      <div class="meta-item">
+        <span class="meta-label">Bug ID</span>
+        <span class="meta-value">3476234</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Case ID</span>
+        <span class="meta-value">TEST.PD.PS.SNK.01</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Severity</span>
+        <span class="meta-value"><span class="badge badge-fail">FAIL</span></span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Analysis Date</span>
+        <span class="meta-value">2026-07-28</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ============================================================
+     SUMMARY BAR
+     ============================================================ -->
+<div class="summary-bar">
+  <div class="container">
+    <div class="summary-stat">
+      <div class="stat-value">6</div>
+      <div class="stat-label">Phases Executed</div>
+    </div>
+    <div class="summary-stat">
+      <div class="stat-value">3</div>
+      <div class="stat-label">Key Findings</div>
+    </div>
+    <div class="summary-stat">
+      <div class="stat-value confidence confidence-high">
+        <span class="confidence-dot"></span> 85%
+      </div>
+      <div class="stat-label">Root Cause Confidence</div>
+    </div>
+    <div class="summary-stat">
+      <div class="stat-value">1</div>
+      <div class="stat-label">Historical Match</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     MAIN CONTENT
+     ============================================================ -->
+<main class="main">
+<div class="container">
+
+  <!-- ==========================================================
+       SECTION 1: EXECUTIVE SUMMARY
+       ========================================================== -->
+  <section class="section" id="executive-summary">
+    <h2 class="section-title">
+      <span class="section-num">1</span> 概要 / Executive Summary
+    </h2>
+
+    <table class="info-table">
+      <tr><th>测试项名称</th><td>PDO Transitions As Sink</td></tr>
+      <tr><th>测试目的</th><td>验证 DUT 作为 Sink 角色时，能够正确响应 Source 发送的 PDO 切换请求，在规定时间内完成电压转换</td></tr>
+      <tr><th>失败步骤</th><td>Step 3 — tPSTransition 超时</td></tr>
+      <tr><th>失败类型</th><td><span class="tag tag-red">Timer 超时</span></td></tr>
+      <tr><th>根因分类</th><td><span class="tag tag-orange">CC检测与PD通信时序配合</span><span class="tag tag-blue">I2C 通信异常</span></td></tr>
+      <tr><th>根因置信度</th><td><span class="confidence confidence-high"><span class="confidence-dot"></span> 高 (85%)</span></td></tr>
+      <tr><th>涉及模块</th><td>sprd_tcpm / sgm41512 charger IC / I2C bus</td></tr>
+    </table>
+
+    <div class="callout callout-error">
+      <div class="callout-title">&#x26A0; 根因结论</div>
+      <p>
+        DUT 在收到 Source 发送的 <strong>PS_RDY</strong> 消息后，sprd_tcpm 协议栈正确通知 charger 驱动进行电压调节。
+        但 charger IC (sgm41512) 的 I2C 寄存器写入操作发生重试（<strong>重试 3 次，每次耗时约 150ms</strong>），
+        导致 Vbus 电压达到目标值的时间延迟至 <strong>620ms</strong>，超出 PD 规范要求的 <strong>tPSTransition &le; 550ms</strong> 限值。
+        I2C 重试的根因是 BC1.2 检测模块与 PD 调压流程共用 I2C 总线时未加锁保护，产生总线竞争。
+      </p>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       SECTION 2: TEST CASE INFO (Phase 1)
+       ========================================================== -->
+  <section class="section" id="test-case-info">
+    <h2 class="section-title">
+      <span class="section-num">2</span> 测试用例信息 / Test Case Info
+      <span class="tag tag-green" style="margin-left:auto;">Phase 1</span>
+    </h2>
+
+    <h3 class="section-subtitle">输入材料清单</h3>
+    <table class="data-table">
+      <thead>
+        <tr><th>文件</th><th>类型</th><th>路径</th><th>备注</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>kernel_log_20260728.txt</td><td><span class="tag tag-blue">Kernel Log</span></td><td>D:\cases\BUG3476234\kernel_log_20260728.txt</td><td>完整内核日志，含 sprdsoc 打印</td></tr>
+        <tr><td>lecroy_fail_report.html</td><td><span class="tag tag-orange">Lecroy 报告</span></td><td>D:\cases\BUG3476234\lecroy_fail_report.html</td><td>Lecroy M41h 导出 HTML</td></tr>
+        <tr><td>lecroy_trace_extracted.txt</td><td><span class="tag tag-orange">Lecroy 文本</span></td><td>D:\cases\BUG3476234\lecroy_trace_extracted.txt</td><td>从 HTML 提取的 trace 文本</td></tr>
+      </tbody>
+    </table>
+
+    <h3 class="section-subtitle">Bug 上下文</h3>
+    <table class="info-table">
+      <tr><th>Bug ID</th><td>3476234</td></tr>
+      <tr><th>标题</th><td>TEST.PD.PS.SNK.01 PDO Transitions As Sink 测试 fail</td></tr>
+      <tr><th>平台</th><td>Unisoc SPRDLINUX (SC9863A)</td></tr>
+      <tr><th>Charger IC</th><td>sgm41512</td></tr>
+      <tr><th>软件版本</th><td>SPRD_LINUX_V5.4.0_R2</td></tr>
+    </table>
+
+    <h3 class="section-subtitle">测试配置</h3>
+    <table class="info-table">
+      <tr><th>DUT 角色</th><td>Sink (受电端)</td></tr>
+      <tr><th>Tester 角色</th><td>Source (供电端, Lecroy M41h)</td></tr>
+      <tr><th>初始合同</th><td>5V / 3A</td></tr>
+      <tr><th>目标合同</th><td>9V / 2A (PDO #2)</td></tr>
+      <tr><th>预期行为</th><td>DUT 在收到 PS_RDY 后 550ms 内完成 Vbus 从 5V 到 9V 的切换</td></tr>
+    </table>
+  </section>
+
+  <!-- ==========================================================
+       SECTION 3: FAILURE LOCATION (Phase 2)
+       ========================================================== -->
+  <section class="section" id="failure-location">
+    <h2 class="section-title">
+      <span class="section-num">3</span> 失败点定位 / Failure Location
+      <span class="tag tag-green" style="margin-left:auto;">Phase 2</span>
+    </h2>
+
+    <h3 class="section-subtitle">测试步骤序列</h3>
+    <table class="data-table">
+      <thead>
+        <tr><th>Step</th><th>Tester 操作</th><th>DUT 预期响应</th><th>Timer / 限值</th><th>实测结果</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td>Source 发送 SourceCapabilities</td>
+          <td>Sink 回复 Request (请求 PDO #2)</td>
+          <td>tSenderResponse &le; 30ms</td>
+          <td class="col-status"><span class="tag tag-green">PASS</span> 15ms</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>Source 发送 Accept</td>
+          <td>Sink 等待 PS_RDY</td>
+          <td>—</td>
+          <td class="col-status"><span class="tag tag-green">PASS</span></td>
+        </tr>
+        <tr style="background: #fef0f0;">
+          <td>3</td>
+          <td>Source 发送 PS_RDY<br>Source 开始切换 Vbus 5V &rarr; 9V</td>
+          <td>DUT 检测 Vbus 达到 9V</td>
+          <td>tPSTransition &le; 550ms</td>
+          <td class="col-status"><span class="tag tag-red">FAIL</span> 620ms</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td>Source 发送 Hard_Reset (超时触发)</td>
+          <td>DUT 复位 PD 合同</td>
+          <td>—</td>
+          <td class="col-status"><span class="tag tag-gray">—</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3 class="section-subtitle">失败判定</h3>
+    <div class="callout callout-error">
+      <div class="callout-title">&#x2716; 失败步骤: Step 3 — tPSTransition 超时</div>
+      <table class="info-table" style="margin-top:8px;">
+        <tr><th>失败类型</th><td>Timer 超时 (tPSTransition)</td></tr>
+        <tr><th>实测值</th><td><strong>620ms</strong></td></tr>
+        <tr><th>规范限值</th><td>&le; 550ms (PD 3.0 Spec, Section 6.4.3)</td></tr>
+        <tr><th>超标幅度</th><td>+70ms (+12.7%)</td></tr>
+        <tr><th>直接表现</th><td>Source 在 PS_RDY 发送后 550ms 未检测到 Vbus 达到目标电压，触发 Hard_Reset</td></tr>
+        <tr><th>Hard_Reset 触发时间</th><td>PS_RDY 后 650ms</td></tr>
+      </table>
+    </div>
+
+    <h3 class="section-subtitle">仪器报告原始判定</h3>
+    <div class="evidence-box">
+      <div class="evidence-title">Lecroy 报告摘录</div>
+      <blockquote>
+        FAIL: tPSTransition measured 620 ms (limit: 550 ms) at Event #1234.<br>
+        Vbus transition from 5.0V to 9.0V not completed within required time.<br>
+        Source initiated Hard_Reset at t=650ms due to timeout.
+      </blockquote>
+    </div>
+
+    <h3 class="section-subtitle">失败上下文</h3>
+    <table class="info-table">
+      <tr><th>前序事件</th><td>Accept &rarr; PS_RDY 间隔正常 (12ms)，协议握手阶段无异常</td></tr>
+      <tr><th>后续事件</th><td>Source 在 PS_RDY 后 650ms 发送 Hard_Reset，DUT 复位，测试终止</td></tr>
+      <tr><th>关键观察</th><td>问题出在 PS_RDY 之后到 Vbus 达标的这段时间，非协议握手阶段</td></tr>
+    </table>
+  </section>
+
+  <!-- ==========================================================
+       SECTION 4: TRACE ANALYSIS (Phase 3)
+       ========================================================== -->
+  <section class="section" id="trace-analysis">
+    <h2 class="section-title">
+      <span class="section-num">4</span> Trace 深度分析 / Trace Analysis
+      <span class="tag tag-green" style="margin-left:auto;">Phase 3</span>
+    </h2>
+
+    <div class="callout callout-warning">
+      <div class="callout-title">&#x26A0; 协议层异常结论</div>
+      <p>
+        PD 协议消息序列在握手阶段（SourceCap &rarr; Request &rarr; Accept &rarr; PS_RDY）完全正常，
+        无消息丢失、无 CRC 错误、无重传。异常发生在 PS_RDY 之后的物理层电压切换阶段：
+        DUT 侧 Vbus 电压从 5V 上升到 9V 的过程耗时 <strong>620ms</strong>，超出 tPSTransition 规范限值。
+        这表明问题不在 PD 协议栈逻辑，而在 <strong>底层 charger IC 的电压调节执行</strong>。
+      </p>
+    </div>
+
+    <h3 class="section-subtitle">关键事件序列</h3>
+    <table class="data-table">
+      <thead>
+        <tr><th>#</th><th>时间 (ms)</th><th>方向</th><th>消息 / 事件</th><th>备注</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>1</td><td class="col-time">0.000</td><td>S &rarr; D</td><td>SourceCapabilities</td><td>5 PDOs: 5V/3A, 9V/2A, 12V/1.5A, 15V/1.2A, 20V/0.9A</td></tr>
+        <tr><td>2</td><td class="col-time">0.015</td><td>D &rarr; S</td><td>Request (PDO #2: 9V/2A)</td><td>tSenderResponse = 15ms <span class="tag tag-green">OK</span></td></tr>
+        <tr><td>3</td><td class="col-time">0.028</td><td>S &rarr; D</td><td>Accept</td><td>正常</td></tr>
+        <tr><td>4</td><td class="col-time">0.040</td><td>S &rarr; D</td><td>PS_RDY</td><td>正常</td></tr>
+        <tr style="background: #fef0f0;"><td>5</td><td class="col-time">0.040 ~ 0.660</td><td>—</td><td>Vbus 5V &rarr; 9V (过渡中)</td><td><span class="tag tag-red">耗时 620ms (限值 550ms)</span></td></tr>
+        <tr><td>6</td><td class="col-time">0.660</td><td>—</td><td>Vbus 达到 9.0V</td><td>延迟 70ms</td></tr>
+        <tr><td>7</td><td class="col-time">0.650</td><td>S &rarr; D</td><td>Hard_Reset</td><td>Source 超时触发</td></tr>
+      </tbody>
+    </table>
+
+    <h3 class="section-subtitle">Timer 合规检查</h3>
+    <table class="comparison-table">
+      <thead>
+        <tr><th>Timer</th><th>测量值</th><th>规范限值</th><th>判定</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>tSenderResponse</td><td>15 ms</td><td>&le; 30 ms</td><td class="col-pass">&#x2714; PASS</td></tr>
+        <tr><td>tPSTransition</td><td>620 ms</td><td>&le; 550 ms</td><td class="col-fail">&#x2718; FAIL</td></tr>
+        <tr><td>tPSHardReset</td><td>650 ms</td><td>— (Source 触发)</td><td class="col-pass">&#x2714; N/A</td></tr>
+      </tbody>
+    </table>
+
+    <h3 class="section-subtitle">消息序列合规检查</h3>
+    <table class="comparison-table">
+      <thead>
+        <tr><th>检查项</th><th>预期</th><th>实际</th><th>判定</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>SourceCap &rarr; Request 序列</td><td>正确</td><td>正确</td><td class="col-pass">&#x2714; PASS</td></tr>
+        <tr><td>Request &rarr; Accept 序列</td><td>正确</td><td>正确</td><td class="col-pass">&#x2714; PASS</td></tr>
+        <tr><td>Accept &rarr; PS_RDY 序列</td><td>正确</td><td>正确</td><td class="col-pass">&#x2714; PASS</td></tr>
+        <tr><td>PS_RDY &rarr; Vbus 稳定</td><td>&le; 550ms</td><td>620ms</td><td class="col-fail">&#x2718; FAIL</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ==========================================================
+       SECTION 5: LOG ANALYSIS (Phase 4)
+       ========================================================== -->
+  <section class="section" id="log-analysis">
+    <h2 class="section-title">
+      <span class="section-num">5</span> Log 深度分析 / Log Analysis
+      <span class="tag tag-green" style="margin-left:auto;">Phase 4</span>
+    </h2>
+
+    <div class="callout callout-warning">
+      <div class="callout-title">&#x26A0; Log 层面异常发现</div>
+      <p>
+        Kernel log 显示，PS_RDY 消息到达后 sprd_tcpm 正确通知了 charger 驱动进行电压调节，
+        但 <strong>sgm41512 charger IC 的 I2C 寄存器写入操作发生了 3 次重试</strong>（每次约 150ms），
+        累计延迟约 450ms，导致总电压切换时间超标。重试期间 BC1.2 检测模块正在执行 vbos_ok_work，
+        两者共用同一 I2C 总线但未加锁。
+      </p>
+    </div>
+
+    <h3 class="section-subtitle">关键事件时间线 (Log 与 Trace 对齐)</h3>
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="timeline-time">[ 125.301 ] &mdash; Trace: 0.040s</div>
+        <div class="timeline-content">
+          <span class="tl-module">sprd_tcpm:</span>
+          <span class="tl-event">pd_notify: PS_RDY received, target PDO=2 (9V/2A)</span>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-time">[ 125.302 ]</div>
+        <div class="timeline-content">
+          <span class="tl-module">sprd_charger:</span>
+          <span class="tl-event">set_voltage: target=9000mV, calling sgm41512_set_voltage()</span>
+        </div>
+      </div>
+      <div class="timeline-item warning">
+        <div class="timeline-time">[ 125.305 ]</div>
+        <div class="timeline-content">
+          <span class="tl-module">sgm41512:</span>
+          <span class="tl-event">i2c_write: reg=0x23, val=0x90, <strong>retry=1</strong> (err=-11 EAGAIN)</span>
+        </div>
+      </div>
+      <div class="timeline-item warning">
+        <div class="timeline-time">[ 125.455 ]</div>
+        <div class="timeline-content">
+          <span class="tl-module">sgm41512:</span>
+          <span class="tl-event">i2c_write: reg=0x23, val=0x90, <strong>retry=2</strong> (err=-11 EAGAIN)</span>
+        </div>
+      </div>
+      <div class="timeline-item warning">
+        <div class="timeline-time">[ 125.605 ]</div>
+        <div class="timeline-content">
+          <span class="tl-module">sgm41512:</span>
+          <span class="tl-event">i2c_write: reg=0x23, val=0x90, <strong>retry=3</strong> (err=-11 EAGAIN)</span>
+        </div>
+      </div>
+      <div class="timeline-item fail">
+        <div class="timeline-time">[ 125.610 ] &mdash; Trace: 0.660s</div>
+        <div class="timeline-content">
+          <span class="tl-module">sprd_charger:</span>
+          <span class="tl-event">voltage_done: 9000mV reached (total: 308ms from notify)</span>
+        </div>
+      </div>
+      <div class="timeline-item fail">
+        <div class="timeline-time">[ 125.620 ] &mdash; Trace: 0.650s</div>
+        <div class="timeline-content">
+          <span class="tl-module">sprd_tcpm:</span>
+          <span class="tl-event">pd_notify: Hard_Reset received from Source</span>
+        </div>
+      </div>
+    </div>
+
+    <h3 class="section-subtitle">异常调用链分析</h3>
+    <div class="code-block"><span class="dim"># 正常路径 (预期 &lt; 5ms):</span>
+sprd_tcpm: pd_notify(PS_RDY)
+  &rarr; sprd_charger: set_voltage(9000mV)
+    &rarr; sgm41512: i2c_write(reg=0x23, val=0x90)  <span class="dim">-- 正常应 1 次完成</span>
+      &rarr; <span class="highlight">i2c_transfer() 返回 -EAGAIN, 重试...</span>
+
+<span class="dim"># 并发干扰源:</span>
+sprd_bc1p2: vbos_ok_work
+  &rarr; i2c_read(chg_det_reg)  <span class="dim">-- 与上述 I2C 写操作共用同一总线</span></div>
+
+    <h3 class="section-subtitle">时间差 / 延迟计算</h3>
+    <table class="data-table">
+      <thead>
+        <tr><th>阶段</th><th>起点</th><th>终点</th><th>耗时</th><th>评估</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>PD 协议处理</td><td>PS_RDY 到达</td><td>set_voltage() 调用</td><td class="col-time">1ms</td><td><span class="tag tag-green">正常</span></td></tr>
+        <tr style="background: #fef0f0;"><td>I2C 写入 (含重试)</td><td>i2c_write 开始</td><td>i2c_write 成功</td><td class="col-time">305ms</td><td><span class="tag tag-red">异常 (正常 &lt;5ms)</span></td></tr>
+        <tr><td>电压爬升 (硬件)</td><td>寄存器写入成功</td><td>Vbus 达到 9V</td><td class="col-time">5ms</td><td><span class="tag tag-green">正常</span></td></tr>
+        <tr style="background: #fef0f0;"><td><strong>总延迟</strong></td><td>PS_RDY 到达</td><td>Vbus 达到 9V</td><td class="col-time"><strong>311ms</strong></td><td><span class="tag tag-red">超标</span></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ==========================================================
+       SECTION 6: HISTORY REFERENCE (Phase 5)
+       ========================================================== -->
+  <section class="section" id="history-reference">
+    <h2 class="section-title">
+      <span class="section-num">6</span> 历史 Bug 参照 / History Reference
+      <span class="tag tag-green" style="margin-left:auto;">Phase 5</span>
+    </h2>
+
+    <h3 class="section-subtitle">模式匹配结果</h3>
+    <table class="data-table">
+      <thead>
+        <tr><th>相似度</th><th>Bug ID</th><th>失败模式</th><th>根因</th><th>修复方案</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="confidence confidence-high"><span class="confidence-dot"></span> 85%</span></td>
+          <td>3442513</td>
+          <td>tPSTransition 超时</td>
+          <td>I2C 总线竞争 (BC1.2 + PD 调压共用)</td>
+          <td>调压前锁定 I2C adapter</td>
+        </tr>
+        <tr>
+          <td><span class="confidence confidence-medium"><span class="confidence-dot"></span> 60%</span></td>
+          <td>3437194</td>
+          <td>电压切换慢</td>
+          <td>charger IC 固件响应延迟</td>
+          <td>升级 charger IC 固件</td>
+        </tr>
+        <tr>
+          <td><span class="confidence confidence-medium"><span class="confidence-dot"></span> 45%</span></td>
+          <td>3418902</td>
+          <td>PS_RDY 后无响应</td>
+          <td>tcpci_alert 中断丢失</td>
+          <td>改用轮询模式</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3 class="section-subtitle">最相似 Case 详细分析: Bug 3442513</h3>
+    <table class="info-table">
+      <tr><th>Bug ID</th><td>3442513</td></tr>
+      <tr><th>标题</th><td>TEST.PD.PS.SNK.03 tPSTransition 超时 (9V &rarr; 15V 切换)</td></tr>
+      <tr><th>平台</th><td>Unisoc SC9863A (同平台)</td></tr>
+      <tr><th>失败模式</th><td>tPSTransition = 680ms &gt; 550ms</td></tr>
+      <tr><th>根因</th><td>BC1.2 检测模块 (vbos_ok_work) 与 PD 调压流程共用 I2C 总线，未加锁保护。BC1.2 检测每 200ms 轮询一次，与 PD 调压的 I2C 写操作产生竞争，导致写入重试。</td></tr>
+      <tr><th>修复方案</th><td>在 <code>sgm41512_set_voltage()</code> 中，调用 <code>i2c_lock_adapter()</code> 获取 I2C 总线锁后再执行写操作，写完后释放。BC1.2 检测在调压期间被阻塞，等待总线释放。</td></tr>
+      <tr><th>修复 commit</th><td><code>a3f8c91d</code> — "charger: sgm41512: add I2C bus lock during voltage transition"</td></tr>
+    </table>
+
+    <h3 class="section-subtitle">适用性评估</h3>
+    <div class="callout callout-success">
+      <div class="callout-title">&#x2714; 高度适用</div>
+      <p>
+        当前 Case 的失败模式（tPSTransition 超时因 I2C 重试）与 Bug 3442513 高度一致（相似度 85%）。
+        两者均涉及 sgm41512 charger IC 的 I2C 写入在 BC1.2 并发检测时发生重试。
+        建议优先验证 Bug 3442513 的 I2C 总线锁修复方案是否已合入当前代码基线。
+        如未合入，直接应用该修复方案并复测。
+      </p>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       SECTION 7: CODE ROOT CAUSE (Phase 6)
+       ========================================================== -->
+  <section class="section" id="code-root-cause">
+    <h2 class="section-title">
+      <span class="section-num">7</span> 代码级根因 / Code Root Cause
+      <span class="tag tag-green" style="margin-left:auto;">Phase 6</span>
+    </h2>
+
+    <div class="callout callout-info">
+      <div class="callout-title">&#x2139; 代码分析状态</div>
+      <p>
+        已基于内核源码路径 <code>F:\05_Code\UNISOC\SC9863A\kernel\drivers\</code> 完成代码级分析。
+        定位到 sgm41512 charger 驱动中电压调节函数缺少 I2C 总线锁保护。
+      </p>
+    </div>
+
+    <h3 class="section-subtitle">代码定位</h3>
+    <table class="info-table">
+      <tr><th>文件</th><td><code>unisoc_platform/sprd_charger/sgm41512_charger.c</code></td></tr>
+      <tr><th>函数</th><td><code>sgm41512_set_voltage()</code></td></tr>
+      <tr><th>问题行</th><td>Line 842 — 直接调用 <code>regmap_write()</code> 未获取总线锁</td></tr>
+      <tr><th>调用链</th><td><code>sprd_tcpm::pd_notify()</code> &rarr; <code>sprd_charger_main::set_voltage()</code> &rarr; <code>sgm41512_set_voltage()</code></td></tr>
+    </table>
+
+    <h3 class="section-subtitle">缺陷分析</h3>
+    <p>
+      <code>sgm41512_set_voltage()</code> 在调压时直接调用 <code>regmap_write()</code> 写入 charger IC 寄存器，
+      未获取 I2C adapter 锁。当 BC1.2 检测模块（<code>sprd_bc1p2.c::vbos_ok_work</code>）并发访问同一 I2C 总线时，
+      产生传输冲突，导致 <code>regmap_write()</code> 返回 <code>-EAGAIN</code> 并触发重试。
+      每次重试间隔约 150ms，3 次重试累计延迟 450ms，直接导致 tPSTransition 超标。
+    </p>
+
+    <p style="margin-top: 8px;">
+      <strong>并发竞争路径:</strong><br>
+      Thread A: <code>sprd_tcpm (pd_notify)</code> &rarr; <code>sgm41512_set_voltage()</code> &rarr; <code>regmap_write()</code> (I2C 写)<br>
+      Thread B: <code>vbos_ok_work (workqueue)</code> &rarr; <code>sprd_bc1p2_detect()</code> &rarr; <code>i2c_transfer()</code> (I2C 读)<br>
+      两者共用同一 I2C adapter，无互斥保护。
+    </p>
+
+    <h3 class="section-subtitle">修复建议 (含代码 Diff)</h3>
+    <div class="fix-card">
+      <div class="fix-card-header recommended">&#x2B50; 方案 A（推荐）— I2C 总线锁保护</div>
+      <div class="fix-card-body">
+        <p><span class="fix-label">修改位置:</span> <code>sgm41512_charger.c::sgm41512_set_voltage()</code></p>
+        <p><span class="fix-label">修改内容:</span> 在电压调节期间获取 I2C adapter 锁，防止 BC1.2 并发访问</p>
+        <div class="code-block"><span class="dim">// 修复前 (Line 842)</span>
+ret = regmap_write(chip->regmap, SGM41512_REG_VOLTAGE, target_mv);
+
+<span class="dim">// 修复后</span>
+struct i2c_adapter *adapter = chip->client->adapter;
+i2c_lock_bus(adapter, I2C_LOCK_ROOT_ADAPTER);
+ret = regmap_write(chip->regmap, SGM41512_REG_VOLTAGE, target_mv);
+i2c_unlock_bus(adapter, I2C_LOCK_ROOT_ADAPTER);</div>
+        <p><span class="fix-label">预期效果:</span> 调压期间 BC1.2 检测被阻塞，I2C 写入一次成功（&lt; 5ms），总 tPSTransition 降至 &lt; 100ms</p>
+        <p><span class="fix-label">风险:</span> 低 — 锁持有时间极短 (&lt; 5ms)，不影响 BC1.2 检测功能</p>
+      </div>
+    </div>
+
+    <div class="fix-card">
+      <div class="fix-card-header alternative">&#x1F4A1; 方案 B（备选）— 调压期间暂停 BC1.2 检测</div>
+      <div class="fix-card-body">
+        <p><span class="fix-label">修改位置:</span> <code>sprd_charger_main.c::set_voltage()</code> + <code>sprd_bc1p2.c</code></p>
+        <p><span class="fix-label">修改内容:</span> 在 charger 主驱动层增加 flag，调压前通知 BC1.2 暂停，调压完成后恢复</p>
+        <p><span class="fix-label">预期效果:</span> 同样可避免 I2C 竞争</p>
+        <p><span class="fix-label">风险:</span> 中 — 需要跨模块协作，增加耦合，且 BC1.2 检测延迟可能影响其他测试项</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- skip: code root cause not available
+  <section class="section" id="code-root-cause">
+    <h2 class="section-title">
+      <span class="section-num">7</span> 代码级根因 / Code Root Cause
+      <span class="tag tag-gray" style="margin-left:auto;">Phase 6 &#x23ED; Skipped</span>
+    </h2>
+    <div class="callout callout-info">
+      <div class="callout-title">&#x2139; 代码分析未执行</div>
+      <p>未提供内核源码路径，跳过代码级根因分析。建议提供源码路径后重跑 Phase 6 以获取代码级定位和修复 diff。</p>
+    </div>
+  </section>
+  -->
+
+  <!-- ==========================================================
+       SECTION 8: FIX RECOMMENDATION
+       ========================================================== -->
+  <section class="section" id="fix-recommendation">
+    <h2 class="section-title">
+      <span class="section-num">8</span> 修复建议 / Fix Recommendation
+    </h2>
+
+    <table class="info-table">
+      <tr><th>推荐方案</th><td>方案 A — I2C 总线锁保护</td></tr>
+      <tr><th>置信度</th><td><span class="confidence confidence-high"><span class="confidence-dot"></span> 高 (85%)</span></td></tr>
+      <tr><th>修改文件</th><td><code>sgm41512_charger.c</code> (1 处修改)</td></tr>
+      <tr><th>修改行数</th><td>+3 行</td></tr>
+      <tr><th>预计修复效果</th><td>tPSTransition 从 620ms 降至 &lt; 100ms，远低于 550ms 限值</td></tr>
+      <tr><th>副作用风险</th><td><span class="tag tag-green">低</span> — 锁持有时间 &lt; 5ms，仅影响并发 I2C 访问的顺序</td></tr>
+    </table>
+
+    <h3 class="section-subtitle">复测验证步骤</h3>
+    <table class="data-table">
+      <thead>
+        <tr><th>#</th><th>验证步骤</th><th>预期结果</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>1</td><td>应用方案 A 的 I2C 总线锁 patch</td><td>编译通过，无 warning</td></tr>
+        <tr><td>2</td><td>烧录新镜像，恢复 CTS 测试环境</td><td>DUT 正常启动，PD 合同建立正常</td></tr>
+        <tr><td>3</td><td>重跑 TEST.PD.PS.SNK.01 测试</td><td>tPSTransition &le; 550ms，测试 PASS</td></tr>
+        <tr><td>4</td><td>检查 kernel log，确认无 I2C 重试</td><td>i2c_write 一次成功，无 retry 日志</td></tr>
+        <tr><td>5</td><td>重跑 BC1.2 相关测试项</td><td>BC1.2 检测不受影响，测试 PASS</td></tr>
+        <tr><td>6</td><td>重复测试 10 次确认稳定性</td><td>连续 10 次 PASS，tPSTransition 稳定在 &lt; 100ms</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ==========================================================
+       SECTION 9: EVIDENCE INDEX
+       ========================================================== -->
+  <section class="section" id="evidence-index">
+    <h2 class="section-title">
+      <span class="section-num">9</span> 证据索引 / Evidence Index
+    </h2>
+
+    <table class="data-table">
+      <thead>
+        <tr><th>#</th><th>证据项</th><th>来源</th><th>类型</th><th>路径 / 引用</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>E1</td>
+          <td>Lecroy 仪器 FAIL 判定</td>
+          <td>Lecroy M41h</td>
+          <td><span class="tag tag-orange">仪器报告</span></td>
+          <td><code>lecroy_fail_report.html</code> — Event #1234</td>
+        </tr>
+        <tr>
+          <td>E2</td>
+          <td>tPSTransition 实测值</td>
+          <td>Lecroy Trace</td>
+          <td><span class="tag tag-orange">Trace 数据</span></td>
+          <td>620ms (PS_RDY &rarr; Vbus=9V)</td>
+        </tr>
+        <tr>
+          <td>E3</td>
+          <td>I2C 重试日志</td>
+          <td>Kernel Log</td>
+          <td><span class="tag tag-blue">Kernel Log</span></td>
+          <td><code>kernel_log_20260728.txt</code> — Lines 125.305~125.605</td>
+        </tr>
+        <tr>
+          <td>E4</td>
+          <td>BC1.2 并发日志</td>
+          <td>Kernel Log</td>
+          <td><span class="tag tag-blue">Kernel Log</span></td>
+          <td><code>kernel_log_20260728.txt</code> — vbos_ok_work @ 125.280</td>
+        </tr>
+        <tr>
+          <td>E5</td>
+          <td>历史 Bug 3442513</td>
+          <td>Bug 系统</td>
+          <td><span class="tag tag-blue">历史参照</span></td>
+          <td>同模式 I2C 竞争导致 tPSTransition 超时</td>
+        </tr>
+        <tr>
+          <td>E6</td>
+          <td>PD 规范 Timer 限值</td>
+          <td>PD 3.0 Spec</td>
+          <td><span class="tag tag-gray">规范引用</span></td>
+          <td>Section 6.4.3 — tPSTransition &le; 550ms</td>
+        </tr>
+        <tr>
+          <td>E7</td>
+          <td>代码缺陷定位</td>
+          <td>Kernel Source</td>
+          <td><span class="tag tag-blue">代码分析</span></td>
+          <td><code>sgm41512_charger.c:842</code> — 缺少 I2C 锁</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ==========================================================
+       SECTION 10: PHASE INDEX
+       ========================================================== -->
+  <section class="section" id="phase-index">
+    <h2 class="section-title">
+      <span class="section-num">10</span> 分析过程索引 / Phase Index
+    </h2>
+
+    <div class="phase-grid">
+      <div class="phase-card">
+        <div class="phase-icon done">1</div>
+        <div class="phase-info">
+          <div class="phase-name">信息收集 / Info Collection</div>
+          <div class="phase-file">01_test_case_info.md</div>
+          <div class="phase-status"><span class="tag tag-green">&#x2714; Done</span></div>
+        </div>
+      </div>
+      <div class="phase-card">
+        <div class="phase-icon done">2</div>
+        <div class="phase-info">
+          <div class="phase-name">失败点定位 / Failure Location</div>
+          <div class="phase-file">02_failure_location.md</div>
+          <div class="phase-status"><span class="tag tag-green">&#x2714; Done</span></div>
+        </div>
+      </div>
+      <div class="phase-card">
+        <div class="phase-icon done">3</div>
+        <div class="phase-info">
+          <div class="phase-name">Trace 深度分析 / Trace Analysis</div>
+          <div class="phase-file">03_trace_analysis.md</div>
+          <div class="phase-status"><span class="tag tag-green">&#x2714; Done</span></div>
+        </div>
+      </div>
+      <div class="phase-card">
+        <div class="phase-icon done">4</div>
+        <div class="phase-info">
+          <div class="phase-name">Log 深度分析 / Log Analysis</div>
+          <div class="phase-file">04_log_analysis.md</div>
+          <div class="phase-status"><span class="tag tag-green">&#x2714; Done</span></div>
+        </div>
+      </div>
+      <div class="phase-card">
+        <div class="phase-icon done">5</div>
+        <div class="phase-info">
+          <div class="phase-name">历史 Bug 参照 / History Reference</div>
+          <div class="phase-file">05_history_reference.md</div>
+          <div class="phase-status"><span class="tag tag-green">&#x2714; Done</span></div>
+        </div>
+      </div>
+      <div class="phase-card">
+        <div class="phase-icon done">6</div>
+        <div class="phase-info">
+          <div class="phase-name">代码级根因 / Code Root Cause</div>
+          <div class="phase-file">06_code_root_cause.md</div>
+          <div class="phase-status"><span class="tag tag-green">&#x2714; Done</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Alternate: Phase 6 skipped -->
+    <!--
+    <div class="phase-grid">
+      ...
+      <div class="phase-card">
+        <div class="phase-icon skipped">6</div>
+        <div class="phase-info">
+          <div class="phase-name">代码级根因 / Code Root Cause</div>
+          <div class="phase-file">06_code_root_cause.md</div>
+          <div class="phase-status"><span class="tag tag-gray">&#x23ED; Skipped — 未提供源码路径</span></div>
+        </div>
+      </div>
+    </div>
+    -->
+  </section>
+
+</div>
+</main>
+
+<!-- ============================================================
+     FOOTER
+     ============================================================ -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer-row">
+      <strong>PD Auth Analyse Tool</strong> v2.0.0 &mdash; Agent-Native 6-Phase Workflow
+    </div>
+    <div class="footer-row">
+      Generated: <strong>2026-07-28 15:30:00 CST</strong>
+      &nbsp;|&nbsp;
+      Platform: <strong>Unisoc SPRDLINUX (SC9863A)</strong>
+      &nbsp;|&nbsp;
+      Case Dir: <strong>data/cases/3476234_TEST.PD.PS.SNK.01/</strong>
+    </div>
+    <div class="footer-row" style="margin-top: 8px; font-size: 11px;">
+      This report is auto-generated by the PD Auth Analyse agent. Contents are based on the 6-phase analysis workflow.
+      For detailed per-phase analysis, refer to the individual markdown files in the case directory.
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

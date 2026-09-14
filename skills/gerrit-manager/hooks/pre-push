@@ -1,0 +1,156 @@
+#!/bin/sh
+#===============================================================================
+# Gerrit pre-push Hook — push 前确认拦截
+#===============================================================================
+# 部署方式：覆盖式
+# 安装路径：<repo>/.git/hooks/pre-push
+# 兼容性：Git Bash (Windows) / Linux / macOS
+#
+# 功能：
+#   1. 拦截 git push，展示完整 commit message + 改动文件列表
+#   2. 交互式确认：y/N，30 秒超时默认取消
+#   3. 支持 Ctrl+C 取消
+#===============================================================================
+
+# ---- 配置 ----
+TIMEOUT=30
+
+# ---- 获取终端输入 ----
+# 兼容 Git Bash (Windows) 和标准 Unix
+read_with_timeout() {
+    if [ -n "$BASH_VERSION" ]; then
+        # Bash: 使用 read -t
+        read -t "$TIMEOUT" -r answer 2>/dev/null
+        return $?
+    else
+        # 非 bash (dash/ash): 使用 stty + read
+        answer=""
+        # 简单读取，不强制超时（dash 不支持 read -t）
+        read -r answer 2>/dev/null
+        return 0
+    fi
+}
+
+# ---- 主流程 ----
+main() {
+    remote="$1"
+    remote_url="$2"
+
+    echo ""
+    echo "══════════════════════════════════════════════════════"
+    echo "  Pre-Push 确认"
+    echo "══════════════════════════════════════════════════════"
+    echo "  Remote: $remote ($remote_url)"
+    echo ""
+
+    # 读取 stdin 获取 push 的 refs
+    has_commits=0
+    while IFS=' ' read -r local_ref local_sha remote_ref remote_sha; do
+        [ -z "$local_ref" ] && continue
+
+        # 判断是创建、更新还是删除
+        if [ "$local_sha" = "0000000000000000000000000000000000000000" ]; then
+            echo "  ▶ 删除: $remote_ref"
+            continue
+        fi
+
+        if [ "$remote_sha" = "0000000000000000000000000000000000000000" ]; then
+            # 新分支，列出所有 commits
+            range="$local_sha"
+            base_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+            # 尝试找到与远程共同祖先
+            merge_base=$(git merge-base "$local_sha" "origin/HEAD" 2>/dev/null || echo "")
+            if [ -n "$merge_base" ]; then
+                range="${merge_base}..${local_sha}"
+            fi
+            echo "  ▶ 推送新分支: $local_ref → $remote_ref"
+        else
+            range="${remote_sha}..${local_sha}"
+            echo "  ▶ 推送: $local_ref → $remote_ref"
+        fi
+
+        has_commits=1
+
+        # 列出提交
+        echo ""
+        echo "  ──────────────────────────────────────────────────"
+        echo "  提交列表:"
+        echo "  ──────────────────────────────────────────────────"
+        git log --oneline "$range" 2>/dev/null | while IFS= read -r logline; do
+            echo "    $logline"
+        done
+        echo ""
+
+        # 显示完整 commit message
+        echo "  ──────────────────────────────────────────────────"
+        echo "  完整 Commit Message:"
+        echo "  ──────────────────────────────────────────────────"
+        git log --format="%B" "$range" 2>/dev/null | while IFS= read -r logline; do
+            echo "    $logline"
+        done
+        echo ""
+
+        # 显示改动文件
+        echo "  ──────────────────────────────────────────────────"
+        echo "  改动文件:"
+        echo "  ──────────────────────────────────────────────────"
+        git diff --stat "$range" 2>/dev/null | while IFS= read -r logline; do
+            echo "    $logline"
+        done
+        echo ""
+
+        # 显示 diff 摘要
+        echo "  ──────────────────────────────────────────────────"
+        echo "  Diff 摘要:"
+        echo "  ──────────────────────────────────────────────────"
+        git diff --shortstat "$range" 2>/dev/null | while IFS= read -r logline; do
+            echo "    $logline"
+        done
+        echo ""
+    done
+
+    if [ $has_commits -eq 0 ]; then
+        echo "  (无待推送提交)"
+        echo ""
+        echo "══════════════════════════════════════════════════════"
+        exit 0
+    fi
+
+    echo "══════════════════════════════════════════════════════"
+    echo ""
+
+    # 交互确认
+    printf "  确认 push？[y/N] (%d秒超时默认取消): " "$TIMEOUT"
+
+    answer=""
+    if [ -n "$BASH_VERSION" ]; then
+        read -t "$TIMEOUT" -r answer 2>/dev/null
+        read_rc=$?
+    else
+        read -r answer 2>/dev/null
+        read_rc=0
+    fi
+
+    echo ""
+
+    if [ -n "$BASH_VERSION" ] && [ $read_rc -ne 0 ]; then
+        echo "  ⏰ 超时 ($TIMEOUT 秒)，push 已取消"
+        echo ""
+        exit 1
+    fi
+
+    case "$answer" in
+        [Yy]*)
+            echo "  ✓ 已确认，正在 push..."
+            echo ""
+            exit 0
+            ;;
+        *)
+            echo "  ✗ Push 已取消"
+            echo ""
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"

@@ -11,12 +11,12 @@ presets:
   # 通用基础（所有 agent 建议激活）
   universal:
     description: "所有 agent 通用基础 skill"
-    skills: ["find-skills", "skill-creator", "hello-skill"]
+    skills: ["find-skills", "skill-creator", "hello-skill", "demo-test", "code-puller", "bug-rootcause"]
 
   # 调试工具
   debug-toolkit:
     description: "Bug 调试核心工具"
-    skills: ["bug-core", "bug-logs", "bug-workspace", "log-analyzer", "code-generator"]
+    skills: ["bug-core", "bug-workspace", "log-analyzer", "code-generator", "adb-helper", "ylog-helper"]
 
   # 协议分析
   protocol:
@@ -26,12 +26,12 @@ presets:
   # Bug 全流程
   bug-full:
     description: "Bug 全流程（含 hub + 下载）"
-    skills: ["bug-hub", "isupport-downloader"]
+    skills: ["bug-hub", "isupport-downloader", "code-puller", "bug-rootcause"]
 
   # CC 专属管理工具
   cc-management:
     description: "Claude Code 管理工具（仅 CC）"
-    skills: ["skill-manager", "session-manager", "hook-manager", "memory-manager", "permission-manager", "cc-hub"]
+    skills: ["skill-manager", "session-manager", "hook-manager", "memory-manager", "permission-manager", "cc-hub", "jsonl2md"]
 
   # PPT/幻灯片
   slides:
@@ -60,7 +60,7 @@ agents:
   hermes_auto:
     tool: hermes
     path: "C:/Users/xianjun.zeng/.hermes/skills"
-    active_presets: ["universal", "debug-toolkit", "protocol", "bug-full"]
+    active_presets: []
 
   trae_cn_auto:
     tool: trae_cn
@@ -83,7 +83,6 @@ agents:
 
 tags:
   bug-core: ["debug"]
-  bug-logs: ["debug"]
   bug-workspace: ["debug"]
   log-analyzer: ["debug"]
   code-generator: ["debug"]

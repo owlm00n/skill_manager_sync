@@ -1,53 +1,39 @@
-# Skills Sync Manager
+# Skill Sync — 统一 Skill 管理仓库
 
-多 Agent 技能同步管理工具，支持 Junction/Symlink/Copy 三种模式。
+Claude Code Skill 的权威源。通过 symlink 分发到 `~/.claude/skills/`。
 
-## 功能
+## 已注册 Skill
 
-- **中央技能库**：统一管理所有 skills
-- **Global Workspace**：为每个 agent 独立管理 skills
-- **Project Workspace**：项目级 skill 管理，支持 auto-detect 扫描
-- **Preset 预设**：命名 skill 集合，一键激活/停用
-- **多同步模式**：Junction（免管理员）、Symlink、Copy
-- **23+ Agent 支持**：Claude Code、Qoder、Cursor、Hermes 等自动发现
+| Skill | 版本 | 用途 |
+|-------|------|------|
+| bug-hub | v1.1 | 统一编排入口，链式调度子技能 + Web Dashboard (8777) |
+| bug-core | - | Bug 信息查询、智能摘要、评论提取 |
+| bug-workspace | - | 工作区创建 + 附件下载 + 解压 |
+| pd-auth-analyse | v2.0.0 | 6-Phase PD 认证深度分析 |
+| log-analyzer | v2.1 | 角色感知日志分析 |
+| protocol-parser | v3.0 | PD/USB/CC 协议智能解析与可视化 |
+| keyword-vault | v1.0 | 调试关键词收纳系统 |
+| code-generator | - | 代码/脚本生成 |
 
-## 技术栈
+## 使用方式
 
-- Python 3.8+ (后端)
-- PowerShell (同步脚本)
-- 原生 JavaScript (前端)
+1. 克隆本仓库到本地
+2. 创建 symlink: `mklink /D C:\Users\<user>\.claude\skills\<skill-name> <repo-path>\skills\<skill-name>`
+3. Claude Code 自动加载 SKILL.md
 
-## 快速开始
-
-```bash
-# 启动 Web UI
-python web-ui.py
-
-# 访问 http://127.0.0.1:8780
-```
-
-## 项目结构
+## 目录结构
 
 ```
 skills_sync/
-├── web-ui.py          # Python 后端
-├── sync.ps1           # PowerShell 同步脚本
-├── scan-agents.ps1    # Agent 扫描脚本
-├── config.yaml        # 配置文件（需按本地环境修改）
-├── skills/            # 中央技能库
-└── static/            # 前端文件
-    ├── index.html
-    ├── css/
-    └── js/
+├── README.md
+├── .gitignore
+└── skills/
+    ├── bug-hub/
+    ├── bug-core/
+    ├── bug-workspace/
+    ├── pd-auth-analyse/
+    ├── log-analyzer/
+    ├── protocol-parser/
+    ├── keyword-vault/
+    └── code-generator/
 ```
-
-## 文档
-
-- [功能设计与实现状态](docs/skills-manager-analysis.md)
-- [Bug 报告](docs/BUG_REPORT.md)
-- [会话历史](docs/conversation-history.md)
-- [会话总结](docs/session-summary.md)
-
-## License
-
-MIT

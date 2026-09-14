@@ -1,5 +1,20 @@
+import os
 import re
 from pathlib import Path
+
+
+def _is_reparse_point(path):
+    """Detect if a path is a Windows junction/symlink (reparse point)."""
+    try:
+        p = Path(path)
+        if p.is_symlink():
+            return True
+        attrs = os.lstat(str(p))
+        if hasattr(attrs, 'st_file_attributes'):
+            return bool(attrs.st_file_attributes & 0x400)  # FILE_ATTRIBUTE_REPARSE_POINT
+        return False
+    except Exception:
+        return False
 
 
 class SkillManager:
@@ -69,6 +84,7 @@ class SkillManager:
             if d.is_dir():
                 skill_md = d / "SKILL.md"
                 disabled = d / "SKILL.md.disabled"
+                is_link = _is_reparse_point(d)
                 if skill_md.exists():
                     text = skill_md.read_text(encoding="utf-8", errors="replace")
                     fm = self.parse_frontmatter(text)
@@ -76,7 +92,7 @@ class SkillManager:
                         "name": fm.get("name", d.name), "dir": d.name,
                         "description": fm.get("description", ""), "enabled": True,
                         "path": str(skill_md), "folder": str(d),
-                        "type": "dir",
+                        "type": "dir", "is_link": is_link,
                     })
                 elif disabled.exists():
                     text = disabled.read_text(encoding="utf-8", errors="replace")
@@ -85,7 +101,7 @@ class SkillManager:
                         "name": fm.get("name", d.name), "dir": d.name,
                         "description": fm.get("description", ""), "enabled": False,
                         "path": str(disabled), "folder": str(d),
-                        "type": "dir",
+                        "type": "dir", "is_link": is_link,
                     })
             # Case 2: single-file skill — <name>.md (with frontmatter)
             elif d.is_file() and d.suffix.lower() == ".md":

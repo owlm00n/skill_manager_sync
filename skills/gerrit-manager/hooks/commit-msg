@@ -1,0 +1,328 @@
+#!/bin/sh
+#===============================================================================
+# Gerrit commit-msg Hook — 结构化模板 + 校验 + Change-Id
+#===============================================================================
+# 部署方式：覆盖式，替换标准 Gerrit commit-msg hook
+# 安装路径：<repo>/.git/hooks/commit-msg
+# 兼容性：Git Bash (Windows) / Linux / macOS
+#
+# 功能：
+#   1. 模板模式：空提交信息时生成完整结构化模板（含 Bug ID）
+#   2. 校验模式：强制校验 Bug ID + 结构化字段 + 格式
+#   3. Change-Id：自动添加 Gerrit Change-Id trailer
+#   4. 自动补全：commit_template_version:v1 + Signed-off-by
+#===============================================================================
+
+# ---- 配置 ----
+# 描述最小长度
+MIN_DESC_LEN=5
+# 首行最大长度
+MAX_SUBJECT_LEN=72
+
+# ---- Change-Id 生成（标准 Gerrit 逻辑）----
+CHANGE_ID_AFTER="Bug|Depends-On|Issue|Test|Feature|Fixes|Signed-off-by|Acked-by|Cc|Reported-by|Tested-by|Reviewed-by"
+
+add_ChangeId() {
+    if grep -qi '^Change-Id:' "$1" 2>/dev/null; then
+        return 0
+    fi
+
+    clean_message=$(sed -e '/^#.*/d' "$1" | sed -e 's/[[:space:]]*$//')
+    if [ -z "$clean_message" ]; then
+        return 0
+    fi
+
+    _random=$( (date +%s; openssl rand -hex 12 2>/dev/null || (
+        i=1
+        while [ $i -le 12 ]; do
+            printf '%02x' $((RANDOM % 256))
+            i=$((i + 1))
+        done
+    )) | openssl sha1 -hmac "gerrit" 2>/dev/null | sed 's/^.*= //' || (
+        printf '%s' "$(date +%s)" | sha1sum 2>/dev/null | cut -d' ' -f1
+    ))
+    _hash=$(printf '%s' "$_random" | tr -d ' \n\r' | cut -c1-40)
+    if [ -z "$_hash" ]; then
+        _hash=$( (date +%s)$$$RANDOM | sha1sum 2>/dev/null | cut -d' ' -f1)
+        [ -z "$_hash" ] && _hash="0000000000000000000000000000000000000000"
+    fi
+    id="I$_hash"
+
+    if [ -n "$CHANGE_ID_AFTER" ]; then
+        last_trailer=$(grep -n '^[A-Z][A-Za-z-]*:' "$1" | tail -1 | cut -d: -f1)
+        if [ -n "$last_trailer" ]; then
+            sed -i "${last_trailer}a\\\nChange-Id: $id" "$1"
+        else
+            printf '\nChange-Id: %s\n' "$id" >> "$1"
+        fi
+    else
+        printf '\nChange-Id: %s\n' "$id" >> "$1"
+    fi
+}
+
+# ---- 自动补全 trailer ----
+add_trailers() {
+    local file="$1"
+
+    # 添加 commit_template_version:v1（如果不存在）
+    if ! grep -q '^commit_template_version:' "$file" 2>/dev/null; then
+        # 在 Change-Id 之前插入
+        if grep -q '^Change-Id:' "$file" 2>/dev/null; then
+            sed -i '/^Change-Id:/i\\ncommit_template_version:v1' "$file"
+        else
+            printf 'commit_template_version:v1\n' >> "$file"
+        fi
+    fi
+
+    # 添加 Signed-off-by（如果不存在）
+    if ! grep -q '^Signed-off-by:' "$file" 2>/dev/null; then
+        user_name=$(git config user.name 2>/dev/null || echo "unknown")
+        user_email=$(git config user.email 2>/dev/null || echo "unknown@unknown.com")
+        if grep -q '^Change-Id:' "$file" 2>/dev/null; then
+            sed -i "/^Change-Id:/i\\\nSigned-off-by: $user_name <$user_email>" "$file"
+        else
+            printf 'Signed-off-by: %s <%s>\n' "$user_name" "$user_email" >> "$file"
+        fi
+    fi
+}
+
+# ---- Bug ID 提取 ----
+extract_bug_id() {
+    branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+    if [ -n "$branch" ]; then
+        # 从分支名提取 7 位数字: bug/3502855, fix/3502855-desc, 3502855
+        bug_id=$(echo "$branch" | grep -oE '[0-9]{7}' | head -1)
+        if [ -n "$bug_id" ]; then
+            echo "$bug_id"
+            return 0
+        fi
+    fi
+    return 1
+}
+
+# ---- 获取项目名 ----
+get_project_name() {
+    remote_url=$(git remote get-url origin 2>/dev/null || echo "")
+    if [ -n "$remote_url" ]; then
+        # 从 remote URL 提取项目名: ssh://.../EAI-cuijian → EAI-cuijian
+        project=$(echo "$remote_url" | sed 's|.*/||' | sed 's|\.git$||')
+        if [ -n "$project" ]; then
+            echo "$project"
+            return 0
+        fi
+    fi
+    # fallback: 从目录名提取
+    basename "$(git rev-parse --show-toplevel 2>/dev/null || echo "unknown")"
+}
+
+# ---- 模板生成 ----
+generate_template() {
+    bug_id=$(extract_bug_id)
+    if [ -z "$bug_id" ]; then
+        bug_id="<Bug #7位数字>"
+    fi
+    project=$(get_project_name)
+    user_name=$(git config user.name 2>/dev/null || echo "your-name")
+    user_email=$(git config user.email 2>/dev/null || echo "your-email@unisoc.com")
+
+    cat > "$1" << TEMPLATE_EOF
+# ===== Gerrit Commit Message 模板 =====
+# 格式：Bug #7位数字 <project>: <tag>: <描述>
+#
+# 请删除注释行并填写实际内容：
+
+Bug #${bug_id} ${project}: <tag>: <描述>
+
+[root cause  ]:<填入根本原因>
+[changes     ]:<填入改动内容>
+[side effects]:<填入副作用，无则填 no>
+[self test   ]:<自测结果，yes/no>
+[download normally]:<下载是否正常，yes/no/NA>
+[power on/off normally]:<开关机是否正常，yes/no/NA>
+[do common repository/branch inspection]:<仓库分支检查结果，yes/no/NA>
+[is there dependence]:<是否有依赖，no 或填写依赖>
+[confirm dependent commit]:<确认依赖提交，no 或填写 commit>
+[board]:<板卡名称，NA>
+[test case]:<测试用例描述>
+[reviewers]:<评审人>
+
+<详细描述>
+- <改动点1>
+- <改动点2>
+
+测试结果：
+- <测试结果1>
+- <测试结果2>
+
+# ===== 模板结束 =====
+# 注意：
+# 1. Bug # 必须是 7 位数字（调试可用 7777777）
+# 2. [root cause]、[changes]、[self test] 必填
+# 3. commit_template_version:v1 和 Signed-off-by 将自动添加
+# 4. Change-Id 将自动添加，请勿手动填写
+TEMPLATE_EOF
+}
+
+# ---- 格式校验 ----
+validate_format() {
+    local file="$1"
+    local errors=0
+    local warnings=0
+
+    # 读取所有非注释行
+    msg=$(grep -v '^#' "$file")
+
+    # 跳过空提交
+    if [ -z "$msg" ]; then
+        return 0
+    fi
+
+    first_line=$(echo "$msg" | head -1)
+
+    # --- 强制检查 1: 首行必须以 Bug # 开头，后跟 7 位数字 ---
+    bug_id=$(echo "$first_line" | grep -oE '^Bug #[0-9]{7}' | head -1)
+    if [ -z "$bug_id" ]; then
+        echo "❌ [ERROR] 首行必须以 Bug # 开头，后跟 7 位数字"
+        echo "   期望格式: Bug #3502855 <project>: <tag>: <描述>"
+        echo "   调试可用: Bug #7777777 <project>: <tag>: <描述>"
+        errors=$((errors + 1))
+    fi
+
+    # --- 强制检查 2: [root cause  ] 必须存在 ---
+    if ! echo "$msg" | grep -q '^\[root cause  \]'; then
+        echo "❌ [ERROR] 缺少 [root cause  ] 字段"
+        errors=$((errors + 1))
+    fi
+
+    # --- 强制检查 3: [changes     ] 必须存在 ---
+    if ! echo "$msg" | grep -q '^\[changes     \]'; then
+        echo "❌ [ERROR] 缺少 [changes     ] 字段"
+        errors=$((errors + 1))
+    fi
+
+    # --- 强制检查 4: [self test   ] 必须存在 ---
+    if ! echo "$msg" | grep -q '^\[self test   \]'; then
+        echo "❌ [ERROR] 缺少 [self test   ] 字段"
+        errors=$((errors + 1))
+    fi
+
+    # --- 强制检查 5: commit_template_version 必须存在 ---
+    if ! echo "$msg" | grep -q '^commit_template_version:'; then
+        echo "❌ [ERROR] 缺少 commit_template_version:v1"
+        errors=$((errors + 1))
+    fi
+
+    # --- 强制检查 6: Signed-off-by 必须存在 ---
+    if ! echo "$msg" | grep -q '^Signed-off-by:'; then
+        echo "❌ [ERROR] 缺少 Signed-off-by"
+        errors=$((errors + 1))
+    fi
+
+    # --- 强制检查 7: Change-Id 必须存在 ---
+    if ! echo "$msg" | grep -qi '^Change-Id:'; then
+        echo "❌ [ERROR] 缺少 Change-Id（应自动添加，如看到此错误请联系管理员）"
+        errors=$((errors + 1))
+    fi
+
+    # --- 警告 1: 描述长度 >= 5 字符 ---
+    if [ -n "$bug_id" ]; then
+        desc=$(echo "$first_line" | sed "s/^Bug #[0-9]\{7\} [^:]*: [^:]*: //")
+        desc_len=${#desc}
+        if [ "$desc_len" -lt $MIN_DESC_LEN ]; then
+            echo "⚠️  [WARN] 描述过短：'$desc'（${desc_len}字符，建议至少${MIN_DESC_LEN}字符）"
+            warnings=$((warnings + 1))
+        fi
+    fi
+
+    # --- 警告 2: 首行不超过 72 字符 ---
+    first_len=${#first_line}
+    if [ "$first_len" -gt $MAX_SUBJECT_LEN ]; then
+        echo "⚠️  [WARN] 首行过长：${first_len}字符（建议不超过${MAX_SUBJECT_LEN}字符）"
+        warnings=$((warnings + 1))
+    fi
+
+    # --- 汇总 ---
+    echo ""
+    if [ $errors -gt 0 ]; then
+        echo "═══════════════════════════════════════"
+        echo " 提交被拒绝：${errors} 个错误，${warnings} 个警告"
+        echo "═══════════════════════════════════════"
+        echo ""
+        echo "参考格式:"
+        echo "  Bug #3502855 EAI-cuijian: feat: Add new feature"
+        echo ""
+        echo "  [root cause  ]:need to support xxx"
+        echo "  [changes     ]:add xxx module"
+        echo "  [side effects]:no"
+        echo "  [self test   ]:yes"
+        echo "  ..."
+        echo ""
+        echo "  测试结果："
+        echo "  - All tests passed"
+        echo ""
+        return 1
+    fi
+
+    if [ $warnings -gt 0 ]; then
+        echo "═══ ${warnings} 个警告（不阻止提交，但建议修正）═══"
+    else
+        echo "✓ 提交格式检查通过"
+    fi
+
+    return 0
+}
+
+# ---- 主流程 ----
+main() {
+    commit_msg_file="$1"
+
+    if [ -z "$commit_msg_file" ]; then
+        echo "Usage: commit-msg <commit-message-file>"
+        exit 1
+    fi
+
+    if [ ! -f "$commit_msg_file" ]; then
+        echo "commit-msg: file not found: $commit_msg_file"
+        exit 1
+    fi
+
+    msg_content=$(grep -v '^#' "$commit_msg_file" 2>/dev/null)
+
+    # merge/squash/amend → 跳过校验，只添加 trailer
+    if echo "$msg_content" | head -1 | grep -qE '^(Merge|Squashed)'; then
+        add_ChangeId "$commit_msg_file"
+        add_trailers "$commit_msg_file"
+        exit 0
+    fi
+
+    # 如果是 amend（已存在 Change-Id），跳过模板生成
+    if echo "$msg_content" | grep -qi '^Change-Id:'; then
+        add_ChangeId "$commit_msg_file"
+        add_trailers "$commit_msg_file"
+        validate_format "$commit_msg_file"
+        exit $?
+    fi
+
+    # 空提交信息 → 生成模板
+    non_comment=$(grep -v '^#' "$commit_msg_file" | sed '/^[[:space:]]*$/d')
+    if [ -z "$non_comment" ]; then
+        generate_template "$commit_msg_file"
+        echo "📝 已填入提交模板，请编辑后保存。"
+        echo "   格式: Bug #7位数字 <project>: <tag>: <描述>"
+        bug_id=$(extract_bug_id)
+        if [ -n "$bug_id" ]; then
+            echo "   Bug ID: $bug_id（从分支名提取）"
+        else
+            echo "   ⚠️  未检测到 Bug ID，请手动替换 <Bug #7位数字>"
+        fi
+        exit 0
+    fi
+
+    # 正常提交：先添加 trailer，再校验
+    add_ChangeId "$commit_msg_file"
+    add_trailers "$commit_msg_file"
+    validate_format "$commit_msg_file"
+    exit $?
+}
+
+main "$@"
