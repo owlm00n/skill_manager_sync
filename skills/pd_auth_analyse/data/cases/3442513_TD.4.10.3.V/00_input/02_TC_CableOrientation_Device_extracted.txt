@@ -1,0 +1,209 @@
+LeCroy Analyzer Trace File   
+USB Protocol Suite
+USB Protocol Suite
+LeCroy Analyzer Trace File   
+USB Protocol Suite
+USB Protocol Suite
+(j`Y
+Teledyne LeCroy USB Compliance Suite Version: 8.03 Build 1226
+USB Protocol Suite Recording Options
+Default
+F:\PD2577_0513\vivo Mobile Communication Co., Ltd.-V2606-0000\20260610_122706\USB Type-C\Preliminary\02_TC_CableOrientation_Device.usb
+CUsbRecordingRules
+CRRState_Repository
+CRRState_Run
+CRRState_Placeholder
+CUsb3RecordingRules
+CRRState_Repository
+CRRState_Run
+CRRState_Placeholder
+CUsbRecordingRules
+CRRState_Repository
+CRRState_Run
+CRRState_Placeholder
+F:\PD2577_0513\vivo Mobile Communication Co., Ltd.-V2606-0000\20260610_122706\USB Type-C\Preliminary
+02_TC_CableOrientation_Device
+vivo Mobile Communication Co., Ltd.-V2606-0000
+M310e
+H9q&
+{r>{
+r|UI
+e<u}
+gq}g
+7j9_
+;rw9O
+woO?V
+LM7_
+>ZvW
+,EOR
+{//;
+/>g^y
+>}f/
+WUO'~
+f|6_o
+C~\-
+>>{{
+Wx|X
+<-O9
+yuQ7
+gw}~m
+e}}0
+Nv|_<
+<QoG
+}ssW
+/;3S
+k)ob
+5u}g
+mo=f
+xKgm
+l=w{
+^7O_
+cSwo
+^Nf&
+yY:\
+zO=_
+!OT-
+y=_/
+}~_]
+M~{a
+Ff>5
+^<@k
+}gP6
+{=bG
+?/;;?
+R>SC
+X{OR
+{>dw
+{/G/
+>kvc{
+7o^N{
+s1>?
+vv~~
+/8rv
+O<z}
+<xg)
+kY_K
+}n9G
+=>MW
+>_q_
+WQI=
+ymu=
+{/}}
+Rc=+=
+{~iw
+~}/.
+tt}}=
+.|{|
+q}+~
+uC+s6
+y?x2
+a}=n
+nzu]
+|}j3
+)T35
+A7^y
+|i^_
+=xUS
+FC77
+>j;}
+m_v<_
+OO\k
+U&i|
+;4m}
++viSnr
+7kx|
+:l|_
+G7WB
+}W{}W|
+ny+[=
+;}&sK
+/\{V
+a-W=
+~lqo
+}__7
+nwg/
+8j}g
+y'XO
+U3'O
+>n};
+k,w_
+[\5}~
+^;;W
+wNNx
++.)v
+};:}_
+\WU{_
+9>fzo
+~9Z}
+.|=z|
+[zl3:
+?|27
+{?t+
+lNwo
+=~o?
+VIWw
+&Z>^
+{_s'n
+8uq7
+7v5np
+&*LO
+u{_?~3
+W6{s
+%~z~
+ql:7&k
+V*O>
+\goV
+Y.rV}d
+Ro'v
+Vh]L
+=itg
+7f|oq
+=g'6
+{[V}vW
+N>^r
+?}Ow
+WtKVF
+["5;b
+IRrs
+!/8="D2
+R9<a>
+Pre/Post Trigger
+Pre-trigger
+Post-trigger
+Errors
+Errors
+Warnings
+Types of traffic
+Start of Frame
+Chirp
+NAK'ed Transaction
+Bulk, Interrupt or ISO Transfer
+Control Transfer
+Stalled Transaction
+Suspend
+Reset
+Payload Packet
+Logical Idle
+Link Command
+TSEQ
+LFPS
+Electrical Idle
+Link Management Packet
+Transaction Packet
+Data Packet Header
+Isoch. Timestamp Packet
+Data Packet
+BRST
+BERC
+BCNT
+SYNC
+Protocols of traffic
+USB 2.0 Traffic
+USB 3.2 Host Receive Traffic
+USB 3.2 Host Transmit Traffic
+Packet
+Triggered on Exr Port Rp On (CC1), Power Delivery/CC Packets
+CATCWalk
+0-52460/Packet/107
+Packet 52460/Packet
+<Triggered on Exr Port Rp On (CC1), Power Delivery/CC Packets

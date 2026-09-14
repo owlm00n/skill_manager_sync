@@ -1,0 +1,141 @@
+LeCroy Analyzer Trace File   
+USB Protocol Suite
+USB Protocol Suite
+LeCroy Analyzer Trace File   
+USB Protocol Suite
+USB Protocol Suite
+<gdwX
+Rt|B6U
+Teledyne LeCroy USB Compliance Suite Version: 7.92 Build 1198
+USB Protocol Suite Recording Options
+Default
+D:\lecroy\20250218_134952\USB Power Delivery\TEST.PD.PROT.SRC.10\01_TEST.PD.PROT.SRC.10_Rev2Src.usb
+4_13\TD.PD.SRC.E1\TD.PD.SRC.E1__.usb
+CUsbRecordingRules
+CRRState_Repository
+CRRState_Run
+CRRState_Placeholder
+CUsb3RecordingRules
+CRRState_Repository
+CRRState_Run
+CRRState_Placeholder
+CUsbRecordingRules
+CRRState_Repository
+CRRState_Run
+CRRState_Placeholder
+D:\lecroy\20250218_134952\USB Power Delivery\TEST.PD.PROT.SRC.10
+01_TEST.PD.PROT.SRC.10_Rev2Src
+UNISOC-Z2474-0
+M310e
+y.!u
+Pre/Post Trigger
+Pre-trigger
+Post-trigger
+Errors
+Errors
+Warnings
+Types of traffic
+Start of Frame
+Chirp
+NAK'ed Transaction
+Bulk, Interrupt or ISO Transfer
+Control Transfer
+Stalled Transaction
+Suspend
+Reset
+Payload Packet
+Logical Idle
+Link Command
+TSEQ
+LFPS
+Electrical Idle
+Link Management Packet
+Transaction Packet
+Data Packet Header
+Isoch. Timestamp Packet
+Data Packet
+BRST
+BERC
+BCNT
+SYNC
+Protocols of traffic
+USB 2.0 Traffic
+USB 3.2 Host Receive Traffic
+USB 3.2 Host Transmit Traffic
+CA N
+Packet
+Triggered on Exr Port Rd On (CC1), Exr Port Ra On (CC2), Power Delivery/CC Packets
+<HTML>The UUT sent a Source Cap Message.
+The UUT sent a Source Cap Message.
+The UUT sent a Source Cap Message.
+The UUT sent a Source Cap Message.
+The UUT sent a Source Cap Message.
+The UUT sent a Source Cap Message.
+The UUT sent a Source Cap Message.</HTML>
+<HTML>The UUT sent an Accept Message.
+The UUT sent an Accept Message.
+The UUT sent an Accept Message.
+The UUT sent an Accept Message.
+The UUT sent an Accept Message.
+The UUT sent an Accept Message.</HTML>
+<html>negotiation completed</html>
+<html>the tester sends a pr_swap message to the uut</html>
+<html>the uut sent an accept message</html>
+<html>tester sent a goodcrc message corresponded to uut accept message</html>
+<html>the ps_ready message is received from uut within: 0.368 852 834 sec</html>
+<HTML>Tester sent a GoodCRC message corresponded to UUT PS_Ready message</HTML>
+<HTML>Error Recovery Detected on 650.000 us [Start of measurement:  5.354 sec    Found:  5.355 sec (390.000 ms - 480.000 ms)]</HTML>
+<HTML>Err#  0x02A8: COMMON.CHECK.PD.5.2 The UUT was not allowed to send Hard_Reset signal.</HTML>
+<HTML>Err#  0x02A8: COMMON.CHECK.PD.5.2 The UUT was not allowed to send Hard_Reset signal.</HTML>
+<HTML>Err#  0x0294: [TEST.PD.PROT.SRC.10#3] Error Recovery State was detected before tPSSourceOn min.</HTML>
+CATCWalk
+0-139/Packet/107
+Packet 139/Packet
+RTriggered on Exr Port Rd On (CC1), Exr Port Ra On (CC2), Power Delivery/CC Packets
+0-145/Packet/107
+Packet 145/Packet
+The UUT sent a Source Cap Message.
+The UUT sent a Source Cap Message.
+The UUT sent a Source Cap Message.
+The UUT sent a Source Cap Message.
+The UUT sent a Source Cap Message.
+The UUT sent a Source Cap Message.
+The UUT sent a Source Cap Message.
+0-149/Packet/107
+Packet 149/Packet
+The UUT sent an Accept Message.
+The UUT sent an Accept Message.
+The UUT sent an Accept Message.
+The UUT sent an Accept Message.
+The UUT sent an Accept Message.
+The UUT sent an Accept Message.
+0-151/Packet/107
+Packet 151/Packet
+Negotiation Completed
+0-157/Packet/107
+Packet 157/Packet
+-The Tester sends a PR_Swap message to the UUT
+0-159/Packet/107
+Packet 159/Packet
+The UUT sent an Accept message
+0-160/Packet/107
+Packet 160/Packet
+@Tester sent a GoodCRC message corresponded to UUT Accept message
+0-163/Packet/107
+Packet 163/Packet
+CThe PS_Ready message is received from UUT within: 0.368 852 834 sec
+0-164/Packet/107
+Packet 164/Packet
+BTester sent a GoodCRC message corresponded to UUT PS_Ready message
+0-166/Packet/107
+Packet 166/Packet
+wError Recovery Detected on 650.000 us [Start of measurement:  5.354 sec    Found:  5.355 sec (390.000 ms - 480.000 ms)]
+0-176/Packet/107
+Packet 176/Packet
+TErr#  0x02A8: COMMON.CHECK.PD.5.2 The UUT was not allowed to send Hard_Reset signal.
+0-177/Packet/107
+Packet 177/Packet
+TErr#  0x02A8: COMMON.CHECK.PD.5.2 The UUT was not allowed to send Hard_Reset signal.
+0-243/Packet/107
+Packet 243/Packet
+_Err#  0x0294: [TEST.PD.PROT.SRC.10#3] Error Recovery State was detected before tPSSourceOn min.

@@ -1,0 +1,101 @@
+LeCroy Analyzer Trace File   
+USB Protocol Suite
+USB Protocol Suite
+LeCroy Analyzer Trace File   
+USB Protocol Suite
+USB Protocol Suite
+Kj`s
+Teledyne LeCroy USB Compliance Suite Version: 8.03 Build 1226
+USB Protocol Suite Recording Options
+Default
+E:\PD2577(06)\vivo Mobile Communication Co., Ltd.-V2606-0000\20260706_210703\USB Power Delivery\TEST.PD.PS.SNK.1\Repeat_03\01_TEST.PD.PS.SNK.1_Rev2Snk.usb
+CUsbRecordingRules
+CRRState_Repository
+CRRState_Run
+CRRState_Placeholder
+CUsb3RecordingRules
+CRRState_Repository
+CRRState_Run
+CRRState_Placeholder
+CUsbRecordingRules
+CRRState_Repository
+CRRState_Run
+CRRState_Placeholder
+E:\PD2577(06)\vivo Mobile Communication Co., Ltd.-V2606-0000\20260706_210703\USB Power Delivery\TEST.PD.PS.SNK.1\Repeat_03
+01_TEST.PD.PS.SNK.1_Rev2Snk
+vivo Mobile Communication Co., Ltd.-V2606-0000
+M310e
+Ca::
+18}b
+Pre/Post Trigger
+Pre-trigger
+Post-trigger
+Errors
+Errors
+Warnings
+Types of traffic
+Start of Frame
+Chirp
+NAK'ed Transaction
+Bulk, Interrupt or ISO Transfer
+Control Transfer
+Stalled Transaction
+Suspend
+Reset
+Payload Packet
+Logical Idle
+Link Command
+TSEQ
+LFPS
+Electrical Idle
+Link Management Packet
+Transaction Packet
+Data Packet Header
+Isoch. Timestamp Packet
+Data Packet
+BRST
+BERC
+BCNT
+SYNC
+Protocols of traffic
+USB 2.0 Traffic
+USB 3.2 Host Receive Traffic
+USB 3.2 Host Transmit Traffic
+Packet
+Triggered on Exr Port Rp On (CC1), Exr Port Ra On (CC2), Power Delivery/CC Packets
+<HTML>Negotiation Completed</HTML>
+<HTML>The Tester sends a Get_Sink_Cap message to the UUT</HTML>
+<HTML>Err#  0x00FD: COMMON.CHECK.PD.12.1 The Number of Data Objects did not match the vendor value.
+Err#  0x01CD: COMMON.CHECK.PD.12.1 The supply types in the Sink Capabilities message did not match the supply types declared by the vendor in the Vendor Information File.
+The UUT sent a Sink Capabilities message</HTML>
+<HTML>The UUT sent Request message</HTML>
+<HTML>Negotiation Completed</HTML>
+<HTML>The UUT sent Request message</HTML>
+<HTML>Negotiation Completed</HTML>
+CATCWalk
+0-102/Packet/107
+Packet 102/Packet
+The UUT sent Request message
+0-106/Packet/107
+Packet 106/Packet
+Negotiation Completed
+0-74/Packet/107
+Packet 74/Packet
+RTriggered on Exr Port Rp On (CC1), Exr Port Ra On (CC2), Power Delivery/CC Packets
+0-86/Packet/107
+Packet 86/Packet
+Negotiation Completed
+0-88/Packet/107
+Packet 88/Packet
+2The Tester sends a Get_Sink_Cap message to the UUT
+0-90/Packet/107
+Packet 90/Packet
+1Err#  0x00FD: COMMON.CHECK.PD.12.1 The Number of Data Objects did not match the vendor value.
+Err#  0x01CD: COMMON.CHECK.PD.12.1 The supply types in the Sink Capabilities message did not match the supply types declared by the vendor in the Vendor Information File.
+The UUT sent a Sink Capabilities message
+0-94/Packet/107
+Packet 94/Packet
+The UUT sent Request message
+0-98/Packet/107
+Packet 98/Packet
+Negotiation Completed

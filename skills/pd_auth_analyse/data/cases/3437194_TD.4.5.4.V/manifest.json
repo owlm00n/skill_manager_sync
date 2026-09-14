@@ -1,0 +1,73 @@
+{
+  "case_id": "3437194_pending",
+  "bug_id": "3437194",
+  "test_id": null,
+  "created_at": "2026-07-09T03:59:57+00:00",
+  "updated_at": "2026-07-09T08:54:57+00:00",
+  "status": "completed",
+  "steps": {
+    "1": {
+      "name": "Bug信息获取",
+      "status": "completed",
+      "input_hash": "sha256:00e60b4ca5710d25501a147908d008f216481d7ac4c3751f35ca21fc8a98c77d",
+      "output_hash": "sha256:c6d7b3af0d5890b12a6ff6dc772670b78804b89ad3cb238aa0082efdd9d9c058",
+      "started_at": "2026-07-09T08:51:15+00:00",
+      "completed_at": "2026-07-09T08:51:15+00:00",
+      "note": ""
+    },
+    "2": {
+      "name": "证据映射",
+      "status": "completed",
+      "input_hash": "sha256:679ae46d41bca960eadbeb77b24553d558a19c47bd8c4abd16362bf549ebabb1",
+      "output_hash": "sha256:f1858acdd8f2c1b8902cbde09295a5eafed915eebf9fdd1784a43cd4306b9d8e",
+      "started_at": "2026-07-09T08:51:15+00:00",
+      "completed_at": "2026-07-09T08:52:25+00:00",
+      "note": ""
+    },
+    "3": {
+      "name": "根因假设&排查地图",
+      "status": "completed",
+      "input_hash": "sha256:91d84259cd61bc76a3c4a84f7f3956ec0ab458a9868f744ebda6171f2f7d6931",
+      "output_hash": "sha256:94b3a17814b5dfc73e8cfa5c4d7326a3b533f11634745bfbc815ae928409abaa",
+      "started_at": "2026-07-09T08:52:25+00:00",
+      "completed_at": "2026-07-09T08:52:26+00:00",
+      "note": ""
+    },
+    "4": {
+      "name": "Log分析",
+      "status": "completed",
+      "input_hash": "sha256:b3dd06360050f4457fa9d3fd1e5a36eaf9f8ce311d73a55dea86a454b6481ba0",
+      "output_hash": "sha256:88fa4bee8cfdd9493f8bc38aff467bc44c9f873171cb8de17144ccd60a3e43c5",
+      "started_at": "2026-07-09T08:52:28+00:00",
+      "completed_at": "2026-07-09T08:53:08+00:00",
+      "note": ""
+    },
+    "5": {
+      "name": "Trace分析",
+      "status": "completed",
+      "input_hash": "sha256:1777303d4a5e1107ad2fb286f4e9e04f59e718bab5af162a5a459194b45e9b4c",
+      "output_hash": "sha256:7d4aa625deccb8a9a573404d194a42762b26d19e063fc521f09e394ada5db3ac",
+      "started_at": "2026-07-09T08:53:08+00:00",
+      "completed_at": "2026-07-09T08:54:55+00:00",
+      "note": ""
+    },
+    "6": {
+      "name": "代码&Patch匹配",
+      "status": "completed",
+      "input_hash": "sha256:ea6190adf1a187a8dfda254e0ed9e0a3c848c3503eb3504396c16cc8c8af4608",
+      "output_hash": "sha256:d15ff7b2b2b05a928a09fac2976bb0116fb475c413f4c403c29f58ed1d8ee1c0",
+      "started_at": "2026-07-09T08:54:55+00:00",
+      "completed_at": "2026-07-09T08:54:56+00:00",
+      "note": ""
+    },
+    "7": {
+      "name": "综合修复建议",
+      "status": "completed",
+      "input_hash": "sha256:c16edf74ac71964d778b8cbdd9ff17f4a4a6380d989f4f8f7802e8f90e2861d7",
+      "output_hash": "sha256:03b8ec1b81a9366bdbeb842aff6169f6c7832c7fb5602d1287d15d1bd7a30982",
+      "started_at": "2026-07-09T08:54:56+00:00",
+      "completed_at": "2026-07-09T08:54:57+00:00",
+      "note": ""
+    }
+  }
+}

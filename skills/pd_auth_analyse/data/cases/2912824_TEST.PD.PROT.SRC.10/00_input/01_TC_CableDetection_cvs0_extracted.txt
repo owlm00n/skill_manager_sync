@@ -1,0 +1,77 @@
+LeCroy Analyzer Trace File   
+USB Protocol Suite
+USB Protocol Suite
+LeCroy Analyzer Trace File   
+USB Protocol Suite
+USB Protocol Suite
+<gdwX
+Rt|B6U
+DP"uK
+sC=E@
+Teledyne LeCroy USB Compliance Suite Version: 7.92 Build 1198
+USB Protocol Suite Recording Options
+Default
+D:\lecroy\20250218_134952\USB Power Delivery\Preliminary\01_TC_CableDetection_cvs0.usb
+CUsbRecordingRules
+CRRState_Repository
+CRRState_Run
+CRRState_Placeholder
+CUsb3RecordingRules
+CRRState_Repository
+CRRState_Run
+CRRState_Placeholder
+CUsbRecordingRules
+CRRState_Repository
+CRRState_Run
+CRRState_Placeholder
+D:\lecroy\20250218_134952\USB Power Delivery\Preliminary
+01_TC_CableDetection_cvs0
+UNISOC-Z2474-0
+M310e
+X\n5ny
+Pre/Post Trigger
+Pre-trigger
+Post-trigger
+Errors
+Errors
+Warnings
+Types of traffic
+Start of Frame
+Chirp
+NAK'ed Transaction
+Bulk, Interrupt or ISO Transfer
+Control Transfer
+Stalled Transaction
+Suspend
+Reset
+Payload Packet
+Logical Idle
+Link Command
+TSEQ
+LFPS
+Electrical Idle
+Link Management Packet
+Transaction Packet
+Data Packet Header
+Isoch. Timestamp Packet
+Data Packet
+BRST
+BERC
+BCNT
+SYNC
+Protocols of traffic
+USB 2.0 Traffic
+USB 3.2 Host Receive Traffic
+USB 3.2 Host Transmit Traffic
+Packet
+Triggered on Exr Port Rd On (CC1), Power Delivery/CC Packets
+<HTML>VConn_Pass_Thru has been detected.
+PUT has been detected.</HTML>
+CATCWalk
+0-121/Packet/107
+Packet 121/Packet
+<Triggered on Exr Port Rd On (CC1), Power Delivery/CC Packets
+0-210/Packet/107
+Packet 210/Packet
+9VConn_Pass_Thru has been detected.
+PUT has been detected.

@@ -1,0 +1,232 @@
+LeCroy Analyzer Trace File   
+USB Protocol Suite
+USB Protocol Suite
+LeCroy Analyzer Trace File   
+USB Protocol Suite
+USB Protocol Suite
+Teledyne LeCroy USB Compliance Suite Version: 8.03 Build 1226
+USB Protocol Suite Recording Options
+Default
+F:\PD2577_0513\vivo Mobile Communication Co., Ltd.-V2606-0000\20260610_122706\USB Type-C\TD.4.10.3\Repeat_02\02_TD.4.10.3_USB2_Step6-9.usb
+CUsbRecordingRules
+CRRState_Repository
+CRRState_Run
+CRRState_Placeholder
+CUsb3RecordingRules
+CRRState_Repository
+CRRState_Run
+CRRState_Placeholder
+CUsbRecordingRules
+CRRState_Repository
+CRRState_Run
+CRRState_Placeholder
+F:\PD2577_0513\vivo Mobile Communication Co., Ltd.-V2606-0000\20260610_122706\USB Type-C\TD.4.10.3\Repeat_02
+02_TD.4.10.3_USB2_Step6-9
+vivo Mobile Communication Co., Ltd.-V2606-0000
+M310e
+Sqnb
+eqZ1
+wB$4
+rY)W
+T7s5
+{>}>
+}N~y/E
+_8Nw
+{?.w{w
+6Nu_
+~??_
+?)I1|
+K}o'
+]V9rg
+zz//
+f7=\
+S<=O
+}Ka;
+3jvu]
+om3z
+p2[b
+B?Qw
+rl?b
+S>uK3
+w?sO
+i||[
+w_%{
+={O_
+fO{w
+/kg'
+r0=_
+;{4n
+"R^;
+?}ID
+G3zp
+wm7y
+,xoo
+3-l/
+/~fk
+o-{Y
+Wifu
+>9;=\
+~eVy
+Ox{o
+7s9>
+lDG<
+C}0+
+>~/Y
+gn/3
+}&ny
+ouys
+)'|wj
+cv?g
+/c!v
+wy<s
+8bG<N
+'$|s
+P}w{
+Oo/7
+>~_W
+"gyo
+.?_^.
+LG9}4
+{swW
+Xgrw
+=Oz|
+m/?BB
+u9.O
+U}x9
+.yoc
+FKum
+g^bo
+~|9k[
+,g}_
+</>3
+a~!m
+`n.A
+\n.A
+\n.A
+`n.A
+|n.A
+|n.A
+|n.A
+|n.A
+\n.A
+`n.A
+\n.A
+\n.A
+`n.A
+@b.A
+Db.A
+@b.A
+@b.A
+Db.A
+@b.A
+@b.A
+Db.A
+db.A
+db.A
+ b.A
+Db.A
+db.A
+ b.A
+db.A
+@b.A
+`b.A
+@b.A
+db.A
+`b.A
+@b.A
+Db.A
+`b.A
+db.A
+Db.A
+`b.A
+db.A
+db.A
+db.A
+xa.A
+ b.A
+Db.A
+ b.A
+db.A
+@b.A
+@b.A
+db.A
+@b.A
+db.A
+Db.A
+`b.A
+db.A
+db.A
+ b.A
+Db.A
+db.A
+@b.A
+@b.A
+`b.A
+@b.A
+db.A
+`b.A
+@b.A
+db.A
+`b.A
+db.A
+`b.A
+db.A
+|EMl
+#Y9e
+Pre/Post Trigger
+Pre-trigger
+Post-trigger
+Errors
+Errors
+Warnings
+Types of traffic
+Start of Frame
+Chirp
+NAK'ed Transaction
+Bulk, Interrupt or ISO Transfer
+Control Transfer
+Stalled Transaction
+Suspend
+Reset
+Payload Packet
+Logical Idle
+Link Command
+TSEQ
+LFPS
+Electrical Idle
+Link Management Packet
+Transaction Packet
+Data Packet Header
+Isoch. Timestamp Packet
+Data Packet
+BRST
+BERC
+BCNT
+SYNC
+Protocols of traffic
+USB 2.0 Traffic
+USB 3.2 Host Receive Traffic
+USB 3.2 Host Transmit Traffic
+HA N
+Packet
+Triggered on Exr Port Rp On (CC1), Power Delivery/CC Packets
+<HTML>The PUT transitions to Attached.SNK</HTML>
+<HTML>The PUT starts data communications on its D+/D- pair.</HTML>
+<HTML>The PUT is suspended</HTML>
+<HTML>CVS transitions to Disabled</HTML>
+CATCWalk
+0-42983/Packet/107
+Packet 42983/Packet
+<Triggered on Exr Port Rp On (CC1), Power Delivery/CC Packets
+0-42987/Packet/107
+Packet 42987/Packet
+#The PUT transitions to Attached.SNK
+0-43301/Packet/107
+Packet 43301/Packet
+5The PUT starts data communications on its D+/D- pair.
+0-43337/Packet/107
+Packet 43337/Packet
+The PUT is suspended
+0-43344/Packet/107
+Packet 43344/Packet
+CVS transitions to Disabled

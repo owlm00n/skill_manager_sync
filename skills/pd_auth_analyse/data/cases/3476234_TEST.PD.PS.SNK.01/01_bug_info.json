@@ -1,0 +1,27 @@
+{
+  "bug_id": "3476234",
+  "summary": "[UMS9230H][HUAQIN_BD2][PD2577F][16849][手持-智能手机]TEST.PD.PS.SNK.01 PDO Transitions As Sink测试fail",
+  "status": "Assigned",
+  "resolution": "",
+  "severity": "1-Critical",
+  "product": "SPCSS_UMS9230H",
+  "component": "01-BSP-Charge",
+  "creation_time": "2026-07-09T02:13:32Z",
+  "patch_links": [],
+  "bug_category": "pd_auth_cert",
+  "category_reason": "命中 PD 认证强信号: ['PD认证', 'TEST.PD.PS.SNK.01']",
+  "test_id": "TEST.PD.PS.SNK.01",
+  "failure_symptoms": [
+    "TEST.PD.PS.SNK.01 PDO Transitions As Sink测试fail"
+  ],
+  "comments": [],
+  "attachments": [
+    {
+      "name": "unitrans_attachment",
+      "source": "unitrans",
+      "url": "https://unitrans.unisoc.com/share/96875f36-89ed-425a-9f2f-c5f8113945fc",
+      "hint_type": "",
+      "note": "huaqin_BD2/2026-7/SPCSS01684954"
+    }
+  ]
+}

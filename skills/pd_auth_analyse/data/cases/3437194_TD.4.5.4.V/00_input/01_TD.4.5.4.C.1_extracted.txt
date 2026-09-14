@@ -1,0 +1,636 @@
+LeCroy Analyzer Trace File   
+USB Protocol Suite
+USB Protocol Suite
+LeCroy Analyzer Trace File   
+USB Protocol Suite
+USB Protocol Suite
+Teledyne LeCroy USB Compliance Suite Version: 8.03 Build 1226
+USB Protocol Suite Recording Options
+Default
+F:\PD2577_0513\vivo Mobile Communication Co., Ltd.-V2606-0000\vivo Mobile Communication Co., Ltd.-V2606-0\20260601_211246\USB Type-C\TD.4.5.4\Repeat_01\01_TD.4.5.4.C.1.usb
+CUsbRecordingRules
+CRRState_Repository
+CRRState_Run
+CRRState_Placeholder
+CUsb3RecordingRules
+CRRState_Repository
+CRRState_Run
+CRRState_Placeholder
+CUsbRecordingRules
+CRRState_Repository
+CRRState_Run
+CRRState_Placeholder
+F:\PD2577_0513\vivo Mobile Communication Co., Ltd.-V2606-0000\vivo Mobile Communication Co., Ltd.-V2606-0\20260601_211246\USB Type-C\TD.4.5.4\Repeat_01
+01_TD.4.5.4.C.1
+vivo Mobile Communication Co., Ltd.-V2606-0
+M310e
+?_P{
+vpE}
+[Q/}
+]>}8
+\wVf
+:>f"
+7/w"
+_2zu
+_}kG|
+>bdz
+x}p.
+o;_{
+]]_}
+m#_/
+q?Fc
+^~7+
+}|_-
+>mno-
+_;mp
+++y7
+-:Y?
+s|]}'
+";yH
+OJkwN
+>}a/
+|8On_
+W|2W
+c?z7
+CuZG
+}k_7
+[hzg
+C.wW
+9zPA
+|t}J
+{un^z
+o=>k
+0N}]
+rA~ioo7
+#}|k
+_?5y
+85y?s
+VU3g
+s:_?
+qWRu
+~2x''
+vt{'
+fPuwno
+}_G|
+}iM=
+!qhz
+@pW-
+se[l;S
+vg~aS
+8ZCgy
+s{.?
+~{Vt
+?g>/
+zo|K1
+}Lgxc
+LW?'
+f7[I
+T.~g
+g}~T
+x{ex)
+(oOs
+ilf>
+0<*7
+]^zb_
+YUv-o
+uw_w
+8e_^
+v$ro
+/^&'>7
+u[Sm
+oTgd
+syo/
+!oMK
+>_;R
+?V^}
+YS_3
+v}o~nz
+|_W5
+F/;}
+o*'c
+?|7+
+_Zgy
+<j>g
+1&Zg
+^;^t
+C]nW
+,}{6
+|4Z\
+/Irdw
+GyJG
+9\~9b
+;v'}'>
+v3!g
+55qG
+sgK4
+Xo9g
+Qw/q
+7s8zk
+_x/~
+}kQR
+>u|o
+xW}7
+_?'>
+w~X7
+W6GgN
+|:<o
+{6}w
+yf*g
+{m~-_
+yt_9
+?s_ky
+;vn|
+TTOO
+*9.s
+|jgO
+;;?K
+{8${
+.ow#
+c=^W
+g]qJ
+7wM~O
+~=\(
+o-3a
+F|gG
+|N[_
+5|Wx}
+'{|Uzw
+[}sG
+6g?,
+^7y?
+s^vc
+UySJ;
+{8ou
+{:Gn
+';^O|
+ I]c
+t_Hyu
+[zyc 
+})Rr
+w2y_
+I_{{{
+v}y)
+iTVW
+X|3=
+Wd$i
+8j%}
+rzr2
+w.{y
+c_e^
+_-Se
+v@y\m
+i>i{
+tw5=s
+/k}>
+nMo>l
+Ss_W
+~lWO
+_{3b
+nG*}
+k4Cq
+6ai<
+95(}O
+hY'%
+@E_o
+rp3U
+WsUt
+kmf=
+aUvo
+Wwos
+yrl-
+o7aUn
+9dk4
+[m?z
+]^;_
+mnk?~
+g>R3
+.f/v
+r{^H
+{zm}
+uSoo
+|o1O
+gWrg,
+D?y=
+nE:7I
+W>{k
+K{xW
+Oxq<:
+k=TS
+a5w&/5
++Y~uDo
+_7N7
+'q9e
+|Uog:
+<'/_
+Rcp{
+?hnO
+u{?~5
+u=/5
+w]/W
+j|?z
+lS;\
+>y>,
+2g^/)
+_{Y>
+y=r}
+~?F}
+xW%|
+fOS}
+xK7'
+|}W|
+nn{N
+)9:~
+L_#Sq
+*wXw
+GgC:
+VIza
+{{yy
+>x_{
+_{7~
+u:sVO
+TP>u
+U}fy
+g'S>
+Eu}}
+gg$w
+fOix
+~vb+
+^wSn
+&f?Wf
+h_>_c
+}f-I
+Vhfo
+nC[{
+TOwO
+:x__
+\n.A
+\n.A
+\n.A
+|n.A
+`n.A
+|n.A
+\n.A
+|n.A
+\n.A
+`n.A
+|n.A
+\n.A
+|n.A
+\n.A
+db.A
+Db.A
+@b.A
+ b.A
+@b.A
+Db.A
+@b.A
+@b.A
+Db.A
+`b.A
+db.A
+db.A
+@b.A
+Db.A
+`b.A
+db.A
+db.A
+@b.A
+db.A
+db.A
+db.A
+db.A
+`b.A
+db.A
+@b.A
+db.A
+db.A
+Db.A
+@b.A
+db.A
+`b.A
+db.A
+@b.A
+Db.A
+db.A
+`b.A
+db.A
+db.A
+@b.A
+`b.A
+Db.A
+`b.A
+db.A
+db.A
+@b.A
+@b.A
+db.A
+`b.A
+db.A
+|n.A
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+VUUUU
+fwh0
+t8nG?hv
+2UH;
+Pre/Post Trigger
+Pre-trigger
+Post-trigger
+Errors
+Errors
+Warnings
+Types of traffic
+Start of Frame
+Chirp
+NAK'ed Transaction
+Bulk, Interrupt or ISO Transfer
+Control Transfer
+Stalled Transaction
+Suspend
+Reset
+Payload Packet
+Logical Idle
+Link Command
+TSEQ
+LFPS
+Electrical Idle
+Link Management Packet
+Transaction Packet
+Data Packet Header
+Isoch. Timestamp Packet
+Data Packet
+BRST
+BERC
+BCNT
+SYNC
+Protocols of traffic
+USB 2.0 Traffic
+USB 3.2 Host Receive Traffic
+USB 3.2 Host Transmit Traffic
+Packet
+<HTML>Triggered on Exr Port Rp On (CC1), Power Delivery/CC Packets</HTML></HTML>
+<HTML>The PUT transition to Attached.SNK.</HTML>
+<HTML>UUT sent a request</HTML>
+<HTML>CVS starts to transmit Discover ID PD messaging for 200ms</HTML>
+<HTML>The PUT starts data communications on its D+/D- pair.</HTML>
+<HTML>CVS source VBUS to meet 3.7V at the PUT connector</HTML>
+<HTML>CVS removed Rp</HTML>
+<HTML>PUT removed Rd</HTML>
+<HTML>CVS applies Rd</HTML>
+<HTML>The PUT transitioned to AttachWait.SRC</HTML>
+<HTML>The PUT transition to Attached.SRC</HTML>
+CATCWalk
+0-87777/Packet/107
+Packet 87777/Packet
+<Triggered on Exr Port Rp On (CC1), Power Delivery/CC Packets
+0-87781/Packet/107
+Packet 87781/Packet
+#The PUT transition to Attached.SNK.
+0-87985/Packet/107
+Packet 87985/Packet
+UUT sent a request
+0-87991/Packet/107
+Packet 87991/Packet
+9CVS starts to transmit Discover ID PD messaging for 200ms
+0-88274/Packet/107
+Packet 88274/Packet
+5The PUT starts data communications on its D+/D- pair.
+0-93638/Packet/107
+Packet 93638/Packet
+1CVS source VBUS to meet 3.7V at the PUT connector
+0-94335/Packet/107
+Packet 94335/Packet
+CVS removed Rp
+0-94634/Packet/107
+Packet 94634/Packet
+PUT removed Rd
+0-95751/Packet/107
+Packet 95751/Packet
+CVS applies Rd
+0-95752/Packet/107
+Packet 95752/Packet
+&The PUT transitioned to AttachWait.SRC
+0-95753/Packet/107
+Packet 95753/Packet
+"The PUT transition to Attached.SRC

@@ -1,0 +1,266 @@
+{
+  "bug_id": "3442513",
+  "test_id": "TD.4.10.3.V",
+  "functions_searched": [
+    "sc27xx_typec_state_machine",
+    "typec_send_source_cap",
+    "cc_detect_debounce",
+    "sgm41512_set_vinlimit",
+    "musb_gadget_vbus_draw",
+    "charger_manager_vbus_control"
+  ],
+  "functions_found": [
+    {
+      "function_name": "sc27xx_typec_state_machine ~(fuzzy: sc27xx)",
+      "file_path": "F:\\05_Code\\UNISOC\\SPRDLINUX6.6_KERNEL_MAIN_W26.12.4_codeonly\\idh.code\\kernel6.6\\unisoc\\drivers\\unisoc_platform\\sprd_charger\\sc27xx_fast_charger.c",
+      "line_start": 180,
+      "line_end": 200,
+      "found": true
+    },
+    {
+      "function_name": "sc27xx_typec_state_machine ~(fuzzy: sc27xx)",
+      "file_path": "F:\\05_Code\\UNISOC\\SPRDLINUX6.6_KERNEL_MAIN_W26.12.4_codeonly\\idh.code\\kernel6.6\\unisoc\\drivers\\unisoc_platform\\sprd_charger\\sc27xx_fast_charger.c",
+      "line_start": 243,
+      "line_end": 263,
+      "found": true
+    },
+    {
+      "function_name": "sc27xx_typec_state_machine ~(fuzzy: sc27xx)",
+      "file_path": "F:\\05_Code\\UNISOC\\SPRDLINUX6.6_KERNEL_MAIN_W26.12.4_codeonly\\idh.code\\kernel6.6\\unisoc\\drivers\\unisoc_platform\\sprd_charger\\sc27xx_fast_charger.c",
+      "line_start": 288,
+      "line_end": 308,
+      "found": true
+    },
+    {
+      "function_name": "sc27xx_typec_state_machine ~(fuzzy: sc27xx)",
+      "file_path": "F:\\05_Code\\UNISOC\\SPRDLINUX6.6_KERNEL_MAIN_W26.12.4_codeonly\\idh.code\\kernel6.6\\unisoc\\drivers\\unisoc_platform\\sprd_charger\\sc27xx_fast_charger.c",
+      "line_start": 316,
+      "line_end": 336,
+      "found": true
+    },
+    {
+      "function_name": "sc27xx_typec_state_machine ~(fuzzy: sc27xx)",
+      "file_path": "F:\\05_Code\\UNISOC\\SPRDLINUX6.6_KERNEL_MAIN_W26.12.4_codeonly\\idh.code\\kernel6.6\\unisoc\\drivers\\unisoc_platform\\sprd_charger\\sc27xx_fast_charger.c",
+      "line_start": 401,
+      "line_end": 421,
+      "found": true
+    },
+    {
+      "function_name": "typec_send_source_cap ~(fuzzy: typec)",
+      "file_path": "F:\\05_Code\\UNISOC\\SPRDLINUX6.6_KERNEL_MAIN_W26.12.4_codeonly\\idh.code\\kernel6.6\\unisoc\\drivers\\unisoc_platform\\sprd_charger\\sprd_fuel_gauge_core.c",
+      "line_start": 3561,
+      "line_end": 3581,
+      "found": true
+    },
+    {
+      "function_name": "typec_send_source_cap ~(fuzzy: typec)",
+      "file_path": "F:\\05_Code\\UNISOC\\SPRDLINUX6.6_KERNEL_MAIN_W26.12.4_codeonly\\idh.code\\kernel6.6\\unisoc\\drivers\\unisoc_platform\\sprd_charger\\sprd_vchg_detect.c",
+      "line_start": 255,
+      "line_end": 275,
+      "found": true
+    },
+    {
+      "function_name": "typec_send_source_cap ~(fuzzy: typec)",
+      "file_path": "F:\\05_Code\\UNISOC\\SPRDLINUX6.6_KERNEL_MAIN_W26.12.4_codeonly\\idh.code\\kernel6.6\\unisoc\\drivers\\unisoc_platform\\sprd_charger\\sprd_vchg_detect.c",
+      "line_start": 320,
+      "line_end": 340,
+      "found": true
+    },
+    {
+      "function_name": "typec_send_source_cap ~(fuzzy: typec)",
+      "file_path": "F:\\05_Code\\UNISOC\\SPRDLINUX6.6_KERNEL_MAIN_W26.12.4_codeonly\\idh.code\\kernel6.6\\unisoc\\drivers\\unisoc_platform\\sprd_charger\\power_delivery\\sc27xx_pd.c",
+      "line_start": 70,
+      "line_end": 90,
+      "found": true
+    },
+    {
+      "function_name": "typec_send_source_cap ~(fuzzy: typec)",
+      "file_path": "F:\\05_Code\\UNISOC\\SPRDLINUX6.6_KERNEL_MAIN_W26.12.4_codeonly\\idh.code\\kernel6.6\\unisoc\\drivers\\unisoc_platform\\sprd_charger\\power_delivery\\sc27xx_pd.c",
+      "line_start": 98,
+      "line_end": 118,
+      "found": true
+    },
+    {
+      "function_name": "cc_detect_debounce ~(fuzzy: detect)",
+      "file_path": "F:\\05_Code\\UNISOC\\SPRDLINUX6.6_KERNEL_MAIN_W26.12.4_codeonly\\idh.code\\kernel6.6\\unisoc\\drivers\\unisoc_platform\\sprd_charger\\fan54015-charger.c",
+      "line_start": 1094,
+      "line_end": 1114,
+      "found": true
+    },
+    {
+      "function_name": "cc_detect_debounce ~(fuzzy: detect)",
+      "file_path": "F:\\05_Code\\UNISOC\\SPRDLINUX6.6_KERNEL_MAIN_W26.12.4_codeonly\\idh.code\\kernel6.6\\unisoc\\drivers\\unisoc_platform\\sprd_charger\\fan54015-charger.c",
+      "line_start": 1149,
+      "line_end": 1169,
+      "found": true
+    },
+    {
+      "function_name": "cc_detect_debounce ~(fuzzy: detect)",
+      "file_path": "F:\\05_Code\\UNISOC\\SPRDLINUX6.6_KERNEL_MAIN_W26.12.4_codeonly\\idh.code\\kernel6.6\\unisoc\\drivers\\unisoc_platform\\sprd_charger\\hl7139-charger.c",
+      "line_start": 1113,
+      "line_end": 1133,
+      "found": true
+    },
+    {
+      "function_name": "cc_detect_debounce ~(fuzzy: detect)",
+      "file_path": "F:\\05_Code\\UNISOC\\SPRDLINUX6.6_KERNEL_MAIN_W26.12.4_codeonly\\idh.code\\kernel6.6\\unisoc\\drivers\\unisoc_platform\\sprd_charger\\hl7139-charger.c",
+      "line_start": 2221,
+      "line_end": 2241,
+      "found": true
+    },
+    {
+      "function_name": "cc_detect_debounce ~(fuzzy: detect)",
+      "file_path": "F:\\05_Code\\UNISOC\\SPRDLINUX6.6_KERNEL_MAIN_W26.12.4_codeonly\\idh.code\\kernel6.6\\unisoc\\drivers\\unisoc_platform\\sprd_charger\\sc27xx_fast_charger.c",
+      "line_start": 288,
+      "line_end": 308,
+      "found": true
+    },
+    {
+      "function_name": "musb_gadget_vbus_draw ~(fuzzy: vbus)",
+      "file_path": "F:\\05_Code\\UNISOC\\SPRDLINUX6.6_KERNEL_MAIN_W26.12.4_codeonly\\idh.code\\kernel6.6\\unisoc\\drivers\\unisoc_platform\\sprd_charger\\fan54015-charger.c",
+      "line_start": 960,
+      "line_end": 980,
+      "found": true
+    },
+    {
+      "function_name": "musb_gadget_vbus_draw ~(fuzzy: vbus)",
+      "file_path": "F:\\05_Code\\UNISOC\\SPRDLINUX6.6_KERNEL_MAIN_W26.12.4_codeonly\\idh.code\\kernel6.6\\unisoc\\drivers\\unisoc_platform\\sprd_charger\\fan54015-charger.c",
+      "line_start": 1020,
+      "line_end": 1040,
+      "found": true
+    },
+    {
+      "function_name": "musb_gadget_vbus_draw ~(fuzzy: vbus)",
+      "file_path": "F:\\05_Code\\UNISOC\\SPRDLINUX6.6_KERNEL_MAIN_W26.12.4_codeonly\\idh.code\\kernel6.6\\unisoc\\drivers\\unisoc_platform\\sprd_charger\\fan54015-charger.c",
+      "line_start": 1039,
+      "line_end": 1059,
+      "found": true
+    },
+    {
+      "function_name": "musb_gadget_vbus_draw ~(fuzzy: vbus)",
+      "file_path": "F:\\05_Code\\UNISOC\\SPRDLINUX6.6_KERNEL_MAIN_W26.12.4_codeonly\\idh.code\\kernel6.6\\unisoc\\drivers\\unisoc_platform\\sprd_charger\\fan54015-charger.c",
+      "line_start": 1083,
+      "line_end": 1103,
+      "found": true
+    },
+    {
+      "function_name": "musb_gadget_vbus_draw ~(fuzzy: vbus)",
+      "file_path": "F:\\05_Code\\UNISOC\\SPRDLINUX6.6_KERNEL_MAIN_W26.12.4_codeonly\\idh.code\\kernel6.6\\unisoc\\drivers\\unisoc_platform\\sprd_charger\\fan54015-charger.c",
+      "line_start": 1088,
+      "line_end": 1108,
+      "found": true
+    },
+    {
+      "function_name": "charger_manager_vbus_control ~(fuzzy: charger)",
+      "file_path": "F:\\05_Code\\UNISOC\\SPRDLINUX6.6_KERNEL_MAIN_W26.12.4_codeonly\\idh.code\\kernel6.6\\unisoc\\drivers\\unisoc_platform\\sprd_charger\\fan54015-charger.c",
+      "line_start": 133,
+      "line_end": 153,
+      "found": true
+    },
+    {
+      "function_name": "charger_manager_vbus_control ~(fuzzy: charger)",
+      "file_path": "F:\\05_Code\\UNISOC\\SPRDLINUX6.6_KERNEL_MAIN_W26.12.4_codeonly\\idh.code\\kernel6.6\\unisoc\\drivers\\unisoc_platform\\sprd_charger\\fan54015-charger.c",
+      "line_start": 168,
+      "line_end": 188,
+      "found": true
+    },
+    {
+      "function_name": "charger_manager_vbus_control ~(fuzzy: charger)",
+      "file_path": "F:\\05_Code\\UNISOC\\SPRDLINUX6.6_KERNEL_MAIN_W26.12.4_codeonly\\idh.code\\kernel6.6\\unisoc\\drivers\\unisoc_platform\\sprd_charger\\fan54015-charger.c",
+      "line_start": 182,
+      "line_end": 202,
+      "found": true
+    },
+    {
+      "function_name": "charger_manager_vbus_control ~(fuzzy: charger)",
+      "file_path": "F:\\05_Code\\UNISOC\\SPRDLINUX6.6_KERNEL_MAIN_W26.12.4_codeonly\\idh.code\\kernel6.6\\unisoc\\drivers\\unisoc_platform\\sprd_charger\\fan54015-charger.c",
+      "line_start": 198,
+      "line_end": 218,
+      "found": true
+    },
+    {
+      "function_name": "charger_manager_vbus_control ~(fuzzy: charger)",
+      "file_path": "F:\\05_Code\\UNISOC\\SPRDLINUX6.6_KERNEL_MAIN_W26.12.4_codeonly\\idh.code\\kernel6.6\\unisoc\\drivers\\unisoc_platform\\sprd_charger\\fan54015-charger.c",
+      "line_start": 224,
+      "line_end": 244,
+      "found": true
+    }
+  ],
+  "patches": [
+    {
+      "url": "http://uni-patch.unisoc.com/",
+      "description": "",
+      "applied_in_customer": null,
+      "note": "需人工确认是否已合入客户代码"
+    },
+    {
+      "url": "http://uni-patch.unisoc.com/add-samplecode",
+      "description": "",
+      "applied_in_customer": null,
+      "note": "需人工确认是否已合入客户代码"
+    }
+  ],
+  "customer_code_dirs": [
+    "E:\\08_Bug\\CQ\\Bug 3442513(SPCSS01672238) - [UMS9230H][HUAQIN_BD2][PD draws power greater than 25 mW\\Attachements\\0610\\vivo-sgm41512_charger_new.c",
+    "E:\\08_Bug\\CQ\\Bug 3442513(SPCSS01672238) - [UMS9230H][HUAQIN_BD2][PD draws power greater than 25 mW\\Attachements\\SPCSS01672238\\0610\\vivo-sgm41512_charger_new.c",
+    "E:\\08_Bug\\CQ\\Bug 3442513(SPCSS01672238) - [UMS9230H][HUAQIN_BD2][PD draws power greater than 25 mW\\Attachements\\SPCSS01672238\\vivo-sgm41512_charger_new.c",
+    "E:\\08_Bug\\CQ\\Bug 3442513(SPCSS01672238) - [UMS9230H][HUAQIN_BD2][PD draws power greater than 25 mW\\Attachements\\vivo-sgm41512_charger_new.c",
+    "E:\\08_Bug\\Task\\Bug 3442513(SPCSS01672238) - [UMS9230H][HUAQIN_BD2][PDraws power greater than 25 mW\\Attachements\\SPCSS01672238\\vivo-sgm41512_charger_new.c"
+  ],
+  "findings": [
+    {
+      "function_name": "sc27xx_typec_state_machine",
+      "hypothesis": "CC检测与PD通信时序配合",
+      "in_customer_code": true,
+      "customer_file": "E:\\08_Bug\\CQ\\Bug 3442513(SPCSS01672238) - [UMS9230H][HUAQIN_BD2][PD draws power greater than 25 mW\\Attachements\\0610\\vivo-sgm41512_charger_new.c\\vivo-sgm41512_charger_new-200265d96c322e17975db3308808df60.c",
+      "customer_line": 4536,
+      "diff_summary": "有差异",
+      "severity": "warning"
+    },
+    {
+      "function_name": "typec_send_source_cap",
+      "hypothesis": "CC检测与PD通信时序配合",
+      "in_customer_code": true,
+      "customer_file": "E:\\08_Bug\\CQ\\Bug 3442513(SPCSS01672238) - [UMS9230H][HUAQIN_BD2][PD draws power greater than 25 mW\\Attachements\\0610\\vivo-sgm41512_charger_new.c\\vivo-sgm41512_charger_new-200265d96c322e17975db3308808df60.c",
+      "customer_line": 4113,
+      "diff_summary": "有差异",
+      "severity": "warning"
+    },
+    {
+      "function_name": "cc_detect_debounce",
+      "hypothesis": "CC检测与PD通信时序配合",
+      "in_customer_code": true,
+      "customer_file": "E:\\08_Bug\\CQ\\Bug 3442513(SPCSS01672238) - [UMS9230H][HUAQIN_BD2][PD draws power greater than 25 mW\\Attachements\\0610\\vivo-sgm41512_charger_new.c\\vivo-sgm41512_charger_new-200265d96c322e17975db3308808df60.c",
+      "customer_line": 3087,
+      "diff_summary": "有差异",
+      "severity": "warning"
+    },
+    {
+      "function_name": "sgm41512_set_vinlimit",
+      "hypothesis": "VBUS限流/HIZ控制异常",
+      "in_customer_code": true,
+      "customer_file": "E:\\08_Bug\\CQ\\Bug 3442513(SPCSS01672238) - [UMS9230H][HUAQIN_BD2][PD draws power greater than 25 mW\\Attachements\\0610\\vivo-sgm41512_charger_new.c\\vivo-sgm41512_charger_new-200265d96c322e17975db3308808df60.c",
+      "customer_line": 538,
+      "diff_summary": "参考代码中未找到",
+      "severity": "info"
+    },
+    {
+      "function_name": "musb_gadget_vbus_draw",
+      "hypothesis": "VBUS限流/HIZ控制异常",
+      "in_customer_code": true,
+      "customer_file": "E:\\08_Bug\\CQ\\Bug 3442513(SPCSS01672238) - [UMS9230H][HUAQIN_BD2][PD draws power greater than 25 mW\\Attachements\\0610\\vivo-sgm41512_charger_new.c\\vivo-sgm41512_charger_new-200265d96c322e17975db3308808df60.c",
+      "customer_line": 192,
+      "diff_summary": "有差异",
+      "severity": "warning"
+    },
+    {
+      "function_name": "charger_manager_vbus_control",
+      "hypothesis": "VBUS限流/HIZ控制异常",
+      "in_customer_code": true,
+      "customer_file": "E:\\08_Bug\\CQ\\Bug 3442513(SPCSS01672238) - [UMS9230H][HUAQIN_BD2][PD draws power greater than 25 mW\\Attachements\\0610\\vivo-sgm41512_charger_new.c\\vivo-sgm41512_charger_new-200265d96c322e17975db3308808df60.c",
+      "customer_line": 2708,
+      "diff_summary": "有差异",
+      "severity": "warning"
+    }
+  ]
+}

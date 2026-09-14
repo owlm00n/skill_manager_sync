@@ -1,0 +1,120 @@
+LeCroy Analyzer Trace File   
+USB Protocol Suite
+USB Protocol Suite
+LeCroy Analyzer Trace File   
+USB Protocol Suite
+USB Protocol Suite
+Teledyne LeCroy USB Compliance Suite Version: 8.03 Build 1226
+USB Protocol Suite Recording Options
+Default
+E:\PD2577(06)\vivo Mobile Communication Co., Ltd.-V2606-0000\20260706_210703\USB Power Delivery\TEST.PD.PS.SNK.1\Repeat_03\02_TEST.PD.PS.SNK.1_Rev3ChkdSnk.usb
+CUsbRecordingRules
+CRRState_Repository
+CRRState_Run
+CRRState_Placeholder
+CUsb3RecordingRules
+CRRState_Repository
+CRRState_Run
+CRRState_Placeholder
+CUsbRecordingRules
+CRRState_Repository
+CRRState_Run
+CRRState_Placeholder
+E:\PD2577(06)\vivo Mobile Communication Co., Ltd.-V2606-0000\20260706_210703\USB Power Delivery\TEST.PD.PS.SNK.1\Repeat_03
+02_TEST.PD.PS.SNK.1_Rev3ChkdSnk
+vivo Mobile Communication Co., Ltd.-V2606-0000
+M310e
+/5`S
+Pre/Post Trigger
+Pre-trigger
+Post-trigger
+Errors
+Errors
+Warnings
+Types of traffic
+Start of Frame
+Chirp
+NAK'ed Transaction
+Bulk, Interrupt or ISO Transfer
+Control Transfer
+Stalled Transaction
+Suspend
+Reset
+Payload Packet
+Logical Idle
+Link Command
+TSEQ
+LFPS
+Electrical Idle
+Link Management Packet
+Transaction Packet
+Data Packet Header
+Isoch. Timestamp Packet
+Data Packet
+BRST
+BERC
+BCNT
+SYNC
+Protocols of traffic
+USB 2.0 Traffic
+USB 3.2 Host Receive Traffic
+USB 3.2 Host Transmit Traffic
+&BA N
+Packet
+Triggered on Exr Port Rp On (CC1), Exr Port Ra On (CC2), Power Delivery/CC Packets
+<HTML>Negotiation Completed</HTML>
+<HTML>The Tester sends a Get_Sink_Cap message to the UUT</HTML>
+<HTML>Err#  0x00FD: COMMON.CHECK.PD.12.1 The Number of Data Objects did not match the vendor value.
+Err#  0x01CD: COMMON.CHECK.PD.12.1 The supply types in the Sink Capabilities message did not match the supply types declared by the vendor in the Vendor Information File.
+The UUT sent a Sink Capabilities message</HTML>
+<HTML>The UUT sent Request message</HTML>
+<HTML>Err#  0x02A8: COMMON.CHECK.PD.5.2 The UUT was not allowed to send Hard_Reset signal.</HTML>
+<HTML>Err#  0x0525: COMMON.CHECK.PD.5.5 The UUT unexpectedly performs an Error Recovery.</HTML>
+<HTML>Err#  0x02A8: COMMON.CHECK.PD.5.2 The UUT was not allowed to send Hard_Reset signal.</HTML>
+<HTML>Err#  0x02A8: COMMON.CHECK.PD.5.2 The UUT was not allowed to send Hard_Reset signal.</HTML>
+<HTML>Negotiation Completed</HTML>
+<HTML>End of the Common-Checks.</HTML>
+<HTML>[TEST.PD.PS.SNK.1#2] The tester did not send Source_Capabilities message.
+[TEST.PD.PS.SNK.1#2] The UUT did not send a Request message.
+[TEST.PD.PS.SNK.1#7] The UUT did not send a Request message.</HTML>
+CATCWalk
+0-108/Packet/107
+Packet 108/Packet
+Negotiation Completed
+0-112/Packet/107
+Packet 112/Packet
+2The Tester sends a Get_Sink_Cap message to the UUT
+0-114/Packet/107
+Packet 114/Packet
+1Err#  0x00FD: COMMON.CHECK.PD.12.1 The Number of Data Objects did not match the vendor value.
+Err#  0x01CD: COMMON.CHECK.PD.12.1 The supply types in the Sink Capabilities message did not match the supply types declared by the vendor in the Vendor Information File.
+The UUT sent a Sink Capabilities message
+0-120/Packet/107
+Packet 120/Packet
+The UUT sent Request message
+0-131/Packet/107
+Packet 131/Packet
+TErr#  0x02A8: COMMON.CHECK.PD.5.2 The UUT was not allowed to send Hard_Reset signal.
+0-134/Packet/107
+Packet 134/Packet
+RErr#  0x0525: COMMON.CHECK.PD.5.5 The UUT unexpectedly performs an Error Recovery.
+0-138/Packet/107
+Packet 138/Packet
+TErr#  0x02A8: COMMON.CHECK.PD.5.2 The UUT was not allowed to send Hard_Reset signal.
+0-141/Packet/107
+Packet 141/Packet
+TErr#  0x02A8: COMMON.CHECK.PD.5.2 The UUT was not allowed to send Hard_Reset signal.
+0-166/Packet/107
+Packet 166/Packet
+Negotiation Completed
+0-170/Packet/107
+Packet 170/Packet
+End of the Common-Checks.
+0-209/Packet/107
+Packet 209/Packet
+[TEST.PD.PS.SNK.1#2] The tester did not send Source_Capabilities message.
+[TEST.PD.PS.SNK.1#2] The UUT did not send a Request message.
+[TEST.PD.PS.SNK.1#7] The UUT did not send a Request message.
+0-97/Packet/107
+Packet 97/Packet
+RTriggered on Exr Port Rp On (CC1), Exr Port Ra On (CC2), Power Delivery/CC Packets

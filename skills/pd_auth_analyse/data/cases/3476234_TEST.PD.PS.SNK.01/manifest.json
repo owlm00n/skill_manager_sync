@@ -1,0 +1,63 @@
+{
+  "bug_id": "3476234",
+  "test_id": "TEST.PD.PS.SNK.01",
+  "case_path": "D:\\06_Project\\pd_auth_analyse\\data\\cases\\3476234_TEST.PD.PS.SNK.01",
+  "created": "2026-07-09",
+  "steps": {
+    "1": {
+      "status": "completed",
+      "input_hash": "",
+      "output_hash": ""
+    },
+    "2": {
+      "status": "completed",
+      "input_hash": "sha256:618ae210a5636d2e302e882dbd5adc6c6bedcb5118488ebac24988a128beb02d",
+      "output_hash": "sha256:89377e72edda96b82fb26d4a309b4344fb4c1990485427799eceb241a2ab19fd",
+      "started_at": "2026-07-10T02:14:54+00:00",
+      "completed_at": "2026-07-10T02:15:05+00:00",
+      "note": ""
+    },
+    "3": {
+      "status": "completed",
+      "input_hash": "sha256:7fa78666541a8d79286817226671c33f5e8c7543690bc6f115f9f7f171063a65",
+      "output_hash": "sha256:2d4f68258bc8a4daabb4e3bd6164d0292cdab88e767b0ce9617e0f36032fd26b",
+      "started_at": "2026-07-10T02:15:22+00:00",
+      "completed_at": "2026-07-10T02:15:23+00:00",
+      "note": ""
+    },
+    "4": {
+      "status": "completed",
+      "input_hash": "sha256:0c65fa2a769783e72fba842e5167bfbce52116f79c8b7fb0376f16e998670b62",
+      "output_hash": "sha256:719c06b8eb1888af704994bcb5439dd2b0f6f3ebe623256133cfda1539528fed",
+      "started_at": "2026-07-10T02:15:37+00:00",
+      "completed_at": "2026-07-10T02:16:20+00:00",
+      "note": ""
+    },
+    "5": {
+      "status": "completed",
+      "input_hash": "sha256:2fdd30bdaf7e04a235ff86d109405bb2af595edcf92b19fb54a84774a52c08d1",
+      "output_hash": "sha256:26b90090a4c361f418eccb5074b094f0a083b2d72c8cd887b550d01ff5c745bf",
+      "started_at": "2026-07-10T02:16:34+00:00",
+      "completed_at": "2026-07-10T02:17:52+00:00",
+      "note": ""
+    },
+    "6": {
+      "status": "completed",
+      "input_hash": "sha256:8183d055f40b3339b8718e9d36d31bc9ba2c936e07be3887321a7d13e05b2015",
+      "output_hash": "sha256:74dc585cde0523b70e9ea2814de1964334ff81be0e4a2b356466c93678208528",
+      "started_at": "2026-07-10T02:18:05+00:00",
+      "completed_at": "2026-07-10T02:18:09+00:00",
+      "note": ""
+    },
+    "7": {
+      "status": "completed",
+      "input_hash": "sha256:200060f400004a351f68f2ad53caca7e944d6ae2c275d649146a484063764b92",
+      "output_hash": "sha256:067d3b043d7caebe94987a77b6cd7cd39e0c9b9bee288a312ed56d85c985bd4b",
+      "started_at": "2026-07-10T02:18:22+00:00",
+      "completed_at": "2026-07-10T02:18:22+00:00",
+      "note": ""
+    }
+  },
+  "updated_at": "2026-07-10T02:18:22+00:00",
+  "status": "completed"
+}
