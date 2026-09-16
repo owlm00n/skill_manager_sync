@@ -430,6 +430,19 @@ python D:/06_Project/skills_sync/skills/keyword-vault/keyword_vault.py show "{�
 
 ---
 
+## RAGFlow 语义检索集成（实验性）
+
+> 完整 RAGFlow 文档已迁移至 `knowledge/ragflow_integration.md`，包含 API 端点、知识库映射、使用方法、健康检查和已知问题。
+>
+> **快速使用：**
+> - 检索接口：`POST http://10.30.12.54:81/api/v1/dify/retrieval`
+> - 执行脚本：`scripts/ragflow_search.py`
+> - 健康检查：`python scripts/ragflow_search.py --health`
+>
+> 各 Phase 的 RAGFlow 检索命令和参数详见 `knowledge/ragflow_integration.md`。
+
+---
+
 ## 幂等 & 执行控制
 
 - 每 Phase 完成后更新 `manifest.json`
