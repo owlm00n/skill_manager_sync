@@ -11,12 +11,12 @@ presets:
   # 通用基础（所有 agent 建议激活）
   universal:
     description: "所有 agent 通用基础 skill"
-    skills: ["find-skills", "skill-creator", "hello-skill", "demo-test", "code-puller", "bug-rootcause"]
+    skills: ["find-skills", "skill-creator", "hello-skill", "demo-test", "code-puller", "bug-rootcause", "cnblogs-publish"]
 
   # 调试工具
   debug-toolkit:
     description: "Bug 调试核心工具"
-    skills: ["bug-core", "bug-workspace", "log-analyzer", "code-generator", "adb-helper", "ylog-helper"]
+    skills: ["bug-core", "bug-workspace", "log-analyzer", "code-generator", "adb-helper", "ylog-helper", "uart-helper"]
 
   # 协议分析
   protocol:
@@ -41,7 +41,7 @@ presets:
   # 知识库/外部集成
   knowledge:
     description: "知识库与外部集成"
-    skills: ["aifoundry-kb", "apply-comments", "grill-me"]
+    skills: ["aifoundry-kb", "apply-comments", "grill-me", "ragflow-kb-audit", "ragflow-doc-advisor"]
 
 # ── Agent 目标配置 ─────────────────────────
 # skills 字段为额外过滤器：["*"] 或不填 = 接收 active_presets 的全部 skill
