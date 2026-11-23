@@ -77,59 +77,197 @@ tags: [bugzilla, workspace, unc, download, shortcut, orchestration, material-acq
 **失败模式识别**：
 - 看到 `exit 127` + `No such file or directory` + 路径中反斜杠消失 → 立即切换到临时脚本方式，不要重试内联写法。
 
+### 规则 5: SPCSS Bug 路由规则（CQ/ 或 Task/ 子目录），使用 alias 命名
+
+**SPCSS ID（如 `SPCSS01701938`）是客户 CQ Bug，不是 Bugzilla 原生 ID。** 创建 SPCSS Bug 工作区前，必须先解析 alias → 获取真实的 Bugzilla ID，然后根据 Bug 类型路由到对应子目录。
+
+```
+1. 检测 Bug ID 格式：SPCSS 开头 → 触发 SPCSS 路由流程
+2. 调用 bug-core REST API 解析 alias：GET /rest/bug?quicksearch=SPCSS01701938
+3. 获取返回的 Bugzilla ID（如 3575241）和 title
+4. 检查 Bug 类型（cf_change_type 字段）：
+   - EnhancementRequest → 路由到 Task/ 子目录（通过 routing_key="task" 显式指定）
+   - Defect/其他 → 路由到 CQ/ 子目录（默认）
+5. 工作区路径：
+   - CQ: {default_workspace}\CQ\Bug {bugzilla_id}({alias}) - {title}
+   - Task: {default_workspace}\Task\Bug {bugzilla_id}({alias}) - {title}
+```
+
+**路由逻辑**（从 `config/bugzilla_instances.json` 的 `workspace_routing` 读取）：
+
+| Bug ID 格式 | Bug 类型 | 路由目标 | 命名格式 | 示例 |
+|------------|---------|---------|---------|------|
+| `SPCSS` 开头 | Defect（默认） | `{default_workspace}\CQ\` | `Bug {bugzilla_id}({alias}) - {title}` | `Bug 3575241(SPCSS01701938) - ...` |
+| `SPCSS` 开头 | **EnhancementRequest** | `{default_workspace}\Task\` | `Bug {bugzilla_id}({alias}) - {title}` | `Bug 3556952(SPCSS01701701) - ...` |
+| 纯数字 | — | `{default_workspace}\` | `Bug {id} - {title}` | `Bug 219041 - USB enumeration timeout` |
+
+> **Task 路由使用 `routing_key="task"` 机制**：由于 EnhancementRequest 和 Defect 使用相同的 SPCSS pattern，无法通过 pattern 自动区分。Task routing 配置了 `manual_only: true`，必须由调用方显式传 `routing_key="task"` 来触发。代码调用方式：
+> ```python
+> generate_workspace_with_download(bug, routing_key="task")
+> ```
+
+**错误示例**（违反规则 5）：
+- `E:\08_Bug\SPCSS01701938` — SPCSS Bug 放在根目录，且没有 Bugzilla ID 和括号 alias
+- `E:\08_Bug\CQ\Bug SPCSS01701938 - ...` — 使用 SPCSS 前缀+alias，但缺少 Bugzilla ID
+- EnhancementRequest 类型的 SPCSS Bug 放在 `CQ/` 目录 — 应该放在 `Task/` 目录
+
+**正确示例**：
+- `E:\08_Bug\CQ\Bug 3575241(SPCSS01701938) - [UMS9370] HADCI7 voltage read 0`
+- `E:\08_Bug\Task\Bug 3556952(SPCSS01701701) - [UMS9360][HUAQIN_BD2] PD2614F Vsim OCP`
+- `E:\08_Bug\Bug 219041 - USB enumeration timeout`
+
+### 规则 6: 文件夹命名必须运行 get_bug_folder_name.py 脚本，禁止 AI 手动实现
+
+**⛔ AI 绝对禁止手动拼接文件夹名。** 命名规则必须严格复刻 `D:\05_Code\python\bugzila\fetch_buginfo_by_API_UI.py` 的完整逻辑。
+
+脚本位置: `C:\Users\xianjun.zeng\.claude\skills\bug-core\get_bug_folder_name.py`
+
+```
+1. 获取 Bug 信息后，运行脚本获取规范文件夹名
+2. 脚本精确复刻原工具逻辑（fetch_summary → 非法字符替换 → 路径长度截断）
+3. AI 只使用脚本输出的 folder_name 字段，不做任何额外处理
+```
+
+**用法**：
+
+```bash
+# 已知 Bug 信息（alias + title），跳过 API 调用（推荐）
+python "C:/Users/xianjun.zeng/.claude/skills/bug-core/get_bug_folder_name.py" <bug_id> --alias <alias> --title <title> --base-path <base_path>
+
+# 从 Bugzilla API JSON 数据解析
+python "C:/Users/xianjun.zeng/.claude/skills/bug-core/get_bug_folder_name.py" --json '<bug_json>' --base-path <base_path>
+
+# 自动解析 SPCSS/Unicase alias（会调用 REST API）
+python "C:/Users/xianjun.zeng/.claude/skills/bug-core/get_bug_folder_name.py" <bug_id> --base-path <base_path>
+```
+
+**脚本输出** (JSON):
+```json
+{
+  "folder_name": "Bug 3575241(SPCSS01701938) - [UMS9370][longcheer_BU6] HADCI7 voltage read 0",
+  "bug_id": "3575241",
+  "alias": "SPCSS01701938",
+  "summary": "[UMS9370][longcheer_BU6] HADCI7 voltage read 0",
+  "raw_title": "3575241(SPCSS01701938) - [UMS9370][longcheer_BU6] HADCI7 voltage read 0",
+  "cleaned_title": "3575241(SPCSS01701938) - [UMS9370][longcheer_BU6] HADCI7 voltage read 0",
+  "is_truncated": false
+}
+```
+
+**AI 必须遵守**：
+- ✅ 运行脚本 → 使用输出的 `folder_name`
+- ❌ 手动拼接 `f"Bug {bug_id}({alias}) - {summary}"` — 禁止
+- ❌ 使用 `bug_workspace.py:generate_folder_name()` 或 `bug_core.py:clean_folder_name()` 生成文件夹名 — 这些函数与原始脚本逻辑不完全一致（多了 strip + 尾部符号移除），禁止使用
+- ❌ 任何手写的 `re.sub` 或字符串截断 — 禁止
+
+> **背景**: 2026-10-10 — 用户发现 AI 手动拼接的文件夹名与原工具 `fetch_buginfo_by_API_UI.py` 输出不一致。`bug_core.py:clean_folder_name()` 多了 `strip()` + `re.sub(r'[\s.\-]+\, '', cleaned)` 步骤，且截断逻辑（按 title 长度截）与原始脚本（按完整路径长度截）不同。本规则确保 AI 100% 走脚本路径，不引入偏差。
+
 ### 执行检查清单
 
 每次触发 bug-workspace 时，按以下顺序执行：
 
 ```
-□ 1. 读取 config/bugzilla_instances.json — 获取 default_workspace 和可用实例列表
+□ 1. 读取 config/bugzilla_instances.json — 获取 default_workspace、可用实例列表、workspace_routing
 □ 2. 读取 config/paths.json — 获取历史路径
-□ 3. 从 default_workspace 开始搜索现有工作区（bash ls，不用 Glob）
-□ 4. 确认 instance 参数在 bugzilla_instances.json 中存在
-□ 5. 涉及 Windows 路径的 Python 操作 → 写入临时脚本文件，禁止 python -c 内联
-□ 6. 开始执行实际任务
+□ 3. 判断 Bug ID 格式：SPCSS 开头 → 触发 SPCSS 路由（规则 5），先解析 alias 获取 Bugzilla ID + cf_change_type
+□ 4. 根据 workspace_routing 确定目标路径：
+   - SPCSS EnhancementRequest → Task/ 子目录（routing_key="task"）
+   - SPCSS Defect/其他 → CQ/ 子目录
+   - 纯数字 → 根目录
+□ 5. 从目标路径开始搜索现有工作区（bash ls，不用 Glob）
+□ 6. 确认 instance 参数在 bugzilla_instances.json 中存在
+□ 7. 涉及 Windows 路径的 Python 操作 → 写入临时脚本文件，禁止 python -c 内联
+□ 8. 运行 get_bug_folder_name.py 脚本获取规范文件夹名（规则 6）— 禁止手动拼接
+□ 9. 使用脚本输出的 folder_name 创建工作区
 ```
 
 ## 工作流程
 
-1. **读取配置** — `config/bugzilla_instances.json`（获取 default_workspace + 实例列表）+ `config/paths.json`（历史路径）
-2. **搜索现有工作区** — 从 `default_workspace` 开始，用 `bash ls` 逐层搜索
-3. 获取 Bug 信息（跨 Skill 调用 bug-core）
-4. 根据 Bug ID + Summary 生成文件夹名: `Bug [BugID][Summary]`
-5. 在指定路径创建文件夹
-6. 复制 Bug Z 模板（若存在）
-7. 创建 .url 快捷方式（链接到 Bug 页面）
-8. 生成 bug_summary.txt（所有 Bug 字段摘要）
-9. **UNC 优先下载附件**（从 Comment #0 提取 UNC 路径 → `shutil.copytree`/`copy_missing`）
-10. **rayfile FTP fallback**（UNC 不可达时自动降级到 rayfile 下载）
-11. 自动解压 Attachements 下的 ZIP 附件（mobilelog/kernel_log 等）
-12. **分析报告生成后，主动获取"还需获取"的材料**（查询历史Bug、读取规格书、搜索平台文档）
+1. **读取配置** — `config/bugzilla_instances.json`（获取 default_workspace + 实例列表 + workspace_routing）+ `config/paths.json`（历史路径）
+2. **判断 Bug ID 路由** — 检测 Bug ID 格式：
+   - `SPCSS` 开头 → 客户 Bug：先调用 bug-core REST API 解析 alias 获取 Bugzilla ID + cf_change_type
+     - EnhancementRequest → 目标路径 `{default_workspace}\Task\`（`routing_key="task"`）
+     - Defect/其他 → 目标路径 `{default_workspace}\CQ\`
+   - 纯数字 → 内部 Bug：直接使用 → 目标路径 `{default_workspace}\`
+3. **搜索现有工作区** — 从目标路径开始，用 `bash ls` 逐层搜索
+4. 获取 Bug 信息（跨 Skill 调用 bug-core）
+5. 根据 Bug 类型生成文件夹名：
+   - SPCSS: `Bug {bugzilla_id}({alias}) - {title}`
+   - 内部: `Bug {id} - {title}`
+6. 在目标路径创建文件夹
+7. 复制 Bug Z 模板（若存在）
+8. 创建 .url 快捷方式（链接到 Bug 页面）
+9. 生成 bug_summary.txt（所有 Bug 字段摘要）
+10. **UNC 优先下载附件**（从 Comment #0 提取 UNC 路径 → `shutil.copytree`/`copy_missing`）
+11. **rayfile FTP fallback**（UNC 不可达时自动降级到 rayfile 下载）
+12. 自动解压 Attachements 下的 ZIP 附件（mobilelog/kernel_log 等）
+13. **分析报告生成后，主动获取"还需获取"的材料**（查询历史Bug、读取规格书、搜索平台文档）
+
+### 示例：内部 Bug（纯数字 ID）
 
 ```
 用户: 给 Bug 219041 创建工作区并下载附件
 AI:
   1. 读取 bugzilla_instances.json → default_workspace = "E:\08_Bug", instance = "unisoc"
   2. 读取 paths.json → 历史路径列表
-  3. bash ls "E:\08_Bug" 搜索现有工作区
-  4. 获取 Bug 219041 信息
-  5. 生成文件夹: E:\08_Bug\Bug 219041 - USB enumeration timeout
-  6. 复制 Bug Z 模板
-  7. 创建快捷方式: Bug_219041.url
-  8. 生成摘要: bug_summary.txt
-  9. UNC 下载附件（Comment #0 提取 UNC 路径 → 直接复制）
-  10. 自动解压 ZIP
-  11. 生成分析报告，识别"还需获取"的材料清单
-  12. 主动尝试获取材料（查询历史Bug、读取规格书、搜索平台文档）
-  13. ✅ 工作区创建完成！
+  3. 判断 Bug ID 格式：纯数字 → 内部 Bug → 目标路径 E:\08_Bug\
+  4. bash ls "E:\08_Bug" 搜索现有工作区
+  5. 获取 Bug 219041 信息
+  6. 生成文件夹: E:\08_Bug\Bug 219041 - USB enumeration timeout
+  7. 复制 Bug Z 模板
+  8. 创建快捷方式: Bug_219041.url
+  9. 生成摘要: bug_summary.txt
+  10. UNC 下载附件（Comment #0 提取 UNC 路径 → 直接复制）
+  11. 自动解压 ZIP
+  12. 生成分析报告，识别"还需获取"的材料清单
+  13. 主动尝试获取材料（查询历史Bug、读取规格书、搜索平台文档）
+  14. ✅ 工作区创建完成！
+```
+
+### 示例：SPCSS 客户 CQ Bug（需 alias 解析 + CQ 路由）
+
+```
+用户: 给 Bug SPCSS01701938 创建工作区并下载附件
+AI:
+  1. 读取 bugzilla_instances.json → default_workspace = "E:\08_Bug", instance = "unisoc"
+  2. 读取 paths.json → 历史路径列表
+  3. 判断 Bug ID 格式：SPCSS 开头 → 客户 CQ Bug → 触发规则 5
+  4. 解析 alias：GET /rest/bug?quicksearch=SPCSS01701938
+     → 得到 Bugzilla ID: 3575241, title: "[UMS9370][longcheer_BU6] HADCI7 voltage read 0"
+  5. 目标路径：E:\08_Bug\CQ\（根据 workspace_routing.customer_cq.base_path）
+  6. bash ls "E:\08_Bug\CQ" 搜索现有工作区
+  7. 生成文件夹: E:\08_Bug\CQ\Bug 3575241(SPCSS01701938) - [UMS9370][longcheer_BU6] HADCI7 voltage read 0
+  8. 复制 Bug Z 模板
+  9. 创建快捷方式: Bug_3575241(SPCSS01701938).url（链接到 Bugzilla Bug 3575241）
+  10. 生成摘要: bug_summary.txt（同时记录 SPCSS alias 和 Bugzilla ID）
+  11. UNC 下载附件
+  12. 自动解压 ZIP
+  13. 生成分析报告
+  14. ✅ 工作区创建完成！
 ```
 
 ## 核心功能
 
 ### 文件夹命名
 
-格式: `Bug [BugID][Summary]`
-- 自动清除非法文件名字符（`<>:"/\|?*`）
-- 超长名称自动截断（保留头尾）
+**⛔ 必须通过运行 `get_bug_folder_name.py` 脚本获取文件夹名（规则 6），禁止 AI 手动拼接。**
+
+脚本严格复刻 `D:\05_Code\python\bugzila\fetch_buginfo_by_API_UI.py` 的完整命名逻辑：
+
+1. `fetch_summary()` → `"{bug_id}({alias}) - {summary}"` 或 `"{bug_id} - {summary}"`
+2. `re.sub(r'[<>:"/\\|?*\n\r\t]', "_", raw_title)` → 清除非法文件名字符
+3. `os.path.join(base_path, "Bug " + bug_title)` → 拼接完整路径
+4. 如果 `len(bug_folder_path) > 99` → 按原工具规则截断（保留头尾）
+5. 最终输出 `"Bug " + bug_title`
+
+**内部 Bug（纯数字 ID）**：
+格式: `Bug {id} - {title}`
+
+**SPCSS 客户 CQ Bug（SPCSS 前缀）**：
+格式: `Bug {bugzilla_id}({alias}) - {title}`
+- `{bugzilla_id}`: 通过 alias 解析得到的真实 Bugzilla ID（纯数字）
+- `{alias}`: 原始 SPCSS ID（如 `SPCSS01701938`）
+- 示例: `Bug 3575241(SPCSS01701938) - [UMS9370][longcheer_BU6] HADCI7 voltage read 0`
 
 ### 附件下载 (v3.0 重写 — UNC 优先 + rayfile fallback)
 
@@ -364,6 +502,7 @@ IconIndex=0
 
 ## 工作区目录结构
 
+**内部 Bug**:
 ```
 E:\08_Bug\Bug 219041 - USB enumeration timeout on XHCI\
 ├── Bug Z/                        ← Bug Z 模板（可选）
@@ -377,6 +516,16 @@ E:\08_Bug\Bug 219041 - USB enumeration timeout on XHCI\
 └── SPCSS01698559_platform_issue.md  ← 分析报告
 ```
 
+**SPCSS 客户 CQ Bug**:
+```
+E:\08_Bug\CQ\Bug 3575241(SPCSS01701938) - [UMS9370] HADCI7 voltage read 0\
+├── Bug Z/                        ← Bug Z 模板（可选）
+├── Attachements/                 ← 下载的附件
+├── Bug_3575241(SPCSS01701938).url ← Bugzilla 快捷方式
+├── bug_summary.txt               ← Bug 摘要文件（记录 SPCSS alias + Bugzilla ID）
+└── SPCSS01701938_analysis.md     ← 分析报告
+```
+
 ## 相关 Skill
 
 - **bug-core**: Bug 查询核心（提供 Bug 信息和 `format_bug_summary()`）
@@ -387,6 +536,13 @@ E:\08_Bug\Bug 219041 - USB enumeration timeout on XHCI\
 | 文件 | 说明 |
 |------|------|
 | `bug_workspace.py` | 工作区核心+编排模块（含 UNC 下载+结构化解析+日志目录，~1100行） |
-| `config/bugzilla_instances.json` | 实例配置（含 default_workspace/FTP凭证/API key） |
 | `config/paths.json` | 工作区路径历史（17 个默认路径） |
 | `tests/test_workspace.py` | 工作区测试套件 |
+
+### 共享配置（跨 Skill）
+
+| 文件 | 所属 Skill | 说明 |
+|------|-----------|------|
+| `bug-core/config/bugzilla_instances.json` | bug-core | 实例配置（含 default_workspace/FTP凭证/API key/workspace_routing） |
+
+> **注意**：`bugzilla_instances.json` 由 `bug-core` Skill 管理，`bug-workspace` 通过跨 Skill 调用读取。修改实例配置请修改 `bug-core/config/bugzilla_instances.json`。

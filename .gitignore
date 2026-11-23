@@ -10,3 +10,12 @@ node_modules/
 *.swp
 *.swo
 *~
+*.doc
+*.docx
+*.pdf
+*.bak
+*.bak_*
+*_sent_*
+*_preview*
+*_draft*
+skills/pd_auth_analyse/data/cases/

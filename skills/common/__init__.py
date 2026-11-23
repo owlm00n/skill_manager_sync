@@ -1,0 +1,1 @@
+# skills/common — 公共模块，跨 Skill 共享的工具函数

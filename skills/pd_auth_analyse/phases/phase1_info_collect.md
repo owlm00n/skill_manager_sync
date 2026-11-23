@@ -46,7 +46,7 @@ Key principles:
 5. **Execute Trace Folder Association Inference**: when any Lecroy HTML report file is found (`Teledyne LeCroy USB Compliance Result*.html`, `USB_ComplianceTestLog.html`, `USB_ComplianceSessionLog.html`), actively search sibling and peer directories for: `.usb` binary trace files, `pd.sqlite` / `user data.db` (POWER-Z auxiliary), `USB_ComplianceTestLog.html`, `Debug\` config folder (`.inc` / `.ginc`). **Prohibited**: marking `.usb` trace as "missing" without executing this search; binary-unreadable does NOT equal missing — mark as "present — needs decoding".
 6. **Apply Trace Source Differentiation**: Lecroy `.usb` + `USB_ComplianceTestLog.html` = authoritative primary evidence. `pd.sqlite` = POWER-Z auxiliary capture only, must be labeled "POWER-Z auxiliary capture" when referenced.
 7. **Extract and flag the Key Guiding Direction**: from Bug comments, locate the highest-numbered customer/field engineer comment (e.g., #27), label it "KEY Guiding Direction", and record its core directional claims. This direction will be used as a cross-check baseline across Phases 2/3/4.
-8. Create `00_input/` directory under `{CASE_DIR}` and record `input_meta.json`.
+8. Create `00_input/` directory under `{CASE_DIR}` and record `input_meta.json` there. **The main output file `01_test_case_info.md` must be saved directly in the case root (`{CASE_DIR}/`), NOT inside `00_input/` or any other subdirectory.**
 
 ## Case Directory Naming Convention
 - Has Bug ID + Case ID: `<BUG_ID>_<CASE_ID>/`
@@ -62,8 +62,10 @@ python D:/06_Project/skills_sync/skills/log-analyzer/log_analyzer.py --discover 
 
 ## Output Requirements
 
+**IMPORTANT: All phase output files MUST be saved as flat files directly in the case root directory (`{CASE_DIR}/`). Do NOT create subdirectories (e.g., `01_test_case_info/`, `02_failure_location/`) for phase output files. The `00_input/` directory is ONLY for `input_meta.json`.**
+
 ### Primary Product
-- Save to `{CASE_DIR}/01_test_case_info.md`
+- Save to `{CASE_DIR}/01_test_case_info.md` (flat file in case root, NOT in a subdirectory)
 - Must include:
   - Input material inventory (filename, type, **full absolute path**)
   - Bug context (if available)

@@ -27,6 +27,22 @@ tags: [adb, android, debug, logcat, fastboot, device]
 - 设备已连接（USB 或网络）
 - 部分操作需要 root 权限
 
+## 执行原则（核心规则）
+
+**先执行，失败再诊断** — 禁止在执行目标命令前做预检查询。
+
+| 场景 | ❌ 禁止做法 | ✅ 正确做法 |
+|------|------------|------------|
+| 用户要执行 adb 命令 | 先 `adb devices -l` 检查设备，再 `adb root` 检查权限，最后才执行 | **直接执行目标命令**，命令失败后才按需诊断 |
+| 命令执行失败 | 提前做各种检查 | 根据错误信息针对性诊断：`device not found` → 查 devices；`permission denied` → 查 root |
+| shell 命令 | 先 `adb shell whoami` 确认用户 | 直接执行，失败再 `adb root` |
+
+**降级链（仅失败时触发）**：
+1. 目标命令失败 → 看错误信息
+2. `device not found` / `no devices` → `adb devices -l` 诊断
+3. `permission denied` → `adb root` 后重试
+4. 其他错误 → 针对性排查
+
 ## 功能清单
 
 ### 1. 设备管理

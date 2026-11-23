@@ -11,10 +11,28 @@ tags: [bugzilla, bug, query, summary, search, commit, status, comment, analysis,
 
 ## 触发条件
 
-- 用户输入 Bug ID（纯数字5位以上 或 SPCSS开头）
+- 用户输入 Bug ID（纯数字5位以上、SPCSS开头、或 `unicase\d+` Unicase 工单号）
 - 用户说"查Bug"、"Bug助手"、"Bug查询"、"查一下Bug"
 - 用户粘贴Bug页面内容
 - 用户上传文件并提及Bug相关关键词
+
+### Unicase 工单号识别
+
+**`unicase\d+` 格式的 ID（如 `unicase015809`）是 Unicase 平台工单号**，不是 Bugzilla Bug ID。
+
+Unicase 工单通过 Bugzilla 的 `alias` 字段与 SPCSS Bug 关联。收到 Unicase 工单号后，执行以下解析流程：
+
+1. 使用 REST API `quicksearch=unicaseXXXXXX` 查找关联的 Bugzilla Bug
+2. 或使用 `alias=unicaseXXXXXX` 参数直接搜索
+3. 找到关联 Bug 后 → 使用 Bugzilla Bug ID 继续正常流程
+4. **工作区命名必须包含两个 ID**：`Bug {bugzilla_id}({unicase_id}) - {title}`
+   - 示例：`Bug 3575241(unicase015809) - [UMS9370][longcheer_BU6] HADCI7 voltage read 0`
+5. `bug_summary.txt` 中同时记录 Bugzilla ID 和 Unicase ID
+
+**关键特性**：
+- Bugzilla REST API 返回的 `alias` 字段包含 Unicase ID（如 `"alias": ["unicase015809"]`）
+- Unicase 控制台 URL：`https://isupport.unisoc.com/isupport-unicase/?caseId={数字部分}`
+  - 示例：`unicase015809` → `https://isupport.unisoc.com/isupport-unicase/?caseId=15809`
 
 ## ⚠️ AI 操作前置规则（必须遵守）
 
@@ -54,7 +72,11 @@ tags: [bugzilla, bug, query, summary, search, commit, status, comment, analysis,
 2. 调用 REST API 获取Bug信息
 3. 如果REST API失败，尝试 web_fetch 获取HTML页面
 4. 生成智能摘要展示给用户
-5. **（Unisoc实例）自动创建工作区**：调用 bug-workspace 生成文件夹、.url快捷方式、bug_summary.txt，并生成 rayfile 下载命令
+5. **（Unisoc实例）自动创建工作区**：
+   - ⛔ **文件夹名必须通过运行 `get_bug_folder_name.py` 脚本获取**（精确复刻 `fetch_buginfo_by_API_UI.py` 命名逻辑），禁止 AI 手动拼接
+   - 调用 bug-workspace 生成文件夹、.url快捷方式、bug_summary.txt，并生成 rayfile 下载命令
+   - **SPCSS Bug**：自动解析 alias 获取 Bugzilla ID → 路由到 `CQ/` 子目录 → 脚本输出 folder_name
+   - **内部 Bug（纯数字）**：直接使用 Bug ID → 路由到根目录 → 脚本输出 folder_name
 6. 提示用户上传附件或联动分析
 
 ### 流程2：手动输入解析
@@ -89,38 +111,133 @@ tags: [bugzilla, bug, query, summary, search, commit, status, comment, analysis,
 │   要实际发送必须显式传 send_mode='live' 或设环境变量                    │
 │   BUGZILLA_SEND_MODE=live。                                          │
 └──────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│ ⛔ CRITICAL CONSTRAINT — 生成预览必须调用 prepare_customer_reply()    │
+│                                                                      │
+│   绝对禁止 AI 手动 Write 回复文件到 config/ 目录。                     │
+│                                                                      │
+│   ✅ 正确做法:                                                        │
+│     from bug_core import prepare_customer_reply                       │
+│     result = prepare_customer_reply(bug_id, content, platform,       │
+│                                      new_status="needinfo")          │
+│     # 函数内部执行: _find_bug_workspace() → ws优先写入 → header元数据  │
+│                                                                      │
+│   ❌ 错误做法:                                                        │
+│     Write("config/reply_SPCXXX_preview.txt", "Dear CUS\n...\nThanks")│
+│     # 绕过了 ws 优先逻辑、header 元数据，文件落在错误的共享目录         │
+│                                                                      │
+│   原因: prepare_customer_reply() 内部封装了 _find_bug_workspace()     │
+│   和 _resolve_reply_filepath()，只有通过函数调用才能确保文件写入       │
+│   Bug 专属工作区而非共享 config 目录。手写文件会导致跨 Bug 混淆。      │
+│                                                                      │
+│   此规则同样适用于 post_comment() 和 bug_commit() 的 preview 模式     │
+│   —— preview 文件也必须通过函数写入，禁止手动 Write。                  │
+└──────────────────────────────────────────────────────────────────────┘
 
 **SPCSS 场景统一格式：`Dear CUS` + 用户内容 + `Thanks`**
 
-**流程：生成预览 → 用户 review/修改 → 确认后发送**
+**回复风格约束**（去AI味，工程师直述风格）：
+- 禁止表格，纯文字段落
+- 禁止emoji、加粗、斜体等富文本装饰
+- 禁止反问句和问题重述，直接陈述事实
+- 禁止填充语（如"我帮你逐一看了"、"先说结论"、"要分两拨来看"）
+- 简洁直接，对方是工程师，只讲结论和依据，不铺陈过程
 
-操作流程：
-1. 调用 `prepare_customer_reply(bug_id, content)` → 写入本地文件 + 打印预览
-2. 用户 review 本地文件，手动修改
-3. 用户确认后说"发送" → 调用 `send_customer_reply(bug_id)` → 从文件读取内容 + bug_commit
+**工作流（5 步）**：
+
+```
+Step 1 — 生成回复内容
+  AI 根据分析报告生成工程师直述风格的回复草案
+         │
+         ▼
+Step 2 — 读取风格规则
+  AI 读取 config/reply_style_rules.md（语义规则文件）
+         │
+         ▼
+Step 3 — LLM 自我风格检查
+  AI 用 rules.md 的 R1-R5 语义规则自检生成的内容
+  找出所有违规 → 修复 → 再检查 → 直到通过
+         │
+         ▼
+Step 4 — 传入 prepare_customer_reply()
+  violations = [{"rule": "R1", "severity": "error", "desc": "..."}, ...]
+  prepare_customer_reply(bug_id, content, style_violations=violations)
+  函数将违规信息写入预览 header
+         │
+         ▼
+Step 5 — 用户 review 预览文件
+  用户确认后说"发送" → send_customer_reply()
+```
+
+┌──────────────────────────────────────────────────────────────────────┐
+│ ⛔ CRITICAL CONSTRAINT — AI 生成回复后必须 LLM 自检                    │
+│                                                                      │
+│   在调用 prepare_customer_reply() 前，AI 必须：                        │
+│   1. 读取 config/reply_style_rules.md                                  │
+│   2. 逐条对照 R1-R5 语义规则自检生成的内容                              │
+│   3. 发现违规 → 修复内容 → 重新自检 → 直到零 error                     │
+│   4. 将 violations 列表传入 prepare_customer_reply()                   │
+│                                                                      │
+│   禁止跳过此步骤直接调用 prepare_customer_reply()。                    │
+│   风格检查不再由 Python 正则实现，而是由 LLM 语义理解完成。             │
+│                                                                      │
+│   用户反馈收集在 config/reply_style_feedback.md（自由书写，自然语言）   │
+│   用户说"提炼反馈"时，AI 读取 feedback.md → 更新 rules.md。            │
+└──────────────────────────────────────────────────────────────────────┘
 
 ```python
-# 第一步：生成预览（写入本地文件）
+# Step 1-3: AI 生成内容 + 读取 rules.md + 自检（LLM 执行）
+# Step 4: 传入 violations 调用函数
+
 from bug_core import prepare_customer_reply, send_customer_reply
+
+violations = [
+    # 示例：AI 自检发现的问题（无违规时传空列表）
+    # {"rule": "R1", "severity": "error", "desc": ""分析完成" — 填充语，删掉"}
+]
 
 result = prepare_customer_reply(
     bug_id="SPCSS01690575",
     content="样机不支持PD协议过不了认证，这个是前提，提供了vif，测试也过不了",
     platform="UMS512",
+    style_violations=violations,  # LLM 自检结果
 )
-print(result["reply"])
-# 输出: Dear CUS\n\n样机不支持PD协议过不了认证，这个是前提，提供了vif，测试也过不了。\n\nThanks
-# 同时写入: config/reply_SPCSS01690575_preview.md
+# 文件写入工作区，header 含 StyleCheck PASS/FAIL
 
-# 第二步：用户 review/修改文件后，确认发送
+# Step 5: 用户 review/修改文件后，确认发送
 result = send_customer_reply(
     bug_id="SPCSS01690575",
     new_status="needinfo",
     instance="unisoc",
     use_combined=True,
 )
-# 从 preview.md 读取已修改内容，调用 bug_commit 提交
+# 从 preview.txt 读取已修改内容，调用 bug_commit 提交
 ```
+
+┌──────────────────────────────────────────────────────────────────────┐
+│ ⛔ CRITICAL CONSTRAINT — 用户说"发送"后必须先消歧，禁止直接发送        │
+│                                                                      │
+│   背景: 2026-11-02 Bug 3604164 — 用户说"已经修改发送"，LLM 误以为     │
+│   用户确认"已发送"并跳过了发送步骤。实际上客户回复从未发送到Bugzilla。 │
+│                                                                      │
+│   规则: 当用户说包含"发送"的任何话时（如"发送吧"/"发送了"/"已发送"/   │
+│   "修改发送"/"已经修改发送"），禁止直接从字面推断用户意图，必须执行    │
+│   以下消歧流程：                                                      │
+│                                                                      │
+│   Step 1 — 调用 Bugzilla API 检查最新评论：                           │
+│     GET /rest/bug/{bug_id}/comment → 检查最新评论是否包含回复内容      │
+│                                                                      │
+│   Step 2 — 根据检查结果分支：                                         │
+│     • 已有匹配评论 → 提示"Bugzilla 上已有新评论(Comment #N)，无需重复发送"│
+│     • 没有新评论   → 询问用户"Bugzilla 上尚未看到新评论，是否现在发送？"│
+│                                                                      │
+│   ❌ 禁止行为:                                                        │
+│     • 禁止从"已经修改发送"推断"用户说已发送，跳过"                      │
+│     • 禁止从"发送了"推断"不需要我再发送"                               │
+│     • 禁止不经 API 验证就直接决定发或不发                              │
+│                                                                      │
+│   关键原则: 用户说"发送"后，唯一的信息源是 Bugzilla API，不是用户措辞  │
+└──────────────────────────────────────────────────────────────────────┘
 
 ### 回复前自检清单
 
@@ -132,7 +249,19 @@ result = send_customer_reply(
 │                                                 │
 │  ☐ 我是否已经将回复内容写入本地预览文件？          │
 │  ☐ 我是否已经向用户展示了预览内容？               │
-│  ☐ 用户是否明确说了"发送"、"确认"、"可以发"等指令？│
+│  ☐ 意图分类（二级判定，必须执行）：                │
+│     Tier 1 — 识别用户措辞属于哪个类别：             │
+│       🔴 声明类（NOT a send command）：              │
+│          "已经发送了" / "修改发送了" / "已发送"       │
+│          "发过了" / "已经发了" / "发送了"            │
+│          → STOP: 先查 Bugzilla API 确认是否真的已发送 │
+│          → 若未发送：提示用户"尚未发送，是否需要发送？"│
+│       🟢 指令类（IS a send command）：               │
+│          "发送吧" / "确认发送" / "可以发了"           │
+│          "发出去" / "提交吧" / "send it"             │
+│          → 可以继续发送流程                          │
+│     Tier 2 — 不确定时默认保守：                      │
+│       无法明确判定 → 查 API → 问用户确认 → 不直接发送 │
 │                                                 │
 │  ⛔ 如果以上任一答案为"否"：                      │
 │     → 只生成预览，不发送                         │
@@ -269,13 +398,45 @@ Agent(
 **合并机制**：
 - 两个 Agent 各自写入独立文件（`{report}.code.md` / `{report}.docs.md`），避免写冲突
 - 用户可随时查看已完成的独立结果
-- 两个都完成后，bug-core 自动将内容合并到主报告 `analysis_report.md`
+- 两个都完成后，bug-core 自动将内容合并到主报告（标准化命名: `{bug_id}_{type}_{keyword}__{YYYYMMDD}.md`，由 `common.report_utils.generate_report_filename_from_bug()` 生成，bug_core 做向后兼容封装）
 
 **设计原则**：
 - **并行不阻塞**：代码和文档同时获取，总耗时 = max(代码耗时, 文档耗时)
 - **独立写文件**：各自写独立文件，零冲突
 - **命名透明**：Agent 会话名体现具体任务，方便在任务列表中跟踪
 - **失败不中断**：任一 Agent 失败不影响另一个，也不影响主报告
+
+### 流程7：风格规则迭代（feedback → 提炼 → rules）
+
+**当用户指出回复风格问题时，通过此流程将反馈编码为规则。**
+
+```
+用户在 reply_style_feedback.md 写自然语言反馈
+  （例："不要在回复里说'帮贵司分析'，直接说结论"）
+         │
+         ▼
+用户说"提炼反馈"
+         │
+         ▼
+AI 执行：
+  1. 读取 config/reply_style_feedback.md
+  2. 提取需新增/修改的规则
+  3. 更新 config/reply_style_rules.md（保持语义描述格式，不写正则）
+  4. 在 feedback.md 对应条目末尾标注 [已提炼: YYYY-MM-DD]
+```
+
+**文件关系**：
+
+| 文件 | 维护者 | 格式 | 用途 |
+|------|:-----:|------|------|
+| `config/reply_style_feedback.md` | 用户 | 自由文本，按日期分段 | 用户观察到的风格问题 |
+| `config/reply_style_rules.md` | AI | 结构化语义规则 + Good/Bad 对照 | LLM 自检参考 |
+
+**关键原则**：
+- 用户只写自然语言，不写正则
+- AI 负责将反馈提炼为语义规则描述
+- rules.md 中的规则是给 LLM 看的，不是给正则引擎看的
+- 提炼后必须在 feedback.md 标注 `[已提炼]`，避免重复处理
 
 通过 `config/bugzilla_instances.json` 中的 `status_map` 字段，统一使用简短状态名：
 
@@ -301,6 +462,61 @@ Unisoc 专用状态（完整流转：NEW→Assigned→Root-Caused→Code-Committ
 | `invalided` | Invalided |
 
 查询合法状态名与流转图：`GET /rest/field/bug/bug_status?api_key=xxx`（返回各状态的 `can_change_to` 列表）。
+
+### 状态转换必填字段（Hard Gate）
+
+**以下状态转换时，必须通过 `custom_fields` 参数提供对应的自定义字段，否则 `update_bug_status()` 拒绝执行：**
+
+| 状态 | 必填字段 | Bugzilla 字段标签 |
+|------|---------|------------------|
+| **Root-Caused** | `cf_root_cause` | [1.Root Cause] |
+| | `cf_resolution` | [2.Resolution] |
+| | `cf_testing_suggestion` | [3.Testing Suggestion] |
+| | `cf_impact_customer` | [4.Impact for customer] |
+| **Fixed** | 无强制要求 | — |
+| **Code-Committed** | 无强制要求 | — |
+| **Need_Info** | 无强制要求 | — |
+
+> ⚠️ **Hard Gate 机制**：`update_bug_status()` 在发送 PUT 请求前检查 `status_required_fields` 配置。
+> 如果目标状态有必填字段但 `custom_fields` 缺失或为空，直接返回 error dict，API 调用不执行。
+> 此检查在代码层实现，AI 无法绕过。
+
+**使用示例**：
+
+```python
+# ❌ 错误 — Root-Caused 状态缺少必填字段
+bug_commit("SPCSS01702402", "root cause analysis", "rootcaused")
+
+# ✅ 正确 — 提供完整的 cf_* 字段
+bug_commit("SPCSS01702402", "root cause analysis", "rootcaused",
+           custom_fields={
+               "cf_root_cause": "upm6910 charger IC cold-start timing...",
+               "cf_resolution": "Increase delay from 30ms to 35ms...",
+               "cf_testing_suggestion": "Re-test with Lecroy 8.4.1...",
+               "cf_impact_customer": "Low — timer value change only"
+           })
+```
+
+### 三层防御机制
+
+| 层 | 类型 | 作用 |
+|---|------|------|
+| **A. Workflow Gate** | CC Workflow 运行时 | AI 必须调用 `bugzilla-commit` workflow，custom_fields 缺失时 workflow 拒绝执行 |
+| **B. Code Gate** | `update_bug_status()` | 发送 PUT 前检查 `status_required_fields`，缺失返回 error dict |
+| **C. Knowledge** | SKILL.md 本文档 | AI 参考，告知每个状态需要哪些字段 |
+
+> ⚠️ **机制优先**：Layer A+B 是 Hard Gate，代码/运行时强制，AI 无法绕过。
+> Layer C 是辅助知识，帮助 AI 在调用 workflow 前准备好正确的 custom_fields。
+
+**AI 执行流程**：
+```
+准备 root cause 内容 + cf_* 字段
+    → 调用 Workflow("bugzilla-commit", {bug_id, target_status, custom_fields, comment_text})
+        → Workflow Phase 1: 校验 custom_fields
+        → Workflow Phase 2: prepare_customer_reply() 生成预览
+            → 用户 review/修改 .txt 文件
+        → Workflow Phase 3: send_customer_reply() 发送
+```
 
 ## 实例切换
 
@@ -368,6 +584,7 @@ results = search_bugs("pd", severity="critical")
 | 文件 | 说明 |
 |------|------|
 | `bug_core.py` | 核心模块（~450行，含模板生成 ~180行） |
+| `get_bug_folder_name.py` | **文件夹命名脚本** — 精确复刻 `fetch_buginfo_by_API_UI.py` 逻辑，AI 必须运行此脚本获取规范文件夹名 |
 | `mcp-server/server.py` | 统一 MCP Server（+1 tool: generate_reply） |
 | `config/bugzilla_instances.json` | 实例配置 |
 | `config/customer_reply_templates.json` | 客户回复模板配置 |

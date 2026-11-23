@@ -5,7 +5,7 @@ description: Unified CC Tools Hub dashboard — session manager, skill manager, 
 
 # CC Tools Hub
 
-Unified dashboard for all Claude Code tools. Embeds Session Manager (port 8765) and Skill Manager (port 8766) via iframe, with planned slots for Prompt Manager and API Switcher.
+Unified dashboard for all Claude Code tools. Embeds Session Manager (port 8765), Skill Manager (port 8766), Skills Sync (port 8780), and more via iframe, with planned slots for Prompt Manager and API Switcher.
 
 ## Tool path
 
@@ -46,5 +46,6 @@ The Hub dashboard is a dark tech-themed single-page app at `http://127.0.0.1:876
 | Memory Manager | 8769 | Ready |
 | Hook Manager | 8770 | Ready |
 | Agent Manager | 8771 | Ready |
+| Skills Sync | 8780 | Ready |
 | Prompt Manager | -- | Planned |
 | API Switcher | -- | Planned |

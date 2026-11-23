@@ -1,8 +1,28 @@
 import os
+import sys
 
+# ⚠️ 此脚本为一次性分析脚本，实际生产环境应使用 common.report_utils.generate_report_filename_from_bug()
+# 标准命名格式: {bug_id}_{type}_{keyword}__{YYYYMMDD}.md
+# 示例: 3528294_analysis_patch_eval__20260831.md
 base = r'E:\08_Bug'
 ws = [os.path.join(base, d) for d in os.listdir(base) if '3528294' in d][0]
-report_path = os.path.join(ws, 'analysis_report.md')
+
+# 使用标准化命名替代硬编码 analysis_report.md
+try:
+    _skills = os.path.dirname(os.path.abspath(__file__))
+    if _skills not in sys.path:
+        sys.path.insert(0, _skills)
+    from bug_core import generate_report_filename
+    report_name = generate_report_filename(
+        bug_id="3528294",
+        report_type="analysis",
+        keyword="patch_eval",
+        date_str="20260831"
+    )
+except Exception:
+    # fallback: 保持旧命名以防导入失败
+    report_name = "3528294_analysis_patch_eval__20260831.md"
+report_path = os.path.join(ws, report_name)
 
 content = """# Bug SPCSS01698559 分析报告
 

@@ -47,8 +47,10 @@ python D:/06_Project/skills_sync/skills/protocol-parser/protocol_combiner.py "{E
 
 ## Output Requirements
 
+**IMPORTANT: All phase output files MUST be saved as flat files directly in the case root directory (`{CASE_DIR}/`). Do NOT create subdirectories (e.g., `03_trace_analysis/`) for phase output files.**
+
 ### Primary Product
-- Save to `{CASE_DIR}/03_trace_analysis.md`
+- Save to `{CASE_DIR}/03_trace_analysis.md` (flat file in case root, NOT in a subdirectory)
 - Must include:
   - Conclusion (protocol-level anomaly description + root cause direction)
   - Key event sequence table (timestamp, direction, message, notes)

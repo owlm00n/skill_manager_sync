@@ -1,0 +1,555 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://skills.protocol-parser/extraction-output.schema.json",
+  "title": "Protocol Parser Extraction Output",
+  "description": "Intermediate JSON Schema — contract between Layer 1 (smart_extractor.py), Layer 2 (AI analysis), and Layer 3 (HTML visualization). Defines the structured output after deterministic extraction from kernel logs.",
+  "type": "object",
+  "required": ["metadata", "timeline"],
+  "properties": {
+
+    "metadata": {
+      "type": "object",
+      "description": "Extraction metadata",
+      "required": ["source_file", "platform", "extraction_level", "total_log_lines", "extracted_event_count"],
+      "properties": {
+        "source_file": {
+          "type": "string",
+          "description": "Original log file path"
+        },
+        "platform": {
+          "type": "string",
+          "enum": ["sprd", "qcom", "mtk", "generic"],
+          "description": "Platform detected from log format"
+        },
+        "chip": {
+          "type": "string",
+          "description": "Chip model (e.g. SC2730, UMS9230E)"
+        },
+        "extraction_level": {
+          "type": "string",
+          "enum": ["high", "medium", "low", "unknown"],
+          "description": "Confidence level of extraction"
+        },
+        "matched_format": {
+          "type": "string",
+          "description": "Which specific format extractor matched (e.g. sprd_tcpm, generic_pd)"
+        },
+        "format_label": {
+          "type": "string",
+          "description": "Human-readable format label"
+        },
+        "total_log_lines": {
+          "type": "integer",
+          "description": "Total lines in the original log file"
+        },
+        "extracted_event_count": {
+          "type": "integer",
+          "description": "Number of events extracted into timeline"
+        },
+        "protocol_types": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["PD", "CC", "USB", "CHARGER", "UNKNOWN"] },
+          "description": "Protocol types detected in the log"
+        },
+        "time_range": {
+          "type": "object",
+          "description": "Time range of extracted events",
+          "properties": {
+            "start_kernel_ts": { "type": "number", "description": "First event kernel timestamp (seconds)" },
+            "end_kernel_ts": { "type": "number", "description": "Last event kernel timestamp (seconds)" },
+            "start_wall": { "type": "string", "description": "First event wall clock time" },
+            "end_wall": { "type": "string", "description": "Last event wall clock time" }
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Extraction warnings (e.g. unmatched formats)"
+        }
+      }
+    },
+
+    "timeline": {
+      "type": "array",
+      "description": "Ordered list of all extracted events. Primary sort: kernel_timestamp (asc). Secondary sort: cpu (asc), thread (asc). This is the canonical event sequence.",
+      "items": { "$ref": "#/$defs/timeline_event" }
+    },
+
+    "hard_reset_phases": {
+      "type": "array",
+      "description": "High-level Hard Reset phase groupings for visualization. Each phase groups related timeline events.",
+      "items": { "$ref": "#/$defs/hard_reset_phase" }
+    },
+
+    "pd_negotiations": {
+      "type": "array",
+      "description": "PD negotiation cycles detected. Each cycle = Source Capabilities → Request → Accept → PS_RDY → SNK_READY.",
+      "items": { "$ref": "#/$defs/pd_negotiation" }
+    },
+
+    "state_machine_summary": {
+      "type": "object",
+      "description": "Summary of TCPM state machine transitions for flowchart rendering",
+      "properties": {
+        "states_visited": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "All TCPM states visited in order"
+        },
+        "transitions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/state_transition" }
+        }
+      }
+    },
+
+    "anomalies": {
+      "type": "array",
+      "description": "Detected anomalies (timeouts, retries, hard resets, errors)",
+      "items": { "$ref": "#/$defs/anomaly" }
+    },
+
+    "charger_summary": {
+      "type": "object",
+      "description": "Summary of charger state after PD negotiation",
+      "properties": {
+        "final_voltage_mv": { "type": "integer" },
+        "final_current_ma": { "type": "integer" },
+        "adapter_voltage_mv": { "type": "integer" },
+        "charger_type": { "type": "integer" },
+        "fast_charge_enabled": { "type": "boolean" }
+      }
+    }
+  },
+
+  "$defs": {
+    "timeline_event": {
+      "type": "object",
+      "required": ["id", "seq", "kernel_ts", "event_type", "content_raw"],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "description": "Sequential event ID (1-based, assigned by extractor)"
+        },
+        "seq": {
+          "type": "string",
+          "description": "Original log sequence number (e.g. '812 / 813')"
+        },
+        "kernel_ts": {
+          "type": "number",
+          "description": "Kernel timestamp in seconds (e.g. 168753.191086). Primary sort key."
+        },
+        "wall_clock": {
+          "type": "string",
+          "description": "Wall clock time (e.g. '07-12 21:46:17.191')"
+        },
+        "cpu": {
+          "type": "integer",
+          "description": "CPU core number (e.g. 0 from C0). Secondary sort key."
+        },
+        "thread": {
+          "type": "string",
+          "description": "Thread ID (e.g. T491). Tertiary sort key."
+        },
+        "subsystem": {
+          "type": "string",
+          "enum": ["sprd_tcpm_log", "sprd_pd_log", "charger-manager", "sc27xx-typec-pd", "sc27xx-typec", "healthd", "other"],
+          "description": "Kernel subsystem that produced this log entry"
+        },
+        "event_type": {
+          "type": "string",
+          "enum": [
+            "state_change",
+            "pending_state_change",
+            "delayed_state_change",
+            "pd_tx",
+            "pd_rx",
+            "pd_rx_data",
+            "pdo_entry",
+            "pd_tx_complete",
+            "pd_irq",
+            "pd_header_raw",
+            "vbus_event",
+            "cc_change",
+            "voltage_current_limit",
+            "rp_limit",
+            "caps_update",
+            "charger_info",
+            "charger_limit",
+            "disconnect",
+            "plug_out",
+            "reset_port",
+            "toggling",
+            "other"
+          ],
+          "description": "Semantic type of the event"
+        },
+        "content_raw": {
+          "type": "string",
+          "description": "Cleaned raw log message content (after clean_line())"
+        },
+
+        "state_from": {
+          "type": "string",
+          "description": "Source TCPM state (for state_change / pending / delayed events)"
+        },
+        "state_to": {
+          "type": "string",
+          "description": "Target TCPM state (for state_change / pending / delayed events)"
+        },
+        "delay_ms": {
+          "type": "integer",
+          "description": "Delay in milliseconds (for delayed_state_change: the actual delay applied; for pending_state_change: the scheduled delay)"
+        },
+        "is_pending": {
+          "type": "boolean",
+          "description": "True if this is a 'pending state change' (scheduled, not yet executed)"
+        },
+        "is_delayed": {
+          "type": "boolean",
+          "description": "True if this is a 'delayed' state change (pending timer fired, actual transition)"
+        },
+        "pending_target_event_id": {
+          "type": "integer",
+          "description": "If this is a pending event, the event ID of the corresponding delayed event. Populated during merge pass."
+        },
+
+        "decoded": {
+          "type": "object",
+          "description": "Deterministically decoded PD protocol fields. Only present for pd_tx / pd_rx events with header data.",
+          "properties": {
+            "pd_header_raw": {
+              "type": "string",
+              "description": "Raw hex header value (e.g. '0x4ba1')"
+            },
+            "pd_header_decoded": { "$ref": "#/$defs/pd_header_decoded" },
+            "pd_data": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Raw hex data objects (e.g. ['0xa01912c', '0x2d12c', ...])"
+            },
+            "pd_data_decoded": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Human-readable decode of each data object"
+            },
+            "pdos": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/pdo_entry" },
+              "description": "Decoded PDO entries (only for Source Capabilities messages)"
+            },
+            "rdo": {
+              "$ref": "#/$defs/rdo_decoded",
+              "description": "Decoded RDO (only for Request messages)"
+            },
+            "tx_status": {
+              "type": "integer",
+              "description": "TX completion status (0 = success)"
+            },
+            "msg_role": {
+              "type": "string",
+              "enum": ["device", "host"],
+              "description": "Message role from PD RX header decode"
+            }
+          }
+        },
+
+        "charger_info": {
+          "type": "object",
+          "description": "Decoded charger-manager info. Only for charger_info events.",
+          "properties": {
+            "chgr_type": { "type": "integer" },
+            "fchg_en": { "type": "integer" },
+            "cp_running": { "type": "integer" },
+            "max_chg_lmt_cur_ua": { "type": "integer" },
+            "max_inpt_lmt_cur_ua": { "type": "integer" },
+            "max_chg_volt_uv": { "type": "integer" },
+            "adapter_chg_volt_mv": { "type": "integer" },
+            "charging_current_ma": { "type": "integer" },
+            "vbus_mv": { "type": "integer" }
+          }
+        },
+
+        "cc_info": {
+          "type": "object",
+          "description": "Decoded CC line info. Only for cc_change events.",
+          "properties": {
+            "cc1": { "type": "integer", "description": "CC1 value" },
+            "cc2": { "type": "integer", "description": "CC2 value" },
+            "cc1_from": { "type": "integer" },
+            "cc1_to": { "type": "integer" },
+            "cc2_from": { "type": "integer" },
+            "cc2_to": { "type": "integer" },
+            "state": { "type": "string", "description": "Current TCPM state at time of CC change" },
+            "polarity": { "type": "integer" },
+            "connection_status": {
+              "type": "string",
+              "enum": ["connected", "disconnected"]
+            }
+          }
+        },
+
+        "voltage_mv": {
+          "type": "integer",
+          "description": "Voltage in mV (for voltage_current_limit events)"
+        },
+        "current_ma": {
+          "type": "integer",
+          "description": "Current in mA (for voltage_current_limit events)"
+        },
+
+        "flags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "HARD_RESET",
+              "FIRST_NEGOTIATE",
+              "PPS_NEGOTIATE",
+              "TRANSITION",
+              "DISCONNECT",
+              "PENDING_ACTIVE",
+              "DELAYED_TRIGGER",
+              "TX_COMPLETE",
+              "NOISE",
+              "KEY_EVENT"
+            ]
+          },
+          "description": "Semantic flags for filtering and highlighting in UI"
+        }
+      }
+    },
+
+    "pd_header_decoded": {
+      "type": "object",
+      "description": "Decoded PD message header fields (per USB PD 3.1 spec)",
+      "properties": {
+        "message_type": {
+          "type": "string",
+          "description": "PD message type name (e.g. SOURCE_CAPABILITIES, REQUEST, ACCEPT, PS_RDY, HARD_RESET)"
+        },
+        "message_type_hex": {
+          "type": "string",
+          "description": "Raw hex nibble for message type"
+        },
+        "spec_revision": {
+          "type": "string",
+          "description": "Spec revision (e.g. REV3.0, REV2.0)"
+        },
+        "port_power_role": {
+          "type": "string",
+          "enum": ["SINK", "SOURCE"],
+          "description": "Port power role"
+        },
+        "port_data_role": {
+          "type": "string",
+          "enum": ["DFP", "UFP"],
+          "description": "Port data role"
+        },
+        "number_of_data_objects": {
+          "type": "integer",
+          "description": "Number of 32-bit data objects following the header"
+        },
+        "message_id": {
+          "type": "integer",
+          "description": "Rolling message ID counter"
+        },
+        "cable_plug": {
+          "type": "string",
+          "enum": ["FROM_SOURCE", "FROM_SINK"],
+          "description": "Cable plug bit"
+        },
+        "extended": {
+          "type": "boolean",
+          "description": "Extended message flag"
+        },
+        "raw_hex": {
+          "type": "string",
+          "description": "Original raw header hex"
+        }
+      }
+    },
+
+    "pdo_entry": {
+      "type": "object",
+      "description": "Decoded Power Data Object",
+      "properties": {
+        "index": { "type": "integer", "description": "PDO index (0-based)" },
+        "type": {
+          "type": "string",
+          "enum": ["fixed", "battery", "variable", "apdo", "pps"],
+          "description": "PDO type"
+        },
+        "type_code": { "type": "integer", "description": "Raw type code (0=fixed, 1=battery, 2=variable, 3=APDO)" },
+        "voltage_mv": { "type": "integer", "description": "Voltage in mV" },
+        "current_ma": { "type": "integer", "description": "Current in mA (max for fixed, operational for APDO)" },
+        "flags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "PDO flags (e.g. DE=Dual-Role Power, DR=Dual-Role Data, USB_COMM_CAPABLE, etc.)"
+        },
+        "raw_hex": {
+          "type": "string",
+          "description": "Raw hex value of the 32-bit PDO"
+        }
+      }
+    },
+
+    "rdo_decoded": {
+      "type": "object",
+      "description": "Decoded Request Data Object",
+      "properties": {
+        "object_position": { "type": "integer", "description": "Requested PDO index (1-based)" },
+        "operating_current_ma": { "type": "integer", "description": "Operating current in mA" },
+        "max_current_ma": { "type": "integer", "description": "Max/Min operating current in mA" },
+        "raw_hex": {
+          "type": "string",
+          "description": "Raw hex value of the 32-bit RDO"
+        }
+      }
+    },
+
+    "hard_reset_phase": {
+      "type": "object",
+      "required": ["phase_name", "event_ids"],
+      "properties": {
+        "phase_name": {
+          "type": "string",
+          "description": "Phase name (e.g. VBUS_ON, ATTACH, STARTUP, DISCOVERY, WAIT_CAPABILITIES, HARD_RESET_SEND_TIMEOUT, HARD_RESET_START, SNK_HARD_RESET_SINK_OFF, SNK_HARD_RESET_SINK_ON)"
+        },
+        "event_ids": {
+          "type": "array",
+          "items": { "type": "integer" },
+          "description": "Timeline event IDs belonging to this phase"
+        },
+        "start_ts": { "type": "number", "description": "Start kernel timestamp" },
+        "end_ts": { "type": "number", "description": "End kernel timestamp" },
+        "delay_ms": {
+          "type": "integer",
+          "description": "Phase duration or scheduled delay in ms"
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description of this phase"
+        }
+      }
+    },
+
+    "pd_negotiation": {
+      "type": "object",
+      "required": ["cycle", "event_ids"],
+      "properties": {
+        "cycle": {
+          "type": "integer",
+          "description": "Negotiation cycle number (1 = first, 2 = re-negotiation, etc.)"
+        },
+        "label": {
+          "type": "string",
+          "description": "Human-readable label (e.g. '5V Fixed PDO', 'PPS 9V Re-negotiation')"
+        },
+        "event_ids": {
+          "type": "array",
+          "items": { "type": "integer" },
+          "description": "Timeline event IDs for this negotiation cycle"
+        },
+        "start_ts": { "type": "number" },
+        "end_ts": { "type": "number" },
+        "source_cap": {
+          "$ref": "#/$defs/pd_negotiation_message",
+          "description": "Received Source Capabilities"
+        },
+        "request": {
+          "$ref": "#/$defs/pd_negotiation_message",
+          "description": "Sent Request message"
+        },
+        "accept": {
+          "$ref": "#/$defs/pd_negotiation_message",
+          "description": "Received Accept message"
+        },
+        "ps_rdy": {
+          "$ref": "#/$defs/pd_negotiation_message",
+          "description": "Received PS_RDY message"
+        },
+        "result": {
+          "type": "object",
+          "description": "Negotiation result",
+          "properties": {
+            "voltage_mv": { "type": "integer" },
+            "current_ma": { "type": "integer" },
+            "success": { "type": "boolean" },
+            "final_state": { "type": "string" }
+          }
+        }
+      }
+    },
+
+    "pd_negotiation_message": {
+      "type": "object",
+      "description": "A single PD message within a negotiation cycle",
+      "properties": {
+        "event_id": { "type": "integer" },
+        "message_type": { "type": "string" },
+        "header_raw": { "type": "string" },
+        "header_decoded": { "$ref": "#/$defs/pd_header_decoded" },
+        "data_raw": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "pdos": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/pdo_entry" }
+        },
+        "rdo": { "$ref": "#/$defs/rdo_decoded" },
+        "ts": { "type": "number" }
+      }
+    },
+
+    "state_transition": {
+      "type": "object",
+      "required": ["from", "to"],
+      "properties": {
+        "from": { "type": "string" },
+        "to": { "type": "string" },
+        "event_id": { "type": "integer" },
+        "ts": { "type": "number" },
+        "delay_ms": { "type": "integer" },
+        "is_delayed": { "type": "boolean" },
+        "is_pending": { "type": "boolean" }
+      }
+    },
+
+    "anomaly": {
+      "type": "object",
+      "required": ["type", "event_id", "description"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "hard_reset",
+            "timeout",
+            "retry",
+            "tx_failed",
+            "vbus_anomaly",
+            "protocol_violation",
+            "state_error",
+            "dead_battery",
+            "disconnect",
+            "warning"
+          ]
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "error", "warning", "info"]
+        },
+        "event_id": { "type": "integer" },
+        "event_ids": {
+          "type": "array",
+          "items": { "type": "integer" },
+          "description": "Related event IDs for multi-event anomalies"
+        },
+        "description": { "type": "string" },
+        "detail": { "type": "string" }
+      }
+    }
+  }
+}

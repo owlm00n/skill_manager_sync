@@ -1,0 +1,7 @@
+{
+  "_schema": "Platform to COM port index mapping for USB-to-serial adapter (4 consecutive ports)",
+  "_rule": "port_index is 0-based among the 4 consecutive VCP ports",
+  "_self_learning": "Auto-updated by uart-helper when new platform detected",
+  "UMS9230": {"port_index": 0, "baud": 921600, "confirmed": "2026-10-09", "note": "用户确认，第一口"},
+  "UMS9230E": {"port_index": 0, "baud": 921600, "confirmed": "2026-10-09", "note": "A17平台，默认同9230"}
+}

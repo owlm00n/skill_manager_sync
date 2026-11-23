@@ -42,10 +42,19 @@ F:\05_Code\<git_branch>\<repo_name>\
 
 示例：
 - `F:\05_Code\sprdroid13_vnd_main_r00\kernel\`
+- `F:\05_Code\sprdroid13_vnd_main_r00\lk\`
 - `F:\05_Code\sprdroid15_vnd_main\edk2\`
 - `F:\05_Code\sprdroid17_vnd_dev_bringup_l8p\edk2\`
 
 同一仓库不同分支在不同目录下并存，互不干扰。
+
+### Gerrit 仓库路径速查
+
+| 触发条件 | Gerrit 仓库路径 | 本地目录名 | 适用基线 |
+|---------|---------------|-----------|---------|
+| EDK2 / edk2 / bootloader(edk2) | `bsp/bootloader/edk2` | `edk2` | Android 17+ |
+| LK / lk / bootloader(lk) / little kernel | `bsp/bootloader/lk` | `lk` | 查 manifest 确定 |
+| Kernel / linux / kernel/common | `kernel/common` | `kernel` | 全版本 |
 
 ## 完整工作流
 
@@ -56,7 +65,8 @@ F:\05_Code\<git_branch>\<repo_name>\
    - 用户说 "bsp/bootloader/edk2" → 直接使用
    - 如果 Bug 信息中有 Component（如 `BSP_Power_Deep/Light/DVFS`），参考 `references/gerrit_servers.md` 的 **Component → Repo 优先级映射**：
      - **Power/PMIC/Charger/USB 等驱动类**：优先 `kernel/linux`，其次 `bsp/bootloader/edk2`
-     - **Bootloader 类**：优先 `bsp/bootloader/edk2`，其次 `kernel/linux`
+     - **PMIC Sleep/低功耗/LDO PD 等 bootloader PMIC 配置**：查 `platform/manifest` → `bsp/bootloader/default.xml` 确定 `lk` 或 `edk2`（部分基线两者共存），其次 `kernel/linux`
+     - **Bootloader 类**：优先 `bsp/bootloader/edk2`，其次 `bsp/bootloader/lk`（Android 15/16 基线），其次 `kernel/linux`
 
 2. **确定 branch**（优先级从高到低）：
    - **0: 查 Bug 字段** → 如果联动 bug-core，直接从 Bug 摘要中提取 `Base On Version`（即 `cf_base_on_ver` 字段），这是最准确的客户分支名

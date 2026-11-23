@@ -39,8 +39,10 @@ python scripts/ragflow_search.py "<CASE_ID> 测试步骤" --phase 2 --top-k 5
 
 ## Output Requirements
 
+**IMPORTANT: All phase output files MUST be saved as flat files directly in the case root directory (`{CASE_DIR}/`). Do NOT create subdirectories (e.g., `02_failure_location/`) for phase output files.**
+
 ### Primary Product
-- Save to `{CASE_DIR}/02_failure_location.md`
+- Save to `{CASE_DIR}/02_failure_location.md` (flat file in case root, NOT in a subdirectory)
 - Must include:
   - Test item description (Case ID -> test purpose -> verdict criteria)
   - Complete test step sequence (prefer knowledge base file; use generated flow if unavailable)

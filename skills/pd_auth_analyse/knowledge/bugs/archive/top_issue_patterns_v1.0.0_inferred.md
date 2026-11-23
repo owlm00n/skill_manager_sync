@@ -34,3 +34,15 @@
 - **现象**: 不同平台/项目间Type-C认证patch合入不完整或冲突
 - **排查方法**: Gerrit搜索 `typec认证`/`pd认证`/`欧代认证`
 - **常见修复**: 对齐认证实验室测试脚本版本, 确认patch合入完整
+
+## 7. 客户充电框架替换导致平台PD限流通路断开 (provisional — 1 case)
+- **状态**: ⚠️ provisional — 积累 ≥3 独立 case 后去 provisional
+- **触发Case**: SPCSS01699865 (UMS9360/HUAQIN_BD2, 2026-09-17)
+- **现象**: PD认证CC眼图测试(TEST.PD.PHY.ALL.2) FAIL, ibus>0 导致CC线电磁耦合噪声。客户充电框架(VFCS)替换了平台 sprd_charger_manager.c, 导致PD协商的电流限制无法到达charger IC。
+- **根因**: 充电框架替换(sprd_charger_manager.c → VFCS)后, 平台三条回调(update_ac_usb_online/negotiated_limit_current/set_rp_limit_current)虽然注册, 但框架内部设备ops表(ops[10]/[11])为NULL, PD→charger IC通路断开。
+- **关键日志特征**: `ops[10] pfun null` / `ops[11] pfun null`; 无 CHG_PD_VOTER; CHG_DEFAULT_VOTER 未被PD约束
+- **关键代码路径**: sprd_tcpm.c → sprd_charger_ops → VFCS vfcs_chg_dev_set_ops() → ops[N] → charger IC
+- **排查方法**: 检查 kernel log 中是否有 CHG_PD_VOTER ibus vote; 检查 charger IC 是否有 PD-based 电流限制
+- **常见修复**: 完成充电框架设备ops表(ops[10]/[11]), 实现PD协商电流→charger IC寄存器映射。非CC眼图测试专用修复, 对全部PD电力合约都有益。
+- **涉及测试项**: TEST.PD.PHY.ALL.2 Transmitter Eye Diagram (CC眼图)
+- **严重度**: 🔴 Critical — 所有PD电力合约的电流限制均受影响, 非仅认证

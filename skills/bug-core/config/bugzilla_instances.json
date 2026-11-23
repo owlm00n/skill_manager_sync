@@ -30,6 +30,58 @@
       "ftp_use_ssl": true,
       "rayfile_exe": "E:\\08_Bug\\sync-cmd-windows\\rayfile-c_cmd.exe",
       "default_workspace": "E:\\08_Bug",
+      "workspace_routing": {
+        "internal": {
+          "pattern": "^\\d+$",
+          "description": "内部 Bugzilla Bug（纯数字 ID）",
+          "base_path": "E:\\08_Bug",
+          "naming": "Bug {id} - {title}"
+        },
+        "customer_cq": {
+          "pattern": "^SPCSS\\d+$",
+          "description": "客户 CQ Bug（SPCSS 前缀），需解析 alias 获取 Bugzilla ID",
+          "base_path": "E:\\08_Bug\\CQ",
+          "naming": "Bug {bugzilla_id}({alias}) - {title}",
+          "alias_resolution": {
+            "method": "REST API",
+            "endpoint": "/rest/bug?quicksearch={alias}",
+            "mapping": "alias 字段关联 Bugzilla Bug，取第一个匹配 Bug 的 id",
+            "note": "SPCSS ID 本身不是 Bugzilla ID，必须解析 alias 后才能获知真实 Bug ID"
+          }
+        },
+        "task": {
+          "pattern": "^SPCSS\\d+$",
+          "description": "SPCSS EnhancementRequest/需求 — 手动指定 Task 路由，不通过 pattern 自动匹配",
+          "base_path": "E:\\08_Bug\\Task",
+          "naming": "Bug {bugzilla_id}({alias}) - {title}",
+          "manual_only": true,
+          "alias_resolution": {
+            "method": "REST API",
+            "endpoint": "/rest/bug?quicksearch={alias}",
+            "mapping": "alias 字段关联 Bugzilla Bug，取第一个匹配 Bug 的 id",
+            "note": "manual_only=true，不会通过 pattern 自动匹配，必须调用方显式传 routing_key='task'"
+          }
+        }
+      },
+      "status_required_fields": {
+        "Root-Caused": {
+          "cf_root_cause": "[1.Root Cause]",
+          "cf_resolution": "[2.Resolution]",
+          "cf_testing_suggestion": "[3.Testing Suggestion]",
+          "cf_impact_customer": "[4.Impact for customer]"
+        },
+        "Fixed": {},
+        "Code-Committed": {},
+        "Need_Info": {},
+        "Assigned": {},
+        "Resolved": {},
+        "Closed": {},
+        "Reopened": {},
+        "TobeVerified": {},
+        "WONTFIX": {},
+        "Duplicated": {},
+        "Invalided": {}
+      },
       "notes": "办公网可用，需API key，绿网不可达。附件通过rayfile下载"
     },
     "local": {

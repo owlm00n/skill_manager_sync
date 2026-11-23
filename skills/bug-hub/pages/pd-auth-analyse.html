@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PD Auth Analyse — Case Browser</title>
+  <style>
+    :root {
+      --bg-primary: #0f172a;
+      --bg-surface: #1e293b;
+      --bg-elevated: #334155;
+      --border: #334155;
+      --border-light: rgba(255,255,255,0.08);
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --accent: #667eea;
+      --accent-light: #a3bffa;
+      --accent-glow: rgba(102,126,234,0.15);
+      --gradient-1: #667eea;
+      --gradient-2: #ed64a6;
+      --gradient-3: #4f46e5;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      font-size: 14px;
+      color: var(--text-primary);
+      background: var(--bg-primary);
+      height: 100vh;
+      display: flex; flex-direction: column;
+    }
+
+    /* ── Top Control Bar ── */
+    #topbar {
+      display: flex; align-items: center; gap: 16px;
+      padding: 10px 24px;
+      background: rgba(30,41,59,0.75);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border-light);
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+    #topbar h1 {
+      font-size: 16px; font-weight: 700;
+      background: linear-gradient(90deg, var(--gradient-1), var(--gradient-2), var(--gradient-3));
+      background-size: 300% auto;
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent; color: transparent;
+      margin-right: 8px; white-space: nowrap;
+    }
+    #topbar label {
+      font-size: 12px; font-weight: 600; color: var(--text-secondary);
+      white-space: nowrap;
+    }
+    #case-select {
+      padding: 6px 12px; border: 1px solid var(--border); border-radius: 6px;
+      font-size: 13px; background: var(--bg-surface); color: var(--text-primary);
+      min-width: 280px; max-width: 420px;
+      cursor: pointer; outline: none;
+    }
+    #case-select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
+
+    .channel-tabs {
+      display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden;
+    }
+    .channel-tab {
+      padding: 5px 14px; font-size: 12px; font-weight: 600; cursor: pointer;
+      border: none; background: transparent; color: var(--text-secondary);
+      transition: all 0.15s; white-space: nowrap;
+    }
+    .channel-tab:first-child { border-right: 1px solid var(--border); }
+    .channel-tab:hover { background: var(--accent-glow); color: var(--accent-light); }
+    .channel-tab.active { background: var(--accent); color: #fff; }
+
+    #refresh-btn {
+      padding: 5px 14px; border-radius: 6px; border: 1px solid var(--border);
+      background: var(--bg-surface); color: var(--text-secondary); font-size: 12px; cursor: pointer;
+      transition: all 0.15s;
+    }
+    #refresh-btn:hover { background: var(--bg-elevated); border-color: var(--text-muted); color: var(--text-primary); }
+
+    #case-meta { font-size: 11px; color: var(--text-muted); margin-left: auto; }
+
+    /* ── Phase Selector Bar ── */
+    #phase-bar {
+      display: flex; align-items: center; gap: 0;
+      padding: 0 24px;
+      background: rgba(30,41,59,0.6);
+      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border-light);
+      flex-shrink: 0;
+    }
+    .phase-tab {
+      padding: 10px 20px; font-size: 12px; font-weight: 500; cursor: pointer;
+      border: none; background: transparent; color: var(--text-secondary);
+      border-bottom: 2px solid transparent; transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .phase-tab:hover { color: var(--text-primary); background: rgba(102,126,234,0.06); }
+    .phase-tab.active {
+      color: var(--accent-light); border-bottom-color: var(--accent); font-weight: 600;
+    }
+    .phase-tab.missing { color: var(--text-muted); cursor: default; opacity: 0.4; }
+    .phase-tab.missing:hover { background: transparent; color: var(--text-muted); }
+
+    /* ── Content Area (full width) ── */
+    #content-area {
+      flex: 1; overflow-y: auto; padding: 32px 40px;
+      background: var(--bg-primary);
+    }
+    #content-area .placeholder {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; height: 100%; color: var(--text-muted); font-size: 14px;
+    }
+    #content-area .placeholder .icon { font-size: 48px; margin-bottom: 12px; opacity: 0.3; }
+    #content-area .loading {
+      display: flex; align-items: center; justify-content: center;
+      gap: 12px; padding: 40px; color: var(--text-muted);
+    }
+
+    /* ── Markdown Content Styling ── */
+    .md-content { }
+    .md-content h1 {
+      font-size: 1.6em; margin: 4px 0 16px;
+      background: linear-gradient(90deg, #f1f5f9, #a3bffa);
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent; color: transparent;
+    }
+    .md-content h2 { font-size: 1.3em; margin: 28px 0 10px; color: #e2e8f0; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+    .md-content h3 { font-size: 1.15em; margin: 22px 0 8px; color: #cbd5e1; }
+    .md-content h4 { font-size: 1.05em; margin: 18px 0 6px; color: var(--accent-light); }
+    .md-content p { margin: 8px 0; line-height: 1.8; color: #cbd5e1; }
+    .md-content pre {
+      background: #0f172a; border: 1px solid var(--border);
+      padding: 16px 20px; border-radius: 10px; overflow-x: auto;
+      font-size: 13px; line-height: 1.6; margin: 14px 0;
+    }
+    .md-content code { font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace; font-size: 12px; }
+    .md-content :not(pre) > code {
+      background: rgba(102,126,234,0.12); padding: 2px 8px; border-radius: 4px;
+      color: var(--accent-light); border: 1px solid rgba(102,126,234,0.2);
+    }
+    .md-content table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 13px; }
+    .md-content th, .md-content td { border: 1px solid var(--border); padding: 10px 16px; text-align: left; }
+    .md-content th { background: rgba(30,41,59,0.6); font-weight: 600; color: #e2e8f0; }
+    .md-content td { color: #cbd5e1; }
+    .md-content a { color: var(--accent-light); text-decoration: none; }
+    .md-content a:hover { text-decoration: underline; }
+    .md-content blockquote {
+      border-left: 3px solid var(--accent); padding: 6px 18px;
+      color: var(--text-secondary); margin: 14px 0;
+      background: rgba(102,126,234,0.06); border-radius: 0 8px 8px 0;
+    }
+    .md-content ul, .md-content ol { padding-left: 24px; margin: 8px 0; line-height: 1.8; color: #cbd5e1; }
+    .md-content hr { border: none; border-top: 1px solid var(--border); margin: 18px 0; }
+    .md-content img { max-width: 100%; border-radius: 8px; }
+    .md-content .rag-cite {
+      background: rgba(139, 92, 246, 0.08); border-left: 3px solid #8b5cf6;
+      padding: 4px 14px; margin: 4px 0; font-size: 12px; color: #c4b5fd;
+      display: block; border-radius: 0 6px 6px 0;
+    }
+    .md-content strong { color: #f1f5f9; }
+    .md-content em { color: var(--text-secondary); }
+
+    /* ── Spinner ── */
+    .spinner {
+      width: 24px; height: 24px; position: relative;
+    }
+    .spinner::before, .spinner::after {
+      content: ''; position: absolute; inset: 0; border-radius: 50%;
+      border: 3px solid transparent;
+    }
+    .spinner::before { border-top-color: var(--accent); border-right-color: var(--accent); animation: spin 1s linear infinite; }
+    .spinner::after { border-bottom-color: var(--gradient-2); border-left-color: var(--gradient-2); animation: spin 0.7s linear infinite reverse; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed; bottom: 20px; right: 20px; z-index: 1000;
+      padding: 12px 24px; border-radius: 10px; font-size: 13px; font-weight: 500;
+      background: rgba(30,41,59,0.95); color: #f1f5f9;
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--border-light);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+      opacity: 0; transform: translateY(8px); transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
+      pointer-events: none;
+    }
+    #toast.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
+    #toast.error { background: rgba(127,29,29,0.95); border-color: rgba(239,68,68,0.3); color: #fecaca; }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.2); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(148,163,184,0.4); }
+
+    /* ── Section separators in md ── */
+    .md-content hr { border: 0; height: 1px; background: linear-gradient(90deg, transparent, var(--border), transparent); margin: 24px 0; }
+
+    /* ── Blockquote warning variant ── */
+    .md-content blockquote:has(> p > strong:first-child:last-child) {
+      border-left-color: #f59e0b;
+      background: rgba(245,158,11,0.06);
+    }
+  </style>
+</head>
+<body>
+
+<!-- TOP CONTROL BAR -->
+<div id="topbar">
+  <h1>PD Auth Analyse</h1>
+  <label for="case-select">Case:</label>
+  <select id="case-select" onchange="onCaseChange()">
+    <option value="">-- Select a case --</option>
+  </select>
+  <div class="channel-tabs">
+    <button class="channel-tab active" data-ch="b" onclick="switchChannel('b')">Normal Pipeline</button>
+    <button class="channel-tab" data-ch="a" onclick="switchChannel('a')">RAGFlow-Enhanced</button>
+  </div>
+  <button id="refresh-btn" onclick="refreshCases()">Refresh</button>
+  <span id="case-meta"></span>
+</div>
+
+<!-- PHASE SELECTOR -->
+<div id="phase-bar">
+  <button class="phase-tab" data-phase="01" onclick="selectPhase('01')">Phase 1 · Test Case</button>
+  <button class="phase-tab" data-phase="02" onclick="selectPhase('02')">Phase 2 · Evidence</button>
+  <button class="phase-tab" data-phase="03" onclick="selectPhase('03')">Phase 3 · Trace</button>
+  <button class="phase-tab" data-phase="04" onclick="selectPhase('04')">Phase 4 · Log</button>
+  <button class="phase-tab" data-phase="05" onclick="selectPhase('05')">Phase 5 · History</button>
+  <button class="phase-tab" data-phase="06" onclick="selectPhase('06')">Phase 6 · Code</button>
+  <button class="phase-tab" data-phase="summary" onclick="selectPhase('summary')">Summary</button>
+</div>
+
+<!-- FULL-WIDTH CONTENT -->
+<div id="content-area">
+  <div class="placeholder">
+    <span class="icon">&#128269;</span>
+    <p>Select a case and phase to view analysis content</p>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+const CASES_API = "/api/pd-auth/cases";
+const REPORT_API = "/api/pd-auth/report";
+
+let allCases = [];
+let casePairs = [];
+let selectedPair = null;
+let currentChannel = "b";
+let currentPhase = null;
+let availablePhases = {};
+
+const PHASES = ["01","02","03","04","05","06","summary"];
+const PHASE_LABELS = {
+  "01": "Phase 1 · Test Case",
+  "02": "Phase 2 · Evidence",
+  "03": "Phase 3 · Trace",
+  "04": "Phase 4 · Log",
+  "05": "Phase 5 · History",
+  "06": "Phase 6 · Code",
+  "summary": "Summary"
+};
+
+async function refreshCases() {
+  const sel = document.getElementById("case-select");
+  sel.innerHTML = '<option value="">Loading...</option>';
+  try {
+    const resp = await fetch(CASES_API);
+    const data = await resp.json();
+    allCases = data.cases || [];
+    buildCasePairs();
+    populateDropdown();
+    document.getElementById("case-meta").textContent = allCases.length + " cases";
+  } catch (e) {
+    sel.innerHTML = '<option value="">Failed to load</option>';
+    showToast("Failed to load cases: " + e.message, true);
+  }
+}
+
+function buildCasePairs() {
+  const pairMap = {};
+  const ragflowSuffix = "_ragflow";
+
+  for (const c of allCases) {
+    let base, isRagflow;
+    if (c.id.endsWith(ragflowSuffix)) {
+      base = c.id.slice(0, -ragflowSuffix.length);
+      isRagflow = true;
+    } else {
+      base = c.id;
+      isRagflow = false;
+    }
+
+    if (!pairMap[base]) pairMap[base] = { base: base, normal: null, ragflow: null };
+    if (isRagflow) {
+      pairMap[base].ragflow = c;
+    } else {
+      pairMap[base].normal = c;
+    }
+  }
+
+  casePairs = Object.values(pairMap);
+  casePairs.sort(function(a, b) {
+    const ta = a.normal ? a.normal.modified : (a.ragflow ? a.ragflow.modified : "");
+    const tb = b.normal ? b.normal.modified : (b.ragflow ? b.ragflow.modified : "");
+    return (tb || "").localeCompare(ta || "");
+  });
+}
+
+function populateDropdown() {
+  const sel = document.getElementById("case-select");
+  let html = '<option value="">-- Select a case (' + casePairs.length + ' available) --</option>';
+  for (let i = 0; i < casePairs.length; i++) {
+    const p = casePairs[i];
+    const hasR = !!p.ragflow;
+    const label = p.base + (hasR ? " [Ch.A+B]" : " [Ch.B only]");
+    html += '<option value="' + escAttr(p.base) + '">' + escHtml(label) + '</option>';
+  }
+  sel.innerHTML = html;
+}
+
+function onCaseChange() {
+  const base = document.getElementById("case-select").value;
+  if (!base) {
+    selectedPair = null;
+    resetPhaseTabs();
+    showPlaceholder("Select a case to begin");
+    return;
+  }
+
+  selectedPair = casePairs.find(function(p) { return p.base === base; });
+  if (!selectedPair) return;
+
+  const hasB = !!selectedPair.normal;
+  const hasA = !!selectedPair.ragflow;
+
+  if (currentChannel === "a" && !hasA) switchChannel("b");
+  if (currentChannel === "b" && !hasB) switchChannel("a");
+
+  scanAvailablePhases();
+  selectPhase("01");
+}
+
+function switchChannel(ch) {
+  if (!selectedPair) return;
+  const hasCh = ch === "a" ? !!selectedPair.ragflow : !!selectedPair.normal;
+  if (!hasCh) {
+    showToast("Channel not available for this case", true);
+    return;
+  }
+  currentChannel = ch;
+  document.querySelectorAll(".channel-tab").forEach(function(t) {
+    t.classList.toggle("active", t.dataset.ch === ch);
+  });
+  scanAvailablePhases();
+  if (currentPhase && availablePhases[ch] && availablePhases[ch][currentPhase]) {
+    loadPhase(currentPhase);
+  } else {
+    selectPhase("01");
+  }
+}
+
+function scanAvailablePhases() {
+  availablePhases = {a:{}, b:{}};
+
+  function scan(c, ch) {
+    if (!c || !c.products) return;
+    for (const fname of c.products) {
+      const match = fname.match(/^(\d+)[ab]?_/);
+      if (match) {
+        const phase = match[1].padStart(2, "0");
+        availablePhases[ch][phase] = fname;
+      }
+      if (fname.toUpperCase().startsWith("SUMMARY")) {
+        availablePhases[ch]["summary"] = fname;
+      }
+    }
+  }
+
+  if (selectedPair.normal) scan(selectedPair.normal, "b");
+  if (selectedPair.ragflow) scan(selectedPair.ragflow, "a");
+
+  updatePhaseTabStates();
+}
+
+function updatePhaseTabStates() {
+  const tabs = document.querySelectorAll("#phase-bar .phase-tab");
+  const ch = currentChannel;
+  tabs.forEach(function(tab) {
+    const phase = tab.dataset.phase;
+    const avail = availablePhases[ch] && availablePhases[ch][phase];
+    if (avail) {
+      tab.classList.remove("missing");
+      tab.title = availablePhases[ch][phase];
+    } else {
+      tab.classList.add("missing");
+      tab.title = phase + " — not available in this channel";
+    }
+  });
+}
+
+function resetPhaseTabs() {
+  document.querySelectorAll("#phase-bar .phase-tab").forEach(function(t) {
+    t.classList.remove("active", "missing");
+    t.title = "";
+  });
+}
+
+function selectPhase(phase) {
+  const avail = availablePhases[currentChannel] && availablePhases[currentChannel][phase];
+  if (!avail) {
+    showToast(PHASE_LABELS[phase] + " not available in " + (currentChannel === "a" ? "Ch.A" : "Ch.B"), true);
+    return;
+  }
+
+  currentPhase = phase;
+
+  document.querySelectorAll("#phase-bar .phase-tab").forEach(function(t) {
+    t.classList.toggle("active", t.dataset.phase === phase);
+  });
+
+  loadPhase(phase);
+}
+
+async function loadPhase(phase) {
+  const area = document.getElementById("content-area");
+  area.innerHTML = '<div class="loading"><div class="spinner"></div><span>Loading ' + PHASE_LABELS[phase] + '...</span></div>';
+
+  let caseId;
+  if (currentChannel === "a" && selectedPair.ragflow) {
+    caseId = selectedPair.ragflow.id;
+  } else if (currentChannel === "b" && selectedPair.normal) {
+    caseId = selectedPair.normal.id;
+  } else {
+    area.innerHTML = '<div class="placeholder"><p>No data for this channel</p></div>';
+    return;
+  }
+
+  try {
+    const url = REPORT_API + "/" + encodeURIComponent(caseId) + "/" + phase;
+    const resp = await fetch(url);
+    if (!resp.ok) {
+      const errData = await resp.json().catch(function() { return null; });
+      throw new Error(errData && errData.error ? errData.error : "HTTP " + resp.status);
+    }
+
+    const data = await resp.json();
+    const ct = data.content_type || "text/markdown";
+    const content = data.content || "";
+
+    if (ct === "text/html") {
+      area.innerHTML = content;
+    } else {
+      area.innerHTML = '<div class="md-content">' + renderMarkdown(content) + '</div>';
+    }
+  } catch (e) {
+    area.innerHTML = '<div class="placeholder"><p style="color:#f87171;">Error: ' + escHtml(e.message) + '</p></div>';
+    showToast("Failed to load: " + e.message, true);
+  }
+}
+
+function showPlaceholder(msg) {
+  document.getElementById("content-area").innerHTML =
+    '<div class="placeholder"><span class="icon">&#128196;</span><p>' + escHtml(msg) + '</p></div>';
+}
+
+// ── Markdown Renderer (inline, no CDN) ──
+function renderMarkdown(text) {
+  let html = text;
+
+  // RAGFlow citations
+  html = html.replace(/\[A:([^\],]+),score=([\d.]+)\]/g,
+    '<span class="rag-cite">🔍 A:$1 (score=$2)</span>');
+
+  // Fenced code blocks
+  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
+
+  // Headers
+  html = html.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
+  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+
+  // Bold/italic
+  html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+  // Inline code
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+  // Images
+  html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="max-width:100%;">');
+
+  // Links
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+
+  // Horizontal rules
+  html = html.replace(/^---$/gm, '<hr>');
+
+  // Blockquotes
+  html = html.replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>');
+
+  // Tables
+  html = html.replace(/((?:^\|.+\|$\n?)+)/gm, function(match) {
+    const lines = match.trim().split("\n");
+    if (lines.length < 2) return match;
+    const dataLines = lines.filter(function(l) { return !/^\|[\s\-:]+\|$/.test(l); });
+    if (dataLines.length === 0) return match;
+    let t = "<table><thead><tr>";
+    const headerCells = dataLines[0].split("|").filter(function(c) { return c.trim(); });
+    for (let i = 0; i < headerCells.length; i++) { t += "<th>" + headerCells[i].trim() + "</th>"; }
+    t += "</tr></thead><tbody>";
+    for (let i = 1; i < dataLines.length; i++) {
+      t += "<tr>";
+      const rowCells = dataLines[i].split("|").filter(function(c) { return c.trim(); });
+      for (let j = 0; j < rowCells.length; j++) { t += "<td>" + rowCells[j].trim() + "</td>"; }
+      t += "</tr>";
+    }
+    t += "</tbody></table>";
+    return t;
+  });
+
+  // Lists
+  html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
+  html = html.replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
+  html = html.replace(/((?:<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>');
+
+  // Paragraphs
+  const blocks = html.split(/\n\n+/);
+  html = "";
+  for (let i = 0; i < blocks.length; i++) {
+    let block = blocks[i].trim();
+    if (!block) continue;
+    if (/^<(h[1-4]|ul|ol|table|pre|blockquote|hr|div|img)/.test(block)) {
+      html += block + "\n";
+    } else {
+      html += "<p>" + block.replace(/\n/g, "<br>") + "</p>\n";
+    }
+  }
+
+  html = html.replace(/<p><\/p>/g, "");
+  html = html.replace(/<\/ul>\n?<ul>/g, "");
+
+  return html;
+}
+
+function escHtml(s) {
+  return (s || "").replace(/[&<>"']/g, function(c) {
+    return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];
+  });
+}
+
+function escAttr(s) {
+  return (s || "").replace(/[&<>"']/g, function(c) {
+    return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];
+  });
+}
+
+function showToast(msg, isError) {
+  const toast = document.getElementById("toast");
+  toast.textContent = msg;
+  toast.className = (isError ? "error" : "") + " show";
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(function() { toast.classList.remove("show"); }, 4000);
+}
+
+// ── Init ──
+refreshCases();
+</script>
+</body>
+</html>

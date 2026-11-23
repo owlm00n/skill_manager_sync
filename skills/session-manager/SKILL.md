@@ -51,9 +51,18 @@ python ~/.claude/tools/session-manager.py <command> [args...]
 | `web [port]` | Start web-based visual UI (default port 8765), auto-opens browser |
 | `resume <N>` | Print `claude --resume <uuid>` command for session #N |
 | `resume <N> --copy` | Print and copy the resume command to clipboard |
+| `parent` | Print `claude --resume` for the newest session's parent (auto-detects /branch parent) |
+| `parent --copy` | Print and copy the parent resume command to clipboard |
+| `parent <N>` | Find parent of specific session #N |
 | `export <N>` | Export session as Markdown file (`session-<title>.md`) |
 | `export <N> --clip` | Export session to clipboard as Markdown |
 | `export <N> <file>` | Export session to specified file |
+| `running` | List all running Claude sessions (from running.json) |
+| `snapshot` | Scan all claude processes, update running.json |
+| `launch <path> [uuid]` | Launch claude in new WT tab, optionally with --resume |
+| `restore-script` | Generate .bat restore script for all running sessions |
+| `resume <N> --force` | Print claude --resume command even if parent lookup fails |
+| `kill <PID>` | Force kill a claude session by PID |
 
 ## Behavior rules
 
@@ -64,3 +73,7 @@ python ~/.claude/tools/session-manager.py <command> [args...]
 5. **restore asks first.** Before full restore, tell the user what will be overwritten.
 6. **Indices change.** After any delete/undelete, the index numbering shifts. Re-run `list` to show updated indices.
 7. **Web UI.** The `web` command starts an HTTP server on 127.0.0.1:8765 and auto-opens the browser. The UI provides sortable table, search/project filters, side-drawer preview, and modal dialogs for rename/backup/clean-test.
+8. **Branch parent lookup.** When a session was created with `/branch`, the first JSONL line contains a `forkedFrom.sessionId` field pointing to the parent session UUID. The `parent` command reads this field, locates the parent across all projects, and prints the resume command. When the user says "这个是branch，打开之前的session", "回到上一个session", "open previous session", or similar phrases meaning "this is a branch, resume the parent", the AI should automatically run `python ~/.claude/tools/session-manager.py parent --copy` and execute the printed command.
+9. **Running sessions.** The `running` command and Web UI Running tab show live Claude sessions tracked in `~/.claude/session-manager/running.json`. Sessions are auto-registered by SessionStart hook (`session-hook.py`). Dead sessions (PID gone) show with red status dot and "Remove" button instead of "Kill".
+10. **Crash recovery.** After a computer restart or crash: (a) start the web UI: `python ~/.claude/tools/session-manager.py web`, (b) open Running tab — all pre-reboot sessions show as Dead, (c) click "New Win" to relaunch each, or use "Restore All" / download .bat script. The `--force` flag on `resume` bypasses parent-lookup for recovery scenarios.
+11. **Web UI Running tab.** Provides: Snapshot (process scan), Restore All (batch WT launch), Download Script (.bat file), per-session actions (Resume/New Win/Kill/Remove/Rename). Sessions are grouped by WT window, orphans shown separately.

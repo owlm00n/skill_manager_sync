@@ -125,6 +125,64 @@ description: 一句话说明做什么、何时触发。Claude 通过这句话判
 | frontmatter name 与目录名不一致 | 删除时找不到目标 | 保持 name = 目录名 |
 | description 写「帮助用户」 | Claude 无法自动触发 | 写明做什么 + 何时触发 |
 | 不跑 sync 就以为生效 | agent 看不到新 skill | 创建后必须 sync |
+| 直接在 agent 目录编辑 SKILL.md | ⚠️ 对 symlink 的编辑实际会写入中央仓库，但如果 symlink 断开则可能丢失 | 始终确认编辑目标路径是否在 `d:\06_Project\skills_sync\skills\` 下 |
+
+## 更新已有 Skill（Update, Not Just Create）
+
+**本 skill 不仅约束「创建」，也约束「更新」。** 当需要修改已有 skill 的 SKILL.md 时，同样遵循中央仓库统一管理原则。
+
+### 更新流程
+
+1. **确认编辑目标**：检查 symlink 是否正常
+   ```bash
+   ls -la ~/.claude/skills/<skill-name>/SKILL.md
+   # 正常应显示: .../SKILL.md -> /d/06_Project/skills_sync/skills/<skill-name>/SKILL.md
+   ```
+
+2. **编辑中央仓库文件**：直接编辑 `d:\06_Project\skills_sync\skills\<skill-name>\SKILL.md`（不要通过 agent 目录的 symlink 间接编辑）。
+
+3. **无需重新 sync**：编辑已存在 skill 的 SKILL.md 无需重新 sync（symlink 指向中央仓库，agent 目录自动反映变更）。但如果新增了 `references/`、`scripts/` 等子目录文件，需要 sync。
+
+4. **版本号**：重大规则变更时升级 `version` 字段（frontmatter），方便追踪技能演化。
+
+### Skill 更新后 → Memory Sync 联动（强制）
+
+**当 skill 的 SKILL.md 新增或修改了「AI 行为规则」类内容时，该规则可能与跨项目通用场景相关，必须同步写入 memory_sync 中央记忆库。**
+
+触发条件（满足任一即触发）：
+- SKILL.md 新增了「必填字段校验」「Hard Gate」「三层防御」等机制级规则
+- SKILL.md 新增了「AI 操作前置规则」或「执行检查清单」
+- SKILL.md 修复了曾导致 AI 错误的流程缺陷（如"compaction 后规则丢失"）
+- SKILL.md 新增了跨 skill 协调规则（如 bug-core ↔ bugzilla-commit workflow 联动）
+
+写入路径：
+```
+D:\06_Project\memory_sync\memories\global\claude-code\workflow\<slug>.md
+```
+或，如果规则仅对特定项目生效：
+```
+D:\06_Project\memory_sync\memories\projects\claude-code\<project-name>\workflow\<slug>.md
+```
+
+memory_sync 格式要求（14 字段 frontmatter）：
+```yaml
+---
+title: <简短标题>
+scope: global | project:<name>
+category: workflow | bug-fix | platform-rule | code-pattern | driver-experience
+source_skill: <来源 skill 名>
+source_file: <来源 SKILL.md 路径>
+bug_id: <相关 Bug ID，无则填 N/A>
+date: YYYY-MM-DD
+confidence: confirmed | speculative
+ai_model: claude-code
+version: 1
+tags: [tag1, tag2]
+status: draft
+---
+```
+
+> ⚠️ **为什么需要这一步**：skill 的 SKILL.md 是「能力定义」，memory_sync 是「经验沉淀」。前者告诉 AI 怎么做，后者让 AI 在跨项目场景中也能回忆起为什么这么做。两者互补，缺一不可。
 
 ## 兜底：reverse-sync
 

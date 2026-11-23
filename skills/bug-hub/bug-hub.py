@@ -1,13 +1,12 @@
 #!/usr/bin/env python
 """
 Bug Hub — Unified dashboard for Bugzilla Assistant skills.
-bug-core, bug-logs, bug-workspace, keyword-vault, log-analyzer, protocol-parser, code-generator
+bug-core, bug-workspace, keyword-vault, log-analyzer, protocol-parser, code-generator
 
 Usage:
-  python bug-hub.py start [port] [--force]     Start the hub (default 8777)
-  python bug-hub.py stop [port]                Stop the hub
-  python bug-hub.py restart [port]             Stop then start
-  python bug-hub.py status [port]              Print server & module status
+  python bug-hub.py start [port]       Start the hub (default 8777)
+  python bug-hub.py stop               Stop the hub
+  python bug-hub.py status             Print module status table
 """
 
 import os
@@ -43,19 +42,19 @@ if not SKILLS_DIR.exists() and _PROJECT_SKILLS.exists():
         SKILLS_DIR = _PROJECT_SKILLS
 
 BUG_CORE_DIR = SKILLS_DIR / "bug-core"
-BUG_LOGS_DIR = SKILLS_DIR / "bug-logs"
 BUG_WORKSPACE_DIR = SKILLS_DIR / "bug-workspace"
 KEYWORD_VAULT_DIR = SKILLS_DIR / "keyword-vault"
 LOG_ANALYZER_DIR = SKILLS_DIR / "log-analyzer"
 PROTOCOL_PARSER_DIR = SKILLS_DIR / "protocol-parser"
 PAGES_DIR = _SCRIPT_DIR / "pages"
+PD_AUTH_DATA_DIR = Path("D:/06_Project/skills_sync/skills/pd_auth_analyse/data/cases")
 
 HUB_DIR = HOME / ".claude" / "bug-hub"
 PID_FILE = HUB_DIR / "bug-hub.pid"
 HUB_DIR.mkdir(parents=True, exist_ok=True)
 
 # ── Add skill dirs to path ───────────────────────────────────────────
-for d in [BUG_CORE_DIR, BUG_LOGS_DIR, BUG_WORKSPACE_DIR, KEYWORD_VAULT_DIR,
+for d in [BUG_CORE_DIR, BUG_WORKSPACE_DIR, KEYWORD_VAULT_DIR,
           LOG_ANALYZER_DIR, PROTOCOL_PARSER_DIR,
           BUG_CORE_DIR / "mcp-server"]:
     if d.exists():
@@ -70,14 +69,6 @@ MODULES = [
         "icon": "\U0001F41B",
         "desc": "Bugzilla Bug query — multi-instance query, smart summary, search, offline mode",
         "page": "bug-core.html",
-        "status": "ready",
-    },
-    {
-        "id": "bug-logs",
-        "name": "Bug Logs",
-        "icon": "\U0001F4C2",
-        "desc": "Log directory query & attachment download — UNC+FTP dual-channel, structured parsing",
-        "page": "bug-logs.html",
         "status": "ready",
     },
     {
@@ -119,6 +110,48 @@ MODULES = [
         "desc": "Debug code generation — 3-level grading (quick debug / full diagnosis / production fix)",
         "page": "code-generator.html",
         "status": "ready",
+    },
+    {
+        "id": "pd-auth-analyse",
+        "name": "PD 认证分析",
+        "icon": "\U0001F52C",
+        "desc": "6-Phase PD认证深度分析报告，Case选择器浏览Phase产物",
+        "page": "pd-auth-analyse.html",
+        "status": "ready",
+    },
+]
+
+# ── Infrastructure Registry ────────────────────────────────────────────
+
+INFRASTRUCTURE = [
+    {
+        "id": "skills-sync",
+        "name": "Skills Sync",
+        "icon": "&#x1F504;",
+        "desc": "Centralized Skill distribution hub — 46 registered Skills across 7 presets, 3 sync modes (Junction/Symlink/Copy), 18 git commits. Supersedes skills-manager.",
+        "status": "active",
+        "stats": [
+            {"label": "Skills", "value": "46"},
+            {"label": "Presets", "value": "7"},
+            {"label": "Agent Tools", "value": "23+"},
+            {"label": "Commits", "value": "18"},
+            {"label": "Sync Modes", "value": "Junction, Symlink, Copy"},
+        ],
+        "path": "D:/06_Project/skills_sync",
+        "url": "http://127.0.0.1:8777",
+    },
+    {
+        "id": "skills-manager",
+        "name": "Skills Manager (Legacy)",
+        "icon": "&#x1F5C4;",
+        "desc": "Original Skill management tool (~450 commits, v1.28.1). Now superseded by Skills Sync.",
+        "status": "superseded",
+        "stats": [
+            {"label": "Commits", "value": "~450"},
+            {"label": "Version", "value": "v1.28.1"},
+            {"label": "Status", "value": "Superseded by Skills Sync"},
+        ],
+        "path": "D:/06_Project/skills-manager",
     },
 ]
 
@@ -165,16 +198,13 @@ HTML = r'''<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bug Hub — Bugzilla Assistant Dashboard</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-<script src="https://cdn.tailwindcss.com"></script>
+<script src="/pages/assets/tailwind.min.js"></script>
 <script>
   tailwind.config = {
     darkMode: "class",
     theme: {
       extend: {
-        fontFamily: { sans: ['Outfit', 'sans-serif'] },
+        fontFamily: { sans: ['system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'] },
         colors: {
           primary: {
             50:'#eef2ff',100:'#e0e7ff',200:'#c3dafe',300:'#a3bffa',400:'#7f9cf5',
@@ -192,7 +222,7 @@ HTML = r'''<!DOCTYPE html>
   }
 </script>
 <style>
-  body { font-family:'Outfit',sans-serif; }
+  body { font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; }
   ::-webkit-scrollbar{width:8px;height:8px}
   ::-webkit-scrollbar-track{background:transparent}
   ::-webkit-scrollbar-thumb{background:rgba(156,163,175,0.5);border-radius:4px}
@@ -322,6 +352,68 @@ HTML = r'''<!DOCTYPE html>
     transform:translateY(-2px);
   }
 
+  .infra-card{
+    background:rgba(255,255,255,0.65);
+    backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);
+    border:1px solid rgba(255,255,255,0.45);
+    box-shadow:0 8px 25px -8px rgba(0,0,0,0.08),0 0 0 1px rgba(255,255,255,0.25) inset;
+    border-radius:20px;padding:28px 24px;position:relative;overflow:hidden;
+    transition:transform .4s cubic-bezier(0.16,1,0.3,1),box-shadow .4s cubic-bezier(0.16,1,0.3,1),border-color .3s ease;
+  }
+  .dark .infra-card{
+    background:rgba(15,23,42,0.55);
+    border:1px solid rgba(255,255,255,0.07);
+    box-shadow:0 15px 40px -10px rgba(0,0,0,0.5),0 0 0 1px rgba(255,255,255,0.03) inset;
+  }
+  .infra-card:hover{
+    transform:translateY(-4px);
+    border-color:rgba(102,126,234,0.35);
+    box-shadow:0 20px 40px -10px rgba(102,126,234,0.2),0 0 0 1px rgba(102,126,234,0.15) inset;
+  }
+  .infra-card.superseded{
+    opacity:0.65;
+  }
+  .infra-card.superseded:hover{
+    opacity:0.85;
+    border-color:rgba(148,163,184,0.3);
+    box-shadow:0 12px 28px -8px rgba(0,0,0,0.12),0 0 0 1px rgba(148,163,184,0.1) inset;
+  }
+  .infra-stat{
+    display:flex;align-items:center;gap:6px;
+    padding:4px 10px;border-radius:8px;
+    background:rgba(102,126,234,0.08);color:#4c51bf;
+    font-size:12px;font-weight:600;
+  }
+  .dark .infra-stat{
+    background:rgba(127,156,245,0.12);color:#a3bffa;
+  }
+  .infra-stat.muted{
+    background:rgba(148,163,184,0.1);color:#64748b;
+  }
+  .dark .infra-stat.muted{
+    background:rgba(148,163,184,0.08);color:#94a3b8;
+  }
+  .infra-badge-active{
+    display:inline-flex;align-items:center;gap:5px;
+    padding:3px 10px;border-radius:9999px;
+    background:rgba(63,185,80,0.12);color:#2ea043;
+    border:1px solid rgba(63,185,80,0.25);
+    font-size:11px;font-weight:600;
+  }
+  .dark .infra-badge-active{
+    background:rgba(63,185,80,0.15);color:#3fb950;
+  }
+  .infra-badge-legacy{
+    display:inline-flex;align-items:center;gap:5px;
+    padding:3px 10px;border-radius:9999px;
+    background:rgba(148,163,184,0.12);color:#64748b;
+    border:1px solid rgba(148,163,184,0.2);
+    font-size:11px;font-weight:600;
+  }
+  .dark .infra-badge-legacy{
+    background:rgba(148,163,184,0.1);color:#94a3b8;
+  }
+
   .aurora{
     position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;
   }
@@ -409,6 +501,16 @@ HTML = r'''<!DOCTYPE html>
           </p>
         </div>
         <div id="grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-5xl animate-fade-in-up" style="animation-delay:.15s"></div>
+
+        <!-- INFRASTRUCTURE SECTION -->
+        <div id="infra-section" class="w-full max-w-5xl mt-12 mb-8 animate-fade-in-up" style="animation-delay:.3s">
+          <div class="flex items-center gap-3 mb-5">
+            <div class="h-px flex-1 bg-gradient-to-r from-transparent via-slate-300 dark:via-slate-600 to-transparent"></div>
+            <span class="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 whitespace-nowrap">Infrastructure &amp; Tools</span>
+            <div class="h-px flex-1 bg-gradient-to-r from-transparent via-slate-300 dark:via-slate-600 to-transparent"></div>
+          </div>
+          <div id="infra-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-6"></div>
+        </div>
       </div>
     </div>
 
@@ -543,6 +645,53 @@ function showToast(msg){
   setTimeout(()=>{ t.classList.add('translate-y-24','opacity-0'); setTimeout(()=>t.classList.add('hidden'),400); }, 3000);
 }
 
+// ── Infrastructure ──────────────────────────────────────
+let infrastructure = [];
+
+async function loadInfrastructure(){
+  try {
+    const data = await api('/api/infrastructure');
+    infrastructure = data.infrastructure || [];
+  } catch(e){ console.error('Failed to load infrastructure', e); infrastructure = []; }
+  renderInfrastructure();
+}
+
+function renderInfrastructure(){
+  const grid = document.getElementById('infra-grid');
+  if(!grid) return;
+  grid.innerHTML = infrastructure.map(m => {
+    const isLegacy = m.status === 'superseded';
+    const badgeHtml = isLegacy
+      ? '<span class="infra-badge-legacy">' + escHtml('&#x1F5D3;') + ' Legacy</span>'
+      : '<span class="infra-badge-active"><span class="dot-ping-wrap"><span class="ping dot-green"></span><span class="dot dot-green"></span></span> Active</span>';
+
+    const statsHtml = (m.stats || []).map(s =>
+      '<span class="infra-stat' + (isLegacy ? ' muted' : '') + '">' +
+      '<span class="opacity-70">' + escHtml(s.label) + ':</span>&nbsp;<strong>' + escHtml(s.value) + '</strong>' +
+      '</span>'
+    ).join('');
+
+    const pathHtml = m.path
+      ? '<div class="mt-3 text-[11px] text-slate-400 dark:text-slate-500 font-mono truncate" title="' + escHtml(m.path) + '">' + escHtml(m.icon) + ' ' + escHtml(m.path) + '</div>'
+      : '';
+
+    return '<div class="infra-card' + (isLegacy ? ' superseded' : '') + ' animate-fade-in-up">' +
+      '<div class="flex items-start justify-between mb-3">' +
+        '<div class="flex items-center gap-3">' +
+          '<div class="text-3xl">' + m.icon + '</div>' +
+          '<div>' +
+            '<div class="text-base font-bold text-slate-900 dark:text-white">' + escHtml(m.name) + '</div>' +
+            '<div class="mt-1">' + badgeHtml + '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-3">' + escHtml(m.desc) + '</div>' +
+      '<div class="flex flex-wrap gap-2">' + statsHtml + '</div>' +
+      pathHtml +
+    '</div>';
+  }).join('');
+}
+
 window.addEventListener('load', function(){
   setTimeout(function(){
     const p = document.getElementById('preloader');
@@ -553,6 +702,7 @@ window.addEventListener('load', function(){
 
 (async function(){
   await loadModules();
+  await loadInfrastructure();
   handleHash();
 })();
 </script>
@@ -584,9 +734,23 @@ class HubHandler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
-    def _serve_file(self, path, content_type="text/html; charset=utf-8"):
+    def _serve_file(self, path, content_type=None):
         try:
             data = path.read_bytes()
+            if content_type is None:
+                ext = path.suffix.lower()
+                content_type = {
+                    ".html": "text/html; charset=utf-8",
+                    ".js": "application/javascript; charset=utf-8",
+                    ".css": "text/css; charset=utf-8",
+                    ".json": "application/json; charset=utf-8",
+                    ".svg": "image/svg+xml",
+                    ".png": "image/png",
+                    ".jpg": "image/jpeg",
+                    ".jpeg": "image/jpeg",
+                    ".gif": "image/gif",
+                    ".ico": "image/x-icon",
+                }.get(ext, "text/plain; charset=utf-8")
             self.send_response(200)
             self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(data)))
@@ -616,6 +780,9 @@ class HubHandler(http.server.BaseHTTPRequestHandler):
         if p == "/api/health":
             return self._json({"ok": True})
 
+        if p == "/api/infrastructure":
+            return self._json({"infrastructure": INFRASTRUCTURE})
+
         # ── keyword-vault API ──
         if p == "/api/keyword-vault/directions":
             return self._handle_kw_directions()
@@ -627,6 +794,29 @@ class HubHandler(http.server.BaseHTTPRequestHandler):
         # ── bug-workspace path history ──
         if p == "/api/bug-workspace/paths":
             return self._handle_workspace_paths_get()
+
+        # ── pd-auth-analyse API ──
+        if p == "/api/pd-auth/cases":
+            return self._handle_pd_auth_cases()
+        if p.startswith("/api/pd-auth/report/"):
+            # path: /api/pd-auth/report/<case_id>/<phase>
+            parts = p[len("/api/pd-auth/report/"):].split("/")
+            if len(parts) >= 2:
+                return self._handle_pd_auth_report(parts[0], "/".join(parts[1:]))
+            return self._json({"error": "invalid path, expected /api/pd-auth/report/<case_id>/<phase>"}, 400)
+
+        # ── pd-auth-analyse artifact API ──
+        if p.startswith("/api/pd-auth/artifacts/"):
+            case_id = p[len("/api/pd-auth/artifacts/"):]
+            if case_id:
+                return self._handle_pd_auth_artifacts(case_id)
+            return self._json({"error": "case_id required"}, 400)
+        if p.startswith("/api/pd-auth/artifact/"):
+            # path: /api/pd-auth/artifact/<case_id>/<artifact_name>
+            parts = p[len("/api/pd-auth/artifact/"):].split("/")
+            if len(parts) >= 2:
+                return self._handle_pd_auth_artifact(parts[0], "/".join(parts[1:]))
+            return self._json({"error": "invalid path, expected /api/pd-auth/artifact/<case_id>/<artifact_name>"}, 400)
 
         # Serve static pages
         if p.startswith("/pages/"):
@@ -649,10 +839,6 @@ class HubHandler(http.server.BaseHTTPRequestHandler):
         # ── bug-core API ──
         if p == "/api/bug-core/query":
             return self._handle_bug_core_query()
-
-        # ── bug-logs API ──
-        if p == "/api/bug-logs/list":
-            return self._handle_bug_logs_list()
 
         # ── bug-workspace API ──
         if p == "/api/bug-workspace/create":
@@ -711,10 +897,10 @@ class HubHandler(http.server.BaseHTTPRequestHandler):
                 cache = json.loads(local_data.read_text(encoding="utf-8"))
                 for item in cache if isinstance(cache, list) else cache.get("bugs", []):
                     if str(item.get("bug_id", "")) == bug_id:
-                        return item.get("instance", "kernel")
+                        return item.get("instance", "unisoc")
             except Exception:
                 pass
-        return "kernel"
+        return "unisoc"
 
     def _handle_bug_core_query(self):
         body = self._read_body()
@@ -734,23 +920,6 @@ class HubHandler(http.server.BaseHTTPRequestHandler):
                 hint = " (API key may be missing or expired for this instance)"
             elif "400" in err or "Bad Request" in err:
                 hint = f" (Bug not found on {instance}, try a different instance)"
-            return self._json({"ok": False, "error": err + hint, "instance": instance})
-
-    def _handle_bug_logs_list(self):
-        body = self._read_body()
-        bug_id = body.get("bug_id", "")
-        instance = body.get("instance") or self._guess_instance(bug_id)
-        try:
-            from bug_logs import fetch_bug_with_logs
-            result = fetch_bug_with_logs(str(bug_id), instance)
-            if isinstance(result, dict):
-                result["_instance"] = instance
-            return self._json({"ok": True, "data": result})
-        except Exception as e:
-            err = str(e)
-            hint = ""
-            if "401" in err or "Unauthorized" in err:
-                hint = " (API key required)"
             return self._json({"ok": False, "error": err + hint, "instance": instance})
 
     def _handle_bug_workspace_create(self):
@@ -784,7 +953,7 @@ class HubHandler(http.server.BaseHTTPRequestHandler):
             from bug_workspace import generate_workspace_with_download
             result = generate_workspace_with_download(
                 bug_info, base_path=base_path,
-                download=download, refresh=refresh,
+                download_mode="full" if (download and refresh) else ("skip" if not download else "incremental"),
                 normalize_action=normalize_action, copy_bug_z=True)
 
             print(f"[DEBUG] result keys: {list(result.keys())}, success: {result.get('success')}, folder keys: {list(result.get('folder', {}).keys())}", file=sys.stderr)
@@ -978,17 +1147,21 @@ class HubHandler(http.server.BaseHTTPRequestHandler):
             filtered_path = HUB_DIR / f"_filtered_{direction}.log"
             filtered_path.write_text(filtered_log, encoding="utf-8")
 
-            # Step 4: Run protocol parser on filtered log
-            from protocol_combiner import parse_all, generate_report
-            data = parse_all(str(filtered_path))
-            output_html = str(HUB_DIR / "protocol_report_output.html")
-            report_result = generate_report(data, output_html)
+            # Step 4: Run protocol parser on filtered log (v4.0 pipeline)
+            from smart_extractor import extract_structured
+            from visualizer import generate_html
 
-            report_html = ""
-            if report_result and Path(report_result).exists():
-                report_html = Path(report_result).read_text(encoding="utf-8", errors="replace")
+            extraction_result = extract_structured(str(filtered_path))
+            html = generate_html(extraction_result)
 
-            report_name = Path(output_html).name
+            output_path = HUB_DIR / "protocol_report_output.html"
+            output_path.write_text(html, encoding="utf-8")
+            report_name = output_path.name
+
+            meta = extraction_result.get("metadata", {})
+            anomalies = extraction_result.get("anomalies", [])
+            negotiations = extraction_result.get("pd_negotiations", [])
+
             return self._json({"ok": True, "data": {
                 "direction": direction,
                 "direction_name": direction_info.get("name", direction),
@@ -999,9 +1172,17 @@ class HubHandler(http.server.BaseHTTPRequestHandler):
                 "filtered_log": filtered_log[:100000],
                 "filtered_log_path": str(filtered_path),
                 "report_url": f"/reports/{report_name}",
-                "parsed": {k: v for k, v in data.items() if not k.endswith("_error")},
-                "report_html": report_html[:200000],
-                "report_html_path": report_result,
+                "parsed": {
+                    "log_type": (meta.get("protocol_types") or ["UNKNOWN"])[0],
+                    "platform": meta.get("platform", "unknown"),
+                    "chip": meta.get("chip", ""),
+                    "extracted_event_count": meta.get("extracted_event_count", 0),
+                    "negotiation_count": len(negotiations),
+                    "anomaly_count": len(anomalies),
+                    "format_label": meta.get("format_label", "unknown"),
+                },
+                "report_html": html[:200000] if html else "",
+                "report_html_path": str(output_path),
             }})
         except Exception as e:
             import traceback
@@ -1037,23 +1218,60 @@ class HubHandler(http.server.BaseHTTPRequestHandler):
     def _handle_protocol_parser_generate(self):
         body = self._read_body()
         logfile = body.get("logfile", "")
+        if not logfile:
+            return self._json({"ok": False, "error": "logfile is required"})
+        if not Path(logfile).exists():
+            return self._json({"ok": False, "error": f"Log file not found: {logfile}"})
         try:
-            from protocol_combiner import parse_all, generate_report
-            data = parse_all(str(logfile))
-            output_html = str(HUB_DIR / "protocol_report_output.html")
-            result = generate_report(data, output_html)
-            report = ""
-            if result and Path(result).exists():
-                report = Path(result).read_text(encoding="utf-8", errors="replace")
-            report_name = Path(output_html).name
+            from smart_extractor import extract_structured
+            from visualizer import generate_html
+
+            # Layer 1: Extract structured data
+            extraction_result = extract_structured(str(logfile))
+
+            # Layer 2: Generate self-contained HTML report
+            html = generate_html(extraction_result)
+
+            # Write HTML to file (served via /reports/ route)
+            output_path = HUB_DIR / "protocol_report_output.html"
+            output_path.write_text(html, encoding="utf-8")
+            report_name = output_path.name
+
+            # Build frontend-friendly summary from extraction result
+            meta = extraction_result.get("metadata", {})
+            anomalies = extraction_result.get("anomalies", [])
+            negotiations = extraction_result.get("pd_negotiations", [])
+            charger = extraction_result.get("charger_summary") or {}
+
+            parsed = {
+                "log_type": (meta.get("protocol_types") or ["UNKNOWN"])[0],
+                "platform": meta.get("platform", "unknown"),
+                "chip": meta.get("chip", ""),
+                "total_log_lines": meta.get("total_log_lines", 0),
+                "extracted_event_count": meta.get("extracted_event_count", 0),
+                "negotiation_count": len(negotiations),
+                "anomaly_count": len(anomalies),
+                "anomaly_severity_counts": {
+                    "high": sum(1 for a in anomalies if a.get("severity") == "high"),
+                    "medium": sum(1 for a in anomalies if a.get("severity") == "medium"),
+                    "low": sum(1 for a in anomalies if a.get("severity") == "low"),
+                },
+                "hard_reset_phase_count": len(extraction_result.get("hard_reset_phases", [])),
+                "charger_info": charger.get("vid") if charger else None,
+                "format_label": meta.get("format_label", "unknown"),
+                "confidence": meta.get("extraction_level", "unknown"),
+            }
+
             return self._json({"ok": True, "data": {
-                "html_path": result,
+                "html_path": str(output_path),
                 "report_url": f"/reports/{report_name}",
-                "parsed": {k: v for k, v in data.items() if not k.endswith("_error")},
-                "report_html": report[:200000] if report else ""
+                "parsed": parsed,
+                "report_html": html[:200000] if html else "",
             }})
         except Exception as e:
-            return self._json({"ok": False, "error": str(e)})
+            import traceback
+            return self._json({"ok": False, "error": str(e),
+                               "traceback": traceback.format_exc()})
 
     def _handle_code_generator(self):
         body = self._read_body()
@@ -1077,155 +1295,271 @@ class HubHandler(http.server.BaseHTTPRequestHandler):
         except Exception as e:
             return self._json({"ok": False, "error": str(e)})
 
+    # ── pd-auth-analyse API Handlers ──────────────────────────────────
 
-# ── CLI Commands ─────────────────────────────────────────────────────
+    def _find_phase_file(self, case_dir, phase):
+        """Find the phase file in a case directory.
 
-DEFAULT_PORT = 8777
-HEALTH_TIMEOUT = 2  # seconds
+        Phase mapping:
+          01 -> 01_*.md or 01a_*.md, 02 -> 02_*.md or 02a_*.md, ..., 06 -> 06_*.md or 06a_*.md
+          summary -> SUMMARY*.html
 
+        Supports both normal (01_*.md) and RAGFlow (01a_*.md) naming conventions.
+        If multiple versions exist (e.g., 02_failure_location_V3.md),
+        returns the one with the highest version number or latest modification time.
+        """
+        import re
+        candidates = []
 
-def _parse_port(argv):
-    """Extract port number from CLI args. Returns (port, force, rest_args)."""
-    port = DEFAULT_PORT
-    force = False
-    rest = []
+        if phase == "summary":
+            # Match both old (SUMMARY.md) and new (SUMMARY*.html) naming
+            candidates_summary = list(case_dir.glob("SUMMARY*.html"))
+            candidates_summary.extend(case_dir.glob("SUMMARY*.md"))
+            return candidates_summary[0] if candidates_summary else None
+        elif phase == "07":
+            pattern = "07[!0-9]*.md"
+        else:
+            # [a-z_] matches both normal (_) and RAGFlow (a-z suffix) conventions:
+            #   "01_test_case_info.md"  -> [a-z_] captures "_"
+            #   "01a_test_case_info.md" -> [a-z_] captures "a"
+            pattern = f"{phase}[a-z_]*.md"
+
+        for f in case_dir.glob(pattern):
+            candidates.append(f)
+
+        if not candidates:
+            return None
+
+        # Sort: prefer higher version number, then latest modification time
+        def sort_key(f):
+            name = f.stem
+            # Extract version number like _V2, _V3
+            match = re.search(r'_V(\d+)$', name)
+            version = int(match.group(1)) if match else 0
+            # Return negative version so higher versions sort first,
+            # then by modification time (most recent first)
+            return (-version, -f.stat().st_mtime)
+
+        candidates.sort(key=sort_key)
+        return candidates[0]
+
+    def _handle_pd_auth_cases(self):
+        """Scan PD_AUTH_DATA_DIR and return list of case directories with their phase products."""
+        cases = []
+
+        if not PD_AUTH_DATA_DIR.exists():
+            return self._json({"cases": [], "note": "Data directory not found: " + str(PD_AUTH_DATA_DIR)})
+
+        try:
+            for case_dir in sorted(PD_AUTH_DATA_DIR.iterdir()):
+                if not case_dir.is_dir():
+                    continue
+
+                case_id = case_dir.name
+                products = []
+
+                # Check each phase for existing files
+                for phase in ["01", "02", "03", "04", "05", "06"]:
+                    pf = self._find_phase_file(case_dir, phase)
+                    if pf:
+                        products.append(pf.name)
+
+                # Check for summary
+                summary_file = self._find_phase_file(case_dir, "summary")
+                has_summary = summary_file is not None
+                if has_summary:
+                    products.append(summary_file.name)
+
+                # Get latest modification time from all products
+                all_files = list(case_dir.glob("*"))
+                # Filter out directories
+                all_files = [f for f in all_files if f.is_file()]
+                if all_files:
+                    modified = max(f.stat().st_mtime for f in all_files)
+                else:
+                    modified = case_dir.stat().st_mtime
+
+                from datetime import datetime
+                modified_iso = datetime.fromtimestamp(modified).isoformat()
+
+                cases.append({
+                    "id": case_id,
+                    "name": case_id,
+                    "path": str(case_dir),
+                    "products": sorted(products),
+                    "has_summary": has_summary,
+                    "modified": modified_iso,
+                })
+
+            # Sort by modification time descending
+            cases.sort(key=lambda c: c["modified"], reverse=True)
+
+            return self._json({"cases": cases})
+        except Exception as e:
+            return self._json({"error": str(e)}, 500)
+
+    def _handle_pd_auth_report(self, case_id, phase):
+        """Read the content of a specific phase product file for a case."""
+        case_dir = PD_AUTH_DATA_DIR / case_id
+
+        if not case_dir.exists():
+            return self._json({"error": f"Case not found: {case_id}"}, 404)
+
+        phase_file = self._find_phase_file(case_dir, phase)
+        if phase_file is None:
+            return self._json({
+                "error": f"Phase {phase} product not found for case {case_id}",
+                "case_id": case_id,
+                "phase": phase,
+                "filename": None,
+                "content": None,
+                "content_type": None,
+            }, 404)
+
+        try:
+            content = phase_file.read_text(encoding="utf-8", errors="replace")
+
+            # Determine content type from extension
+            if phase_file.suffix == ".html" or phase_file.suffix == ".htm":
+                content_type = "text/html"
+            else:
+                content_type = "text/markdown"
+
+            return self._json({
+                "case_id": case_id,
+                "phase": phase,
+                "filename": phase_file.name,
+                "content": content,
+                "content_type": content_type,
+            })
+        except Exception as e:
+            return self._json({"error": f"Failed to read file: {str(e)}"}, 500)
+
+    def _handle_pd_auth_artifacts(self, case_id):
+        """Scan a case directory for enhanced artifacts (visual HTML, viewer HTML, keyword JSON).
+
+        Matching rules:
+          *_visual.html  -> artifact_type: "trace_visual",     phase: "03"
+          *_viewer.html  -> artifact_type: "log_viewer",       phase: "04"
+          keyword_*.json -> artifact_type: "keyword_match",    phase: "05"
+        """
+        case_dir = PD_AUTH_DATA_DIR / case_id
+        if not case_dir.exists():
+            return self._json({"error": f"Case not found: {case_id}"}, 404)
+
+        artifacts = []
+        try:
+            for f in sorted(case_dir.iterdir()):
+                if not f.is_file():
+                    continue
+                name = f.name
+                if name.endswith("_visual.html"):
+                    artifacts.append({
+                        "name": name,
+                        "type": "trace_visual",
+                        "phase": "03",
+                        "size": f.stat().st_size,
+                    })
+                elif name.endswith("_viewer.html"):
+                    artifacts.append({
+                        "name": name,
+                        "type": "log_viewer",
+                        "phase": "04",
+                        "size": f.stat().st_size,
+                    })
+                elif name.startswith("keyword_") and name.endswith(".json"):
+                    artifacts.append({
+                        "name": name,
+                        "type": "keyword_match",
+                        "phase": "05",
+                        "size": f.stat().st_size,
+                    })
+            return self._json({"case_id": case_id, "artifacts": artifacts})
+        except Exception as e:
+            return self._json({"error": str(e)}, 500)
+
+    def _handle_pd_auth_artifact(self, case_id, artifact_name):
+        """Return the raw content of an enhanced artifact file.
+
+        HTML files are served as text/html; JSON files as application/json.
+        Path-traversal attempts are rejected.
+        """
+        # Security: block path traversal
+        if ".." in artifact_name or "/" in artifact_name or "\\" in artifact_name:
+            return self._json({"error": "invalid artifact name"}, 400)
+
+        case_dir = PD_AUTH_DATA_DIR / case_id
+        if not case_dir.exists():
+            return self._json({"error": f"Case not found: {case_id}"}, 404)
+
+        artifact_file = case_dir / artifact_name
+        if not artifact_file.exists() or not artifact_file.is_file():
+            return self._json({"error": f"Artifact not found: {artifact_name}"}, 404)
+
+        try:
+            content = artifact_file.read_text(encoding="utf-8", errors="replace")
+            encoded = content.encode("utf-8")
+
+            suffix = artifact_name.lower()
+            if suffix.endswith(".html"):
+                ct = "text/html; charset=utf-8"
+            elif suffix.endswith(".json"):
+                ct = "application/json; charset=utf-8"
+            else:
+                return self._json({"error": "unsupported artifact type"}, 400)
+
+            self.send_response(200)
+            self.send_header("Content-Type", ct)
+            self.send_header("Content-Length", str(len(encoded)))
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(encoded)
+        except Exception as e:
+            return self._json({"error": str(e)}, 500)
+
+def cmd_start(argv):
+    port = 8777
     for a in argv:
-        if a in ("--force", "-f"):
-            force = True
-        elif a.startswith("--port="):
+        if a.startswith("--port="):
             try:
                 port = int(a.split("=", 1)[1])
             except ValueError:
-                print(f"Invalid port: {a}", file=sys.stderr)
+                pass
         else:
             try:
                 port = int(a)
             except ValueError:
-                rest.append(a)
-    return port, force, rest
+                pass
 
-
-def _health_check(port):
-    """Check if Bug Hub is alive by hitting /api/health. Returns True if responding."""
-    try:
-        import urllib.request
-        req = urllib.request.Request(
-            f"http://127.0.0.1:{port}/api/health",
-            headers={"User-Agent": "bug-hub-cli"}
-        )
-        resp = urllib.request.urlopen(req, timeout=HEALTH_TIMEOUT)
-        data = json.loads(resp.read().decode())
-        return data.get("ok", False)
-    except Exception:
-        return False
-
-
-def _find_hub_pid_on_port(port):
-    """Find PID of process listening on the given port. Returns PID or None."""
-    try:
-        if sys.platform == "win32":
-            result = subprocess.run(
-                ["netstat", "-ano"], capture_output=True, text=True, timeout=5
-            )
-            for line in result.stdout.splitlines():
-                if f"127.0.0.1:{port}" in line and "LISTENING" in line:
-                    parts = line.strip().split()
-                    return int(parts[-1])
-        else:
-            result = subprocess.run(
-                ["lsof", "-ti", f"tcp:{port}"], capture_output=True, text=True, timeout=5
-            )
-            pid_str = result.stdout.strip()
-            if pid_str:
-                return int(pid_str.split()[-1])
-    except Exception:
-        pass
-    return None
-
-
-def _kill_process(pid):
-    """Kill a process by PID. Returns True if successful."""
-    try:
-        if sys.platform == "win32":
-            subprocess.run(
-                ["taskkill", "/PID", str(pid), "/F"],
-                capture_output=True, timeout=10
-            )
-        else:
-            os.kill(pid, signal.SIGKILL)
-        time.sleep(0.5)
-        return True
-    except Exception:
-        return False
-
-
-def _ensure_stopped(port):
-    """Ensure nothing is running on the target port. Returns True if port is free."""
-    if not is_port_open(port):
-        return True  # port is already free
-
-    # Port is in use. Try to identify and stop.
-    pid = _find_hub_pid_on_port(port)
-    if pid:
-        print(f"Port {port} is in use by PID {pid}. Stopping ...")
-        if _kill_process(pid):
-            time.sleep(0.3)
-            if not is_port_open(port):
-                print("  Stopped.")
-                remove_pid()
-                return True
-            else:
-                print(f"  Failed to stop PID {pid}, port still in use.")
-                return False
-        else:
-            print(f"  Could not kill PID {pid}.")
-            return False
-    else:
-        print(f"Port {port} is in use by an unknown process.")
-        return False
-
-
-# ── start ───────────────────────────────────────────────────────────
-
-def cmd_start(argv):
-    port, force, _ = _parse_port(argv)
-
-    # ── Check if already running via health endpoint (most reliable) ──
-    if _health_check(port):
-        print(f"Bug Hub is already running on http://127.0.0.1:{port}/")
-        if force:
-            print("  --force: restarting ...")
-            _ensure_stopped(port)
-        else:
-            print(f"  Use 'restart' or 'start --force' to restart.")
-            return
-
-    # ── Fallback: check PID file if health check didn't catch it ──
     existing_pid = read_pid()
     if existing_pid is not None:
-        print(f"Stale PID file found (PID {existing_pid}). Cleaning up ...")
-        remove_pid()
+        try:
+            if sys.platform == "win32":
+                # Windows: check if process exists via tasklist
+                import subprocess as _sp
+                result = _sp.run(
+                    ["tasklist", "/FI", f"PID eq {existing_pid}", "/NH"],
+                    capture_output=True, text=True
+                )
+                if str(existing_pid) in result.stdout:
+                    print(f"Bug Hub is already running (PID {existing_pid}).")
+                    print(f"  Use 'stop' command first, or visit http://127.0.0.1:{port}/")
+                    return
+                else:
+                    remove_pid()
+            else:
+                os.kill(existing_pid, 0)
+                print(f"Bug Hub is already running (PID {existing_pid}).")
+                print(f"  Use 'stop' command first, or visit http://127.0.0.1:{port}/")
+                return
+        except OSError:
+            remove_pid()
 
-    # ── Ensure port is free ──
-    if is_port_open(port):
-        if not _ensure_stopped(port):
-            print(f"ERROR: Cannot free port {port}. Is another app using it?", file=sys.stderr)
-            sys.exit(1)
-
-    # ── Start server ──
     print(f"Bug Hub starting on http://127.0.0.1:{port}/")
 
-    try:
-        server = http.server.ThreadingHTTPServer(("127.0.0.1", port), HubHandler)
-    except OSError as e:
-        print(f"ERROR: Cannot bind to port {port}: {e}", file=sys.stderr)
-        if "10048" in str(e) or "Address already in use" in str(e):
-            print(f"  Port {port} is already in use. Use 'start --force' to kill and restart.", file=sys.stderr)
-        sys.exit(1)
-
-    # Only write PID after successful bind
     write_pid(os.getpid())
 
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", port), HubHandler)
     url = f"http://127.0.0.1:{port}/"
     print(f"Dashboard -> {url}")
     print("Ctrl+C to stop.")
@@ -1249,91 +1583,48 @@ def cmd_start(argv):
         print("Bug Hub stopped.")
 
 
-# ── stop ────────────────────────────────────────────────────────────
-
 def cmd_stop(argv):
-    port, force, _ = _parse_port(argv)
-
-    # First: try health check to confirm it's actually running
-    if _health_check(port):
-        hub_pid = _find_hub_pid_on_port(port)
-        if hub_pid:
-            print(f"Bug Hub is running on port {port} (PID {hub_pid}). Stopping ...")
-            _kill_process(hub_pid)
-            time.sleep(0.5)
-            if not _health_check(port):
-                remove_pid()
-                print("  Bug Hub stopped.")
-            else:
-                print(f"  WARNING: Port {port} still responding. Process may not have stopped.")
-        else:
-            print(f"Health check passed on port {port} but cannot find PID. Trying force kill ...")
-            _ensure_stopped(port)
-        return
-
-    # Not responding on health check. Try PID file as fallback.
     pid = read_pid()
-    if pid is not None:
-        print(f"Bug Hub not responding on port {port}, but PID file found (PID {pid}).")
-        if _kill_process(pid):
-            remove_pid()
-            print("  Stopped and PID file cleaned.")
-        else:
-            print(f"  Could not stop PID {pid}. Removing stale PID file.")
-            remove_pid()
+    if pid is None:
+        print("No PID file found. Bug Hub may not be running.")
         return
 
-    # Nothing found
-    if is_port_open(port):
-        who = _find_hub_pid_on_port(port)
-        if who:
-            print(f"Port {port} is in use by PID {who} (not Bug Hub?). Use --force to kill.")
+    print(f"Stopping Bug Hub (PID {pid}) ...")
+    try:
+        if sys.platform == "win32":
+            subprocess.run(["taskkill", "/PID", str(pid), "/F"],
+                           capture_output=True, timeout=10)
         else:
-            print(f"Port {port} is in use by an unknown process.")
-    else:
-        print("Bug Hub is not running (no health response, no PID file, port free).")
+            os.kill(pid, signal.SIGTERM)
+    except (OSError, subprocess.SubprocessError) as e:
+        print(f"  Could not stop PID {pid}: {e}")
 
+    time.sleep(0.5)
+    if PID_FILE.exists():
+        try:
+            if sys.platform == "win32":
+                result = subprocess.run(
+                    ["tasklist", "/FI", f"PID eq {pid}", "/NH"],
+                    capture_output=True, text=True
+                )
+                if str(pid) in result.stdout:
+                    print(f"  Process {pid} may still be alive.")
+                else:
+                    remove_pid()
+                    print("  Bug Hub stopped and PID file removed.")
+            else:
+                os.kill(pid, 0)
+                print(f"  Process {pid} may still be alive.")
+        except (OSError, subprocess.SubprocessError):
+            remove_pid()
+            print("  Bug Hub stopped and PID file removed.")
 
-# ── restart ─────────────────────────────────────────────────────────
-
-def cmd_restart(argv):
-    """Stop (if running) then start."""
-    port, force, rest = _parse_port(argv)
-    print(f"=== Restarting Bug Hub on port {port} ===")
-    # Always try to stop first
-    if _health_check(port) or is_port_open(port):
-        cmd_stop([str(port), "--force"])
-        time.sleep(0.5)
-    cmd_start([str(port)] + rest)
-
-
-# ── status ──────────────────────────────────────────────────────────
 
 def cmd_status(argv):
-    port, _, _ = _parse_port(argv)
-
-    print()
-    print(f"{'Bug Hub Status':=^50}")
-    print()
-
-    # Server status
-    if _health_check(port):
-        pid = _find_hub_pid_on_port(port) or read_pid()
-        print(f"  Server:   \033[92m● RUNNING\033[0m  http://127.0.0.1:{port}/  (PID {pid or '?'})")
-    elif is_port_open(port):
-        who = _find_hub_pid_on_port(port)
-        print(f"  Server:   \033[93m● PORT IN USE\033[0m  port {port} by PID {who or 'unknown'} (not Bug Hub?)")
-    elif read_pid():
-        print(f"  Server:   \033[91m● DEAD\033[0m  (stale PID file, port {port} free)")
-    else:
-        print(f"  Server:   \033[90m● STOPPED\033[0m  (port {port} free)")
-
-    print()
-
-    # Module list
     mods = MODULES
-    print(f"  {'Skill':<22} {'Page':<22}")
-    print(f"  {'-'*44}")
+    print()
+    print(f"{'Skill':<22} {'Page':<22}")
+    print("-" * 48)
     for m in mods:
         print(f"  {m['icon']} {m['name']:<18} {m['page']:<22}")
     print()
@@ -1346,7 +1637,6 @@ def cmd_help(argv):
 COMMANDS = {
     "start": cmd_start,
     "stop": cmd_stop,
-    "restart": cmd_restart,
     "status": cmd_status,
     "help": cmd_help,
 }

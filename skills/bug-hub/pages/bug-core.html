@@ -4,10 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Bug Core - Query</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <style>
-    * { font-family: 'Outfit', sans-serif; }
+  <script src="/pages/assets/tailwind.min.js"></script>
+    <style>
+    * { font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; }
     body {
       background: #0f172a;
       min-height: 100vh;
@@ -300,9 +299,7 @@
           <label class="text-xs font-medium text-slate-400 block mb-1.5" for="instanceSelect">Instance</label>
           <select id="instanceSelect" class="glass-input w-full px-3 py-2.5 text-sm appearance-none cursor-pointer">
             <option value="auto">Auto</option>
-            <option value="sh">SH</option>
-            <option value="sz">SZ</option>
-            <option value="us">US</option>
+            <option value="unisoc">Unisoc</option>
           </select>
         </div>
         <!-- Button -->
@@ -340,7 +337,7 @@
         </svg>
       </div>
       <p class="empty-text text-sm font-medium">Enter a Bug ID and click Query</p>
-      <p class="text-xs text-slate-500 mt-1.5">Supports cross-instance search across SH / SZ / US</p>
+      <p class="text-xs text-slate-500 mt-1.5">Unisoc Bugzilla instance — enter a Bug ID and click Query</p>
     </div>
 
     <!-- Result card -->
@@ -720,7 +717,7 @@
       window.__bugCore = {
         query: doQuery,
         setBugId: function(id) { bugIdInput.value = id; },
-        setInstance: function(inst) { if (['auto','sh','sz','us'].indexOf(inst) >= 0) instanceSelect.value = inst; },
+        setInstance: function(inst) { if (['auto','unisoc'].indexOf(inst) >= 0) instanceSelect.value = inst; },
         getState: function() { return { bugId: bugIdInput.value, instance: instanceSelect.value, loading: isLoading }; }
       };
 

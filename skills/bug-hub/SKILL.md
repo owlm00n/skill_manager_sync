@@ -18,6 +18,7 @@ Unified orchestrator for end-to-end bug analysis via chained sub-skills. Dual en
 以下情况激活本 Skill：
 
 - 用户输入 `/bug-hub Bug XXXXXX`（如 `/bug-hub Bug 3523391分析`）
+- 用户输入 `/bug-hub unicaseXXXXXX`（如 `/bug-hub unicase015809`）— Unicase 工单号，自动解析为 Bugzilla Bug
 - 用户说 **"分析Bug"**、**"Bug分析"**、**"启动Bug分析流程"**、**"端到端分析"**、**"全流程分析"**
 - 用户需要对单个 Bug 做完整分析（查询 + 附件下载 + 日志分析 + 协议解析 + 报告生成）
 - 用户提到 **"Bug Hub"**、**"bughub"**、**"bugzilla分析"**
@@ -37,7 +38,7 @@ Activation keywords in English:
 | 触发条件（Bug 标题/评论含关键字） | 调用子技能 | 说明 |
 |------|------|------|
 | PD认证 / cts测试 / 认证失败 / lecroy / typec fail / Type-C / USB PD / TEST.PD.\* / CERTIFICATION FAIL / PD protocol / PD auth | **pd_auth_analyse** | 6-Phase PD 领域深度分析（优先级最高，检测到则强制执行） |
-| Bug ID（5位以上数字 或 SPCSS开头） | **bug-core** | Bug 信息查询、智能摘要、评论提取 |
+| Bug ID（5位以上数字、SPCSS开头、或 `unicase\d+` Unicase工单号） | **bug-core** | Bug 信息查询、智能摘要、评论提取。Unicase ID 自动通过 alias/quicksearch 解析为 Bugzilla ID |
 | 下载附件 / 创建工作区 / UNC路径 / rayfile / 附件解压 | **bug-workspace** | 工作区创建 + 附件下载 + 解压 |
 | 日志分析 / kernel log / dmesg / logcat / 搜索日志 / 日志错误 | **log-analyzer** | 日志深度分析、关键字搜索 |
 | 协议解析 / trace / Lecroy / .usb / PD trace / PD协议 | **protocol-parser** | PD 协议解析、.usb 文件解码 |
@@ -57,6 +58,31 @@ Activation keywords in English:
 3. **PD 认证强制路由 / PD Auth Mandatory Routing**：如果命中 PD 认证相关关键字（PD认证 / cts测试 / 认证失败 / lecroy / typec fail / Type-C / USB PD / TEST.PD.\*），必须在 bug-workspace 下载附件后，调用 **Skill: pd_auth_analyse** 进行 6-Phase 深度分析。**不得在 /bug-hub 主会话中绕开 pd_auth_analyse 直接分析。**
 4. **不得跳过 / No Skipping**：不得跳过子技能直接用主会话上下文做分析。每个子技能有独立的领域知识、规则和产物标准，跳过会导致分析不完整。
 5. **Compaction 后保持 / Persist After Compaction**：上下文压缩后以上规则**仍需遵守**。不得因上下文压缩丢失流程约束而发送未经审核的输出（参见 SPCSS01696773 事故教训：Compaction 后 Pending Tasks 触发错误行为）。
+6. **Baseline Bootloader 验证 / Bootloader Verification**：bug-core 返回 Bug 信息后、进入代码分析前，**必须**通过 `platform/manifest` 确定正确的 bootloader 类型。
+
+   判定流程（按优先级）：
+   a) 从 `cf_base_on_ver` 提取 VND 分支名（如 `SPRDROID15_VND_MAIN` → `sprdroid15_vnd_main`）
+   b) 查 `CODE_INDEX.md` → 已有条目直接给出 Gerrit 路径
+   c) `git archive` 提取 manifest（~2-3s，零 clone，**唯一权威来源**）：
+      ```
+      git archive --remote=ssh://xianjun.zeng@gerrit.unisoc.com:29418/platform/manifest \
+          <vnd_branch> bsp/bootloader/default.xml | tar xO
+      ```
+   d) 解析 XML → 判定 `<project name="bsp/bootloader/...">`：
+      - 只有 `bsp/bootloader/lk` → **LK** bootloader
+      - 只有 `bsp/bootloader/edk2` → **EDK2** bootloader
+      - 两者都有 → **两者都需分析**（部分基线多 bootloader 共存）
+
+   **⛔ 禁止从 `cf_base_on_ver` 的 Android 版本号直接推测 bootloader 类型。**
+   **必须通过 manifest 验证后才可写 "分支 → LK" 或 "分支 → EDK2" 结论。**
+
+   涉及以下 Component 的 Bug **必须执行此检查**：
+   Power / PMIC / Charger / Sleep / LDO / Deep Sleep / Light Sleep / DVFS
+
+   检查结果必须明确输出：`VND分支: xxx → manifest验证: LK/EDK2/共存 → 代码路径: xxx`
+
+   **如果 CODE_INDEX 缺少对应 bootloader 条目 → 调用 code-puller 拉取后再继续分析。**
+   **违反本规则的教训**: Bug 3616041(unicase026305) — 从 cf_base_on_ver 推测 Android 16→LK，实际检查 manifest 发现 sprdroid15_vnd_main 用 EDK2（非 LK），sprdroid16_vnd_main_tv 是 LK+EDK2 共存。旧启发式在三组实验中全部失败。
 
 ---
 
@@ -64,13 +90,26 @@ Activation keywords in English:
 
 ```
 用户输入: /bug-hub Bug XXXXXX 分析
+  或:     /bug-hub unicaseXXXXXX (Unicase工单号)
                 │
                 ▼
+Phase 0 ─── Unicase ID 解析 (如适用)
+│   unicase\d+ 格式 → REST API quicksearch/alias 查找 Bugzilla Bug
+│   产物: 解析到的 Bugzilla Bug ID
+├──────────────────────────────────────────────┤
 Phase 1 ─── Skill: bug-core
 │   查询 Bug 基本信息、解析评论
 │   提取引导方向、UNC 路径、Gerrit 链接
-│   产物: Bug 信息摘要表
+│   产物: Bug 信息摘要表（含 cf_base_on_ver）
 │   ⚠️ 完成后检查路由表关键字 ────────────────┐
+├──────────────────────────────────────────────┤
+Phase 1.5 ─── Baseline Bootloader 验证 (强制)
+│   从 cf_base_on_ver 提取 VND 分支名
+│   CODE_INDEX 查缓存 → git archive 从 platform/manifest 提取
+│   bsp/bootloader/default.xml 解析 → LK / EDK2 / 共存 判定
+│   涉及 Power/PMIC/Sleep/LDO 的 Bug 必须执行
+│   ⛔ 禁止从 Android 版本号直接推测 bootloader
+│   产物: Bootloader 类型 + 代码路径
 ├──────────────────────────────────────────────┤
 Phase 2 ─── Skill: bug-workspace               │
 │   创建工作区、下载附件、解压                   │
@@ -90,9 +129,16 @@ Phase 3 ─── 并行 Agent 分析 (主会话调度)        │
 │   ├── Agent B: protocol-parser (trace)        │
 │   └── Agent C: code-acquirer (源码获取, 可选) │
 ├──────────────────────────────────────────────┤
-Phase 4 ─── 综合报告生成
+Phase 4 ─── 综合报告生成 (AI 主会话)
 │   合并各子技能/Agent 产物
 │   生成分析报告到工作区
+│   ⚠️ 报告文件名必须使用标准化格式:
+│      {topic}_{type}_{keyword}__{YYYYMMDD}.md
+│      示例: 3556390_analysis_efuse__20260916.md
+│      Bug 场景: common.report_utils.generate_report_filename_from_bug()
+│      通用场景: common.report_utils.generate_report_filename(topic, type, keyword)
+│   type 枚举: analysis | harness | patch_eval | summary | ...
+│   keyword 必填: 会话相关的简短关键词
 ```
 
 ---

@@ -233,6 +233,20 @@ sc27xx-typec (CC检测/DRP)
 > - 健康检查：`python scripts/ragflow_search.py --health`
 > 各 Phase 检索命令详见该文档。
 
+### RAGFlow 产物路径约束（强制）
+
+**RAGFlow 双通道分析产物必须输出到 `{CaseName}_ragflow/` 兄弟目录，禁止使用 `{CaseName}/_ragflow/` 嵌套子目录。**
+
+| 规则 | 正确 ✅ | 错误 ❌ |
+|------|---------|---------|
+| 目录位置 | `data/cases/{CaseName}_ragflow/` | `data/cases/{CaseName}/_ragflow/` |
+| 可见性 | bug-hub `iterdir()` 可直接发现 | bug-hub 不可见（嵌套在 case 目录内） |
+| 配对机制 | `buildCasePairs()` 按 `_ragflow` 后缀拆分 case ID | 无法配对，前端不展示 |
+
+**原因**: bug-hub PD 页面 (`bug-hub.py:1148` `_handle_pd_auth_cases()`) 使用 `iterdir()` 仅扫描 `data/cases/` 顶级目录，嵌套子目录对 API 不可见。前端 `buildCasePairs()` 依赖两个独立顶级条目做 `_ragflow` 后缀配对。
+
+**Supervisor 职责**: 启动 RAGFlow 检索时，必须将输出路径设为 `{CaseName}_ragflow/`，写入 manifest 时验证路径为兄弟目录而非嵌套子目录。
+
 ---
 
 ## 知识库索引

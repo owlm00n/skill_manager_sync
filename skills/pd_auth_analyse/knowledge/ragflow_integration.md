@@ -73,3 +73,17 @@ python scripts/ragflow_search.py --health
 - **PD认证 数据集** (`ca6740b297af11f19f9e7d0056ecab0b`): embedding 模型 `unisoc-embedding-zh@unisoc` 未注册，搜索返回 HTTP 500
 - **解决方案**: 需 RAGFlow 管理员注册 `unisoc` embedding 实例，或重新创建数据集使用 `unisoc-qwen3-embedding-8b@maas` 模型
 - **当前对策**: 自动 fallback 到 PD_Code_KB_v2（仅覆盖代码级知识，非 PD 认证 CTS/规范/方法论知识）
+
+### 产物路径约束（强制）
+
+**RAGFlow 双通道分析产物必须输出到 `{CaseName}_ragflow/` 兄弟目录，禁止使用 `{CaseName}/_ragflow/` 嵌套子目录。**
+
+| 规则 | 正确 ✅ | 错误 ❌ |
+|------|---------|---------|
+| 目录位置 | `data/cases/{CaseName}_ragflow/` | `data/cases/{CaseName}/_ragflow/` |
+| 可见性 | bug-hub `iterdir()` 可直接发现 | bug-hub 不可见（嵌套在 case 目录内） |
+| 配对机制 | `buildCasePairs()` 按 `_ragflow` 后缀拆分 case ID | 无法配对，前端不展示 |
+
+**原因**: bug-hub PD 页面 (`bug-hub.py:1148` `_handle_pd_auth_cases()`) 使用 `iterdir()` 仅扫描 `data/cases/` 顶级目录，嵌套子目录对 API 不可见。前端 `buildCasePairs()` 依赖两个独立顶级条目做 `_ragflow` 后缀配对。
+
+**执行要求**: 启动 RAGFlow 检索时，必须将输出路径设为 `{CaseName}_ragflow/`，写入 manifest 时验证路径为兄弟目录而非嵌套子目录。

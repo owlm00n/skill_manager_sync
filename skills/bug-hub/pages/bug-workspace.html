@@ -4,15 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bug Workspace - Create</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="/pages/assets/tailwind.min.js"></script>
 <style>
   /* ============ Base & Reset ============ */
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html { font-family: 'Outfit', sans-serif; scroll-behavior: smooth; }
-  body { font-family: 'Outfit', sans-serif; transition: background 0.4s cubic-bezier(0.16,1,0.3,1), color 0.4s cubic-bezier(0.16,1,0.3,1); min-height: 100vh; }
+  html { font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; scroll-behavior: smooth; }
+  body { font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; transition: background 0.4s cubic-bezier(0.16,1,0.3,1), color 0.4s cubic-bezier(0.16,1,0.3,1); min-height: 100vh; }
   body.light { background: #f8fafc; color: #1e293b; }
   body.dark { background: #0f172a; color: #f8fafc; }
 
@@ -133,7 +130,7 @@
     color: #1f2937;
     transition: all 0.3s ease;
     outline: none;
-    font-family: 'Outfit', sans-serif;
+    font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
     font-size: 0.95rem;
   }
   .input-modern:focus {
@@ -433,14 +430,22 @@
           <h2 class="text-lg font-semibold">Workspace Configuration</h2>
         </div>
 
-        <!-- Bug ID Input -->
+        <!-- Bug ID + Instance -->
         <div class="mb-5">
           <label class="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-1.5" for="bugIdInput">Bug ID</label>
-          <div class="relative group">
-            <svg class="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-[#667eea] transition-colors duration-300 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/>
-            </svg>
-            <input id="bugIdInput" class="input-modern" type="text" placeholder="e.g. 12345, BUG-6789" autocomplete="off" spellcheck="false">
+          <div class="flex gap-2">
+            <div class="relative group flex-1">
+              <svg class="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-[#667eea] transition-colors duration-300 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/>
+              </svg>
+              <input id="bugIdInput" class="input-modern" type="text" placeholder="e.g. 3460369, SPCSS01678772" autocomplete="off" spellcheck="false">
+            </div>
+            <select id="instanceSelect" class="input-modern w-32 cursor-pointer appearance-none bg-[right_0.5rem_center] bg-[length:1em_1em] bg-no-repeat" style="background-image: url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23667eea' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E&quot;);">
+              <option value="unisoc">Unisoc</option>
+              <option value="kernel">Kernel</option>
+              <option value="mozilla">Mozilla</option>
+              <option value="local">Local</option>
+            </select>
           </div>
         </div>
 
@@ -1052,6 +1057,7 @@
       async function createWorkspace(bugId, basePath, options = {}) {
         const payload = {
           bug_id: bugId,
+          instance: options.instance || 'unisoc',
           download: options.download || false,
           refresh: options.refresh || false,
           normalize_action: options.normalize_action || 'copy_new'
@@ -1094,6 +1100,7 @@
         }
 
         const basePath = basePathInput.value.trim();
+        const instance = $('instanceSelect').value;
         const download = $('downloadToggle').checked;
         const refresh = $('refreshToggle').checked;
 
@@ -1108,7 +1115,7 @@
         if (refresh) appendLog(`Refresh attachments: enabled`, 'info');
 
         try {
-          const data = await createWorkspace(bugId, basePath, { download, refresh });
+          const data = await createWorkspace(bugId, basePath, { instance, download, refresh });
           showPanel(resultsPanel);
           setLoading(false);
 

@@ -26,14 +26,41 @@ tags: [ylog, unisoc, log, ap, debug, decompress]
 
 ## Ylog 是什么
 
-Ylog 是展锐（Unisoc）平台内部日志系统，日志以二进制格式存储在 `/data/ylog/` 目录下，主要特点：
+Ylog 是展锐（Unisoc）平台内部日志系统，日志存储在 `/data/ylog/` 目录下。**不同 Android 版本格式不同**：
 
-- **二进制存储**：原始文件为二进制格式（非文本），无法直接查看
-- **压缩打包**：日志文件为 zlib 压缩的连续 Block 结构
-- **需要解压**：使用专门的 `analyzer.py` 工具解压后才能看到文本日志
-- **包含多种日志**：kernel log、main log、radio log、events log 等
+### 新版本 Android（blackboxlog 格式）
 
-### Ylog 二进制格式
+**当前主流格式**。日志以 tar.gz 压缩包存储，解压后直接是纯文本：
+
+```
+/data/ylog/ap/blackboxlog/poweron/
+├── 0/
+│   └── log_0.tar.gz          ← 解压后: kernel.log + android.log
+├── 1/
+│   └── log_1.tar.gz          ← 每次开机一个目录
+└── N/
+    └── log_N.tar.gz
+```
+
+每个 `log_N.tar.gz` 包含：
+- `kernel.log` — 内核日志（纯文本）
+- `android.log` — Android 主日志（纯文本）
+
+**不需要 analyzer.py**，直接 `tar -xzf` 或 Python `tarfile` 解压即可。
+
+### 旧版本 Android（.ylog 二进制格式）
+
+旧版本使用 `.ylog` 后缀的二进制文件，需要 `analyzer.py` 解码：
+
+```
+/data/ylog/ap/
+├── kernel.ylog           ← 二进制格式（magic: 0x2E2E/0x5A5A/0xB5B5）
+├── main.ylog
+├── radio.ylog
+└── analyzer.py           ← 解码工具
+```
+
+**Ylog 二进制格式**（旧版）：
 
 ```
 ┌────────────────────────────────┐
@@ -51,21 +78,22 @@ Ylog 是展锐（Unisoc）平台内部日志系统，日志以二进制格式存
 └────────────────────────────────┘
 ```
 
-日志文件通常以 `.log` 扩展名存储，但实际为上述二进制格式，不是纯文本。
+**解码命令**（旧版）：
 
-### Ylog 目录结构
+```bash
+python analyzer.py kernel.ylog    # 输出到当前目录
+# 或不带参数，自动搜索当前目录 *.ylog 文件
+python analyzer.py
+```
 
-```
-/data/ylog/
-├── ap/                    ← AP 侧日志（主要拉取对象）
-│   ├── kernel.log         ← 内核日志（二进制格式）
-│   ├── main.log           ← 主日志（二进制格式）
-│   ├── radio.log          ← 无线日志（二进制格式）
-│   ├── events.log         ← 事件日志（二进制格式）
-│   └── ...
-├── cp/                    ← CP 侧日志（modem 等）
-└── ...
-```
+解码后输出：`android_main.log`, `android_system.log`, `android_radio.log`, `android_events.log`, `android_crash.log`
+
+### 判断版本
+
+拉取后检查 `/data/ylog/ap/` 目录：
+- **有 `blackboxlog/poweron/`** → 新版，直接解压 tar.gz
+- **有 `*.ylog` 文件** → 旧版，用 `analyzer.py` 解码
+- **有 `analyzer.py` 但没有 `.ylog` 文件** → 新版（analyzer.py 是残留文件）
 
 ## 功能清单
 

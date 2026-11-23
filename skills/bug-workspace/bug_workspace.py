@@ -103,6 +103,35 @@ def _import_get_instance_config():
         return _gic
 
 
+def _import_bug_core_report():
+    """三级降级加载 generate_report_filename_from_bug。
+    优先 common.report_utils → bug_core → fallback
+    """
+    import sys as _sys
+    _skills = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    # Level 1: common.report_utils（单一数据源）
+    try:
+        from common.report_utils import generate_report_filename_from_bug
+        return generate_report_filename_from_bug
+    except ImportError:
+        pass
+
+    # Level 2: bug_core（向后兼容）
+    try:
+        from bug_core import generate_report_filename_from_bug
+        return generate_report_filename_from_bug
+    except ImportError:
+        pass
+
+    # Level 3: sys.path 注入后从 bug-core 加载
+    _core = os.path.join(_skills, "bug-core")
+    if _core not in _sys.path:
+        _sys.path.insert(0, _core)
+    from bug_core import generate_report_filename_from_bug as _gen
+    return _gen
+
+
 def get_instance_config(instance_name: str = None) -> tuple:
     """获取指定实例配置 (name, config_dict)，优先委托给 bug-core"""
     try:
@@ -664,34 +693,50 @@ def detect_attachment_type(bug_id: str, instance: str = None) -> dict:
         return result
 
 
-def copy_missing(src: str, dst: str) -> None:
+def copy_missing(src: str, dst: str) -> dict:
     """递归复制 src 到 dst，仅复制目标不存在的文件/目录（不覆盖已有）。
     移植自原 UI 工具 fetch_buginfo_by_API_UI.py line 152-174。
+
+    Returns:
+        {"copied": [str, ...], "skipped": [str, ...], "failed": [str, ...]}
+        每个元素是目标路径字符串，failed 元素包含异常信息。
     """
+    result = {"copied": [], "skipped": [], "failed": []}
+
     if os.path.isdir(src):
         os.makedirs(dst, exist_ok=True)
         for name in os.listdir(src):
             s = os.path.join(src, name)
             d = os.path.join(dst, name)
             if os.path.isdir(s):
-                copy_missing(s, d)
+                sub = copy_missing(s, d)
+                for k in ("copied", "skipped", "failed"):
+                    result[k].extend(sub[k])
             else:
-                if not os.path.exists(d):
+                if os.path.exists(d):
+                    result["skipped"].append(d)
+                else:
                     try:
                         shutil.copy2(s, d)
-                    except Exception:
-                        pass
+                        result["copied"].append(d)
+                    except Exception as e:
+                        result["failed"].append(f"{d} ({e})")
     else:
         # 单文件情况
-        if not os.path.exists(dst):
+        if os.path.exists(dst):
+            result["skipped"].append(dst)
+        else:
             try:
                 shutil.copy2(src, dst)
-            except Exception:
-                pass
+                result["copied"].append(dst)
+            except Exception as e:
+                result["failed"].append(f"{dst} ({e})")
+
+    return result
 
 
 def download_from_unc_path(unc_path: str, dest_dir: str, mode: str = "incremental") -> dict:
-    """通过 UNC 路径直接复制文件到本地（v3.0 重写）。
+    """通过 UNC 路径直接复制文件到本地（v3.1 — 增强错误报告）。
 
     Args:
         unc_path: UNC 源路径 (\\\\server\\share\\path)
@@ -700,13 +745,15 @@ def download_from_unc_path(unc_path: str, dest_dir: str, mode: str = "incrementa
               "incremental" = 增量复制 (copy_missing, 跳过已存在文件)
 
     Returns:
-        {"success": bool, "copied": int, "skipped": int, "errors": [str, ...], "dest_dir": str}
+        {"success": bool, "copied": int, "skipped": int, "errors": [str, ...],
+         "missing_files": [str, ...], "dest_dir": str}
     """
     result = {
         "success": False,
         "copied": 0,
         "skipped": 0,
         "errors": [],
+        "missing_files": [],
         "dest_dir": dest_dir,
     }
 
@@ -721,7 +768,6 @@ def download_from_unc_path(unc_path: str, dest_dir: str, mode: str = "incrementa
             # 完整覆盖：shutil.copytree with dirs_exist_ok
             try:
                 shutil.copytree(unc_path, dest_dir, dirs_exist_ok=True)
-                # 统计文件数
                 file_count = 0
                 for _, _, files in os.walk(dest_dir):
                     file_count += len(files)
@@ -729,22 +775,52 @@ def download_from_unc_path(unc_path: str, dest_dir: str, mode: str = "incrementa
             except Exception as e:
                 result["errors"].append(f"Full copy failed: {e}")
                 # Fallback to incremental
-                copy_missing(unc_path, dest_dir)
+                cp_result = copy_missing(unc_path, dest_dir)
                 result["errors"].append("Fell back to incremental copy")
-                file_count = 0
-                for _, _, files in os.walk(dest_dir):
-                    file_count += len(files)
-                result["copied"] = file_count
+                result["copied"] = len(cp_result["copied"])
+                result["skipped"] = len(cp_result["skipped"])
+                if cp_result["failed"]:
+                    result["errors"].extend(
+                        [f"Copy failed: {f}" for f in cp_result["failed"]]
+                    )
         else:
             # 增量复制：仅复制不存在的文件
-            copy_missing(unc_path, dest_dir)
-            # 统计已存在的文件数（无法精确统计 copied vs skipped）
-            file_count = 0
-            for _, _, files in os.walk(dest_dir):
-                file_count += len(files)
-            result["copied"] = file_count
+            cp_result = copy_missing(unc_path, dest_dir)
+            result["copied"] = len(cp_result["copied"])
+            result["skipped"] = len(cp_result["skipped"])
+            if cp_result["failed"]:
+                result["errors"].extend(
+                    [f"Copy failed: {f}" for f in cp_result["failed"]]
+                )
 
-        result["success"] = len(result["errors"]) == 0 or result["copied"] > 0
+        # --- 下载后源/目标文件清单对比（v3.1 新增）---
+        try:
+            src_files = set()
+            for root, dirs, files in os.walk(unc_path):
+                for f in files:
+                    rel = os.path.relpath(os.path.join(root, f), unc_path)
+                    src_files.add(rel)
+
+            dst_files = set()
+            for root, dirs, files in os.walk(dest_dir):
+                for f in files:
+                    rel = os.path.relpath(os.path.join(root, f), dest_dir)
+                    dst_files.add(rel)
+
+            missing = sorted(src_files - dst_files)
+            if missing:
+                result["missing_files"] = missing
+                result["errors"].append(
+                    f"Source has {len(missing)} file(s) not in destination: "
+                    + ", ".join(missing[:5])
+                    + (f" ... and {len(missing) - 5} more" if len(missing) > 5 else "")
+                )
+        except Exception as e:
+            # diff 失败不影响主流程
+            result["errors"].append(f"Post-download diff failed: {e}")
+
+        result["success"] = (len(result["errors"]) == 0
+                             or (result["copied"] > 0 and not result["missing_files"]))
 
     except Exception as e:
         result["errors"].append(f"UNC download error: {e}")
@@ -920,30 +996,36 @@ def normalize_downloaded_folder(attachment_folder: str, bug_id: str, action: str
 
         else:
             # "copy_new" — 仅复制新增内容，不覆盖
+            copy_errors = []
             for name in os.listdir(child_path):
                 src = os.path.join(child_path, name)
                 dst = os.path.join(attachment_folder, name)
                 if os.path.isdir(src):
                     if os.path.exists(dst) and os.path.isdir(dst):
-                        copy_missing(src, dst)
+                        cp = copy_missing(src, dst)
+                        if cp["failed"]:
+                            copy_errors.extend(cp["failed"])
                     elif not os.path.exists(dst):
                         try:
                             shutil.copytree(src, dst)
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            copy_errors.append(f"{dst} ({e})")
                 else:
                     if not os.path.exists(dst):
                         try:
                             shutil.copy2(src, dst)
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            copy_errors.append(f"{dst} ({e})")
+
+            if copy_errors:
+                result["error"] = f"Copy errors during normalize: {'; '.join(copy_errors[:5])}"
 
             # 如果子目录已空则删除
             try:
                 if not any(os.scandir(child_path)):
                     os.rmdir(child_path)
-            except Exception:
-                pass
+            except (OSError, IOError):
+                pass  # rmdir 失败不影响主流程（目录可能非空或被占用）
             result["processed"] = True
 
     except Exception as e:
@@ -1145,14 +1227,22 @@ def get_default_workspace_path() -> str:
     return os.path.expandvars(default_path)
 
 
-def guess_workspace_path(bug: dict) -> str:
+def guess_workspace_path(bug: dict, routing_key: str = None) -> str:
     """根据Bug上下文自动选择最佳工作区基路径。
 
     判断逻辑：
+    - routing_key 显式指定 → 从 workspace_routing 读取 base_path（最高优先级）
     - 客户Bug（SPCSS前缀）→ 优先CQ路径（历史或默认）
     - Unisoc实例Bug → 优先CQ路径
     - 其他 → 默认路径
     """
+    # 显式 routing_key 优先（manual_only routing entries）
+    if routing_key:
+        config = load_config()
+        routing = config.get("instances", {}).get("unisoc", {}).get("workspace_routing", {})
+        if routing_key in routing:
+            return os.path.normpath(routing[routing_key]["base_path"])
+
     paths = load_workspace_paths()
     default = get_default_workspace_path()
 
@@ -1279,7 +1369,7 @@ IconIndex=0
     return shortcut_path
 
 
-def generate_workspace(bug: dict, base_path: str = None) -> dict:
+def generate_workspace(bug: dict, base_path: str = None, routing_key: str = None) -> dict:
     """
     创建工作区文件夹（匹配原工具 main() 流程）:
     1. 根据Bug信息生成文件夹名 (Bug + bug_title)
@@ -1305,7 +1395,10 @@ def generate_workspace(bug: dict, base_path: str = None) -> dict:
     format_bug_summary, _ = _import_bug_core_format()
 
     if base_path is None:
-        base_path = guess_workspace_path(bug)
+        base_path = guess_workspace_path(bug, routing_key=routing_key)
+    elif routing_key:
+        # routing_key 显式指定时，使用 routing 配置的 base_path，跳过自动修正
+        base_path = guess_workspace_path(bug, routing_key=routing_key)
     else:
         # SPCSS Bug 即使显式传了 base_path，也自动修正到 CQ 子目录
         # 防止调用方硬编码 E:\08_Bug 绕过 guess_workspace_path 的自动路由
@@ -1424,8 +1517,8 @@ def load_workspace_paths(config_dir: str = None) -> list:
         try:
             with open(paths_file, "r", encoding="utf-8") as f:
                 return json.load(f)
-        except Exception:
-            pass
+        except (json.JSONDecodeError, OSError):
+            pass  # 配置文件损坏或不可读，使用默认路径
 
     # 默认路径（移植自原工具 paths 列表）
     return [
@@ -1581,13 +1674,21 @@ def generate_concise_report_title(bug: dict, max_len: int = 60) -> str:
     return title
 
 
-def generate_analysis_report(bug: dict, result: dict) -> str:
+def generate_analysis_report(bug: dict, result: dict,
+                            report_type: str = "analysis",
+                            keyword: str = None) -> str:
     """生成完整分析报告，保存到工作区文件夹。
 
-    报告文件名格式: {alias}_{concise_title}.md（如 SPCSS01696773_UMS312_外置DCDC电压配置.md）
-    如果无 alias，使用 bug_id 作为前缀。
+    报告文件名使用标准化格式: {bug_id}_{type}_{keyword}__{YYYYMMDD}.md
+    通过 bug-core.generate_report_filename_from_bug() 生成。
 
-    报告包含：基本信息、问题描述、技术分析、AI参考、附件下载、建议处理方向。
+    向后兼容：不传 report_type/keyword 时，会自动生成默认 keyword。
+
+    Args:
+        bug: Bug 字典
+        result: generate_workspace_with_download 的返回结果
+        report_type: 报告类型，默认 "analysis"（如 "analysis", "harness", "patch_eval"）
+        keyword: 会话相关关键词，必填。未传时自动使用 Bug 平台名
 
     Returns:
         report_path: 生成的报告文件路径（失败时为空字符串）
@@ -1596,21 +1697,31 @@ def generate_analysis_report(bug: dict, result: dict) -> str:
     if not folder_path or not os.path.isdir(folder_path):
         return ""
 
-    # ---- 生成文件名：{alias}_{concise_title}.md ----
-    alias_list = bug.get("alias", [])
-    alias = alias_list[0] if alias_list else ""
-    bug_id = str(bug.get("bug_id", "?"))
+    # ---- 生成标准化文件名 ----
+    if keyword is None:
+        # 自动生成 keyword：使用 Bug 的平台名
+        summary = bug.get("summary", bug.get("raw_title", ""))
+        platform_match = re.match(r'^\[([^\]]+)\]', summary)
+        keyword = platform_match.group(1) if platform_match else "report"
 
-    concise_title = generate_concise_report_title(bug)
-    if alias:
-        report_name = f"{alias}_{concise_title}.md"
-    else:
-        report_name = f"{bug_id}_{concise_title}.md"
+    try:
+        gen_fn = _import_bug_core_report()
+        report_name = gen_fn(bug, report_type, keyword)
+    except Exception:
+        # fallback: 使用旧命名方式作为最后手段
+        concise_title = generate_concise_report_title(bug)
+        if alias:
+            report_name = f"{alias}_{concise_title}.md"
+        else:
+            report_name = f"{bug_id}_{concise_title}.md"
 
     report_path = os.path.join(folder_path, report_name)
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
 
     # ---- 提取 Bug 字段 ----
+    bug_id = str(bug.get("bug_id", "?"))
+    alias_list = bug.get("alias", [])
+    alias = alias_list[0] if alias_list else ""
     summary = bug.get("summary", bug.get("raw_title", "?"))
     raw_title = bug.get("raw_title", summary)
     status = bug.get("status", "?")
@@ -1746,6 +1857,7 @@ def generate_workspace_with_download(
     download_mode: str = "incremental",
     normalize_action: str = "copy_new",
     copy_bug_z: bool = True,
+    routing_key: str = None,
 ) -> dict:
     """完整工作区生成 + 附件下载（编排函数，v3.0 重写）。
 
@@ -1803,7 +1915,10 @@ def generate_workspace_with_download(
 
     try:
         if base_path is None:
-            base_path = guess_workspace_path(bug)
+            base_path = guess_workspace_path(bug, routing_key=routing_key)
+        elif routing_key:
+            # routing_key 显式指定时，使用 routing 配置的 base_path
+            base_path = guess_workspace_path(bug, routing_key=routing_key)
         else:
             # SPCSS Bug 即使显式传了 base_path，也自动修正到 CQ 子目录
             inferred = guess_workspace_path(bug)
@@ -1811,7 +1926,7 @@ def generate_workspace_with_download(
                 base_path = inferred
 
         # 1. 创建工作区文件夹 (含 Attachements + 快捷方式)
-        folder_info = generate_workspace(bug, base_path)
+        folder_info = generate_workspace(bug, base_path, routing_key=routing_key)
         result["folder"] = folder_info
         result["base_path"] = folder_info.get("folder_path", "")
 
