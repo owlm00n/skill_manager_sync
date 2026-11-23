@@ -1,6 +1,0 @@
-# Reply Preview (NOT SENT)
-Bug: 3532661
-Mode: preview (send_mode='live' to actually send)
----
-
-这个问题帮忙看看是否可以直接关闭
